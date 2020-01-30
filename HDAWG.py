@@ -25,6 +25,7 @@ class HDAWG():
         file = path + os.sep + filename
         ziUtils.load_settings(self.daq,self.device, file)
 
+    #save settings to xml file
     def save_settings(self, path, filename):
         file = path + os.sep + filename
         ziUtils.save_settings(self.daq, self.device, file)
@@ -70,5 +71,23 @@ class HDAWG():
             print("Upload to the instrument successful.")
         if awgModule.getInt('elf/status') == 1:
             raise Exception("Upload to the instrument failed.")
-    #method that disconnects device from API (unsure if needed)
-    #daq.disconnectDevice(device)
+
+    #Functions to do settings stuff, there's got to be a better way but this is a start
+    def enable_channels(self, channels):
+        for channel in channels:
+            self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),1)
+
+    def disable_channels(self, channels={}):
+        for channel in channels:
+            self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),0)
+        if not channels:
+            for channel in range(4): 
+                self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),0)
+        
+    #Turn on AWG
+    def AWG_run(self):
+        self.daq.setInt('/dev8163/awgs/0/enable',1)
+    
+    #disconnect device
+    def done(self):
+        self.daq.disconnectDevice(self.device)
