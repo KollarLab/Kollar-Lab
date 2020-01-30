@@ -1,92 +1,74 @@
-#Set frequency for sine oscillator
-
-import zhinst.ziPython as zi
+import os
 import time
 
-device = 'DEV8163' #unique identifier for HDAWG
+import zhinst.ziPython as ziPython
+import zhinst.utils as ziUtils
 
-discovery = zi.ziDiscovery()
-discovery.find(device)
-device_props = discovery.get(device)
-daq = zi.ziDAQServer(device_props['serveraddress'], device_props['serverport'], device_props['apilevel'])
+class HDAWG():
+    apilevel = 6 # Sets the 'modernity' of the api used (bigger is more modern, 6 is current max version)
+    #defaults_path='C:\\Users\\kollarlab\\AppData\\Roaming\\Zurich Instruments\\LabOne\\WebServer\\setting'
+    defaults_path=os.getcwd()
+    defaults_filename='default_settings.xml'
 
-h = daq.awgModule()
-h.set('awgModule/device', 'dev8163')
-h.set('awgModule/index', 0)
-h.execute()
+    def __init__(self, device):
+        (self.daq,self.device,self.props) = ziUtils.create_api_session(device, self.apilevel) #connect to device specified by string
+        ziUtils.disable_everything(self.daq,self.device) #disable all outputs of device
+        self.load_default()
 
-h = daq.awgModule()
-h.set('awgModule/device', 'dev8163')
-h.set('awgModule/index', 1)
-h.execute()
+    #want method to load default settings (known state) to device
+    def load_default(self):
+        file = self.defaults_path + os.sep + self.defaults_filename
+        ziUtils.load_settings(self.daq, self.device, file)
 
-daq.setInt('/dev8163/sigouts/3/on', 0)
-daq.setInt('/dev8163/sigouts/2/on', 0)
-daq.setInt('/dev8163/sigouts/1/on', 0)
-daq.setInt('/dev8163/sigouts/0/on', 0)
+    #load settings from xml file
+    def load_settings(self,path,filename):
+        file = path + os.sep + filename
+        ziUtils.load_settings(self.daq,self.device, file)
 
-#initial setting for oscillators
-daq.setDouble('/dev8163/oscs/0/freq', 500000)
-daq.setDouble('/dev8163/oscs/1/freq', 1000000)
+    def save_settings(self, path, filename):
+        file = path + os.sep + filename
+        ziUtils.save_settings(self.daq, self.device, file)
 
-daq.setDouble('/dev8163/sines/0/phaseshift', 45)
-daq.setDouble('/dev8163/sines/1/phaseshift', 0)
+    #method to load arb waveform to device
+    def load_waveform(self, index, wave1, wave2=None, markers=None):
+        wave_awg = ziUtils.convert_awg_waveform(wave1, wave2, markers)
+        path='/{:s}/awgs/0/waveform/waves/{:d}'.format(self.device, index)
+        self.daq.setVector(path, wave_awg)
 
-#controls for oscillator amplitude for channel 0
-daq.setInt('/dev8163/sines/0/enables/0', 1)
-daq.setDouble('/dev8163/sines/0/amplitudes/0', 0.8)
-daq.setInt('/dev8163/sines/1/enables/0', 1)
-daq.setDouble('/dev8163/sines/1/amplitudes/0', 0.2)
-#turn on channel 0
-daq.setDouble('/dev8163/sigouts/0/range', 2)
-daq.setInt('/dev8163/sigouts/0/on', 1)
+    #load program to AWG, essentially copied from the example section for HDAWG
+    def load_program(self, awg_program):
+        awgModule = self.daq.awgModule()
+        awgModule.set('device',self.device)
+        awgModule.execute()
 
-#controls for oscillator amplitude for channel 1
-daq.setInt('/dev8163/sines/0/enables/1', 1)
-daq.setDouble('/dev8163/sines/0/amplitudes/1', 0.8)
-daq.setInt('/dev8163/sines/1/enables/1', 1)
-daq.setDouble('/dev8163/sines/1/amplitudes/1', 0.8)
-#turn on channel 1
-daq.setDouble('/dev8163/sigouts/1/range', 2)
-daq.setInt('/dev8163/sigouts/1/on', 1)
+        awgModule.set('compiler/sourcestring',awg_program)
+        # Note: when using an AWG program from a source file (and only then), the compiler needs to
+        # be started explicitly with awgModule.set('compiler/start', 1)
+        while awgModule.getInt('compiler/status') == -1:
+            time.sleep(0.1)
 
-#controls for oscillator amplitude for channel 2
-daq.setInt('/dev8163/sines/2/enables/0', 1)
-daq.setDouble('/dev8163/sines/2/amplitudes/0', 0.8)
-daq.setInt('/dev8163/sines/3/enables/0', 0)
-daq.setDouble('/dev8163/sines/3/amplitudes/1', 0.8)
-#turn on channel 2
-daq.setDouble('/dev8163/sigouts/2/range', 2)
-daq.setInt('/dev8163/sigouts/2/on', 1)
+        if awgModule.getInt('compiler/status') == 1:
+            # compilation failed, raise an exception
+            raise Exception(awgModule.getString('compiler/statusstring'))
+            
+        if awgModule.getInt('compiler/status') == 0:
+            print("Compilation successful with no warnings, will upload the program to the instrument.")
+        if awgModule.getInt('compiler/status') == 2:
+            print("Compilation successful with warnings, will upload the program to the instrument.")
+            print("Compiler warning: ", awgModule.getString('compiler/statusstring'))
 
-#controls for oscillator amplitude for channel 3
-daq.setInt('/dev8163/sines/2/enables/1', 1)
-daq.setDouble('/dev8163/sines/2/amplitudes/0', 0.8)
-daq.setInt('/dev8163/sines/3/enables/1', 0)
-daq.setDouble('/dev8163/sines/3/amplitudes/1', 0.8)
-#turn on channel 3
-daq.setDouble('/dev8163/sigouts/3/range', 2)
-daq.setInt('/dev8163/sigouts/3/on', 1)
+        # Wait for the waveform upload to finish
+        time.sleep(0.2)
+        i = 0
+        while (awgModule.getDouble('progress') < 1.0) and (awgModule.getInt('elf/status') != 1):
+            print("{} progress: {:.2f}".format(i, awgModule.getDouble('progress')))
+            time.sleep(1.0)
+            i += 1
+        print("{} progress: {:.2f}".format(i, awgModule.getDouble('progress')))
 
-## Starting module awgModule on 2020/01/23 18:09:28
-#h = daq.awgModule()
-#h.set('awgModule/device', 'dev8163')
-#h.set('awgModule/index', 0)
-#h.execute()
-#h.set('awgModule/compiler/sourcestring', 'wave w_gauss = 0.5*gauss(8000,4000,1000);\
-#wave w_drag = 0.5*drag(8000,4000,1000);\
-#while(true){\
-#  setTrigger(1);\
-#  playWave(w_gauss,0.5*w_gauss,-0.5*w_gauss,-w_gauss);\
-#  playWave(2,w_gauss);\
-#  playWave(3,w_gauss);\
-#  playWave(4,w_gauss);\
-#  waitWave();\
-#  setTrigger(0);\
-#  wait(10000);\
-#}')
-#daq.setInt('/dev8163/awgs/0/enable', 1)
-#daq.setInt('/dev8163/sigouts/0/on', 1)
-#daq.setInt('/dev8163/sigouts/1/on', 1)
-#daq.setInt('/dev8163/sigouts/2/on', 1)
-#daq.setInt('/dev8163/sigouts/3/on', 1)
+        if awgModule.getInt('elf/status') == 0:
+            print("Upload to the instrument successful.")
+        if awgModule.getInt('elf/status') == 1:
+            raise Exception("Upload to the instrument failed.")
+    #method that disconnects device from API (unsure if needed)
+    #daq.disconnectDevice(device)
