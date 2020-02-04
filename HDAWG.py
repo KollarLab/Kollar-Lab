@@ -97,6 +97,8 @@ class HDAWG():
     def enable_channels(self, channels):
         for channel in channels:
             self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),1)
+            while(self.daq.getInt('/{}/sigouts/{}/busy'.format(self.device, channel))>0): #wait until channel settings are completed 
+                time.sleep(0.1)
 
     #Disable/ turn off channels 
     def disable_channels(self, channels={}):
