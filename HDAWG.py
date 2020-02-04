@@ -1,5 +1,6 @@
 import os
 import time
+import numpy as np
 
 import zhinst.ziPython as ziPython
 import zhinst.utils as ziUtils
@@ -72,11 +73,32 @@ class HDAWG():
         if awgModule.getInt('elf/status') == 1:
             raise Exception("Upload to the instrument failed.")
 
+    #Set amplitude of AWG
+    def set_AWGamp(self,amps, channels):
+        ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
+        for amp, channel in zip(amps, channels):
+            for maxval in ranges:
+                if amp < maxval:
+                    print('Channel: {}, range: {}'.format(channel, maxval))
+                    self.daq.setDouble('/{}/sigouts/{}/range'.format(self.device, channel), maxval) #set the max range of output channel
+                    scaled_amp = amp/maxval
+                    AWGmod = int(np.floor(channel/2)) #get the AWG module number (for 8163, there are two built in modules)
+                    AWGchannel = np.mod(channel, 2) #get channel number within module
+                    self.daq.setDouble('/{}/awgs/{}/outputs/{}/amplitude'.format(self.device, AWGmod, AWGchannel), scaled_amp) #scale amplitude of AWG data to match desired voltage
+                    while(self.daq.getInt('/{}/sigouts/{}/busy'.format(self.device, channel))>0): #wait until channel settings are completed 
+                        time.sleep(0.1)
+                    break
+                else:
+                    if amp > max(ranges):
+                        raise Exception("Amplitude is too large, max amplitude is {}".format(max(ranges)))
+                    continue
+
     #Functions to do settings stuff, there's got to be a better way but this is a start
     def enable_channels(self, channels):
         for channel in channels:
             self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),1)
 
+    #Disable/ turn off channels 
     def disable_channels(self, channels={}):
         for channel in channels:
             self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),0)
