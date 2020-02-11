@@ -13,5 +13,11 @@ class RFgen():
     def set_Freq(self,freq):
         self.inst.write('SOURce:FREQuency:CW {} GHz'.format(freq))
 
+    def send_cmd(self,cmd):
+        self.inst.write(cmd)
+
+    def query(self,cmd):
+        print(self.inst.query(cmd))
+
     def run(self):
         self.inst.write('OUTPut:STATe ON')
