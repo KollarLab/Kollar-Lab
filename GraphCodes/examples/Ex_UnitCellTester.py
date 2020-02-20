@@ -20,19 +20,21 @@ import sys
 import scipy.io as sio
 from scipy import signal
 
-pkgDir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+pkgDir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 if not pkgDir in sys.path:
     sys.path.append(pkgDir)
 
-from EuclideanLayoutGenerator2 import EuclideanLayout
-from EuclideanLayoutGenerator2 import UnitCell
+import context
+
+from GraphCodes.EuclideanLayoutGenerator2 import EuclideanLayout
+from GraphCodes.EuclideanLayoutGenerator2 import UnitCell
 
 #generalFolderPath = r'/Users/kollar2/Documents/HouckLab/GeneralLayoutCode/'
 #if not generalFolderPath in sys.path:
 #    sys.path.append(generalFolderPath)
     
-from GeneralLayoutGenerator import*
+from GraphCodes.GeneralLayoutGenerator import *
 
 
 #pylab.rcParams.update({'font.size': 14})

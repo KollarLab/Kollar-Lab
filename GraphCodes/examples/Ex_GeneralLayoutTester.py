@@ -20,13 +20,15 @@ import sys
 import scipy.io as sio
 from scipy import signal
 
-pkgDir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+pkgDir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 if not pkgDir in sys.path:
     sys.path.append(pkgDir)
 
-from GeneralLayoutGenerator import GeneralLayout
-from GeneralLayoutGenerator import TreeResonators
+import context
+
+from GraphCodes.GeneralLayoutGenerator import GeneralLayout
+from GraphCodes.GeneralLayoutGenerator import TreeResonators
 
 #hyperbolicFolderPath = r'/Users/kollar2/Documents/HouckLab/HyperbolicPlanning/'
 #euclideanFolderPath = r'/Users/kollar2/Documents/HouckLab/EuclideanLatticePlanning/'
@@ -35,15 +37,15 @@ from GeneralLayoutGenerator import TreeResonators
 #if not euclideanFolderPath in sys.path:
 #    sys.path.append(euclideanFolderPath)
 
-from EuclideanLayoutGenerator2 import UnitCell
-from EuclideanLayoutGenerator2 import EuclideanLayout
+from GraphCodes.EuclideanLayoutGenerator2 import UnitCell
+from GraphCodes.EuclideanLayoutGenerator2 import EuclideanLayout
 
-from LayoutGenerator5 import PlanarLayout
+from GraphCodes.LayoutGenerator5 import PlanarLayout
 
 
-from GeneralLayoutGenerator import split_resonators
-from GeneralLayoutGenerator import generate_line_graph
-from GeneralLayoutGenerator import decorate_layout
+from GraphCodes.GeneralLayoutGenerator import split_resonators
+from GraphCodes.GeneralLayoutGenerator import generate_line_graph
+from GraphCodes.GeneralLayoutGenerator import decorate_layout
 
 
 #######hyperbolic

@@ -30,22 +30,24 @@ import matplotlib.gridspec as gridspec
 #DataPickleFolderPath = r'/volumes/ourphoton/Alicia/Layouts/HyperbolicPickles'
 #if not FunctionFolderPath in sys.path:
 #    sys.path.append(FunctionFolderPath)
-pkgDir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+pkgDir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 if not pkgDir in sys.path:
     sys.path.append(pkgDir)
 
-from GeneralLayoutGenerator import GeneralLayout     #the most general layout that we have
-from GeneralLayoutGenerator import TreeResonators     # special case for making trees
+import context
 
-from EuclideanLayoutGenerator2 import UnitCell    #fundamental domain object
-from EuclideanLayoutGenerator2 import EuclideanLayout   #normal Euclidean lattices
+from GraphCodes.GeneralLayoutGenerator import GeneralLayout     #the most general layout that we have
+from GraphCodes.GeneralLayoutGenerator import TreeResonators     # special case for making trees
 
-from LayoutGenerator5 import PlanarLayout   #original hyperbolic
+from GraphCodes.EuclideanLayoutGenerator2 import UnitCell    #fundamental domain object
+from GraphCodes.EuclideanLayoutGenerator2 import EuclideanLayout   #normal Euclidean lattices
 
-from GeneralLayoutGenerator import split_resonators     #functions to modify existing layouts
-from GeneralLayoutGenerator import generate_line_graph
-from GeneralLayoutGenerator import decorate_layout
+from GraphCodes.LayoutGenerator5 import PlanarLayout   #original hyperbolic
+
+from GraphCodes.GeneralLayoutGenerator import split_resonators     #functions to modify existing layouts
+from GraphCodes.GeneralLayoutGenerator import generate_line_graph
+from GraphCodes.GeneralLayoutGenerator import decorate_layout
 
 
 

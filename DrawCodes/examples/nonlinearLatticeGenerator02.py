@@ -6,11 +6,20 @@ Created on Tue., July 18, 2017
 
 """
 
+import os
+import sys
 
-import sdxf
+pkgDir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
+if not pkgDir in sys.path:
+    sys.path.append(pkgDir)
+
+import context
+
+import DrawCodes.sdxf
 import random
 
-from MaskMakerPro import *
+from DrawCodes.MaskMakerPro import *
 from math import sin,cos,pi,floor,asin,acos,tan,atan,sqrt
 
 import re
@@ -19,25 +28,23 @@ import pylab
 import numpy
 import time
 
-from alphanum import alphanum_dict
+from DrawCodes.alphanum import alphanum_dict
 from random import randrange
 
 import pickle
 import datetime
-import os
-import sys
 
 from matplotlib.pyplot import *
 
 # Code to define lattice info
-from EuclideanLayoutGenerator2 import EuclideanLayout
+from GraphCodes.EuclideanLayoutGenerator2 import EuclideanLayout
 
-from GeneralLayoutGenerator import *
+from GraphCodes.GeneralLayoutGenerator import *
 
-from LayoutGenerator5 import PlanarLayout
+from GraphCodes.LayoutGenerator5 import PlanarLayout
 
 # Helper functions for drawing the graph
-from generalLayoutDrawHelpers import *
+from DrawCodes.generalLayoutDrawHelpers import *
 
 
 class layout(Chip):

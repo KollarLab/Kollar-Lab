@@ -31,23 +31,25 @@ import matplotlib.gridspec as gridspec
 #if not FunctionFolderPath in sys.path:
 #    sys.path.append(FunctionFolderPath)
 
-pkgDir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+pkgDir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 if not pkgDir in sys.path:
     sys.path.append(pkgDir)
 
-from GeneralLayoutGenerator import GeneralLayout
-from GeneralLayoutGenerator import TreeResonators
+import context
 
-from EuclideanLayoutGenerator2 import UnitCell
-from EuclideanLayoutGenerator2 import EuclideanLayout
+from GraphCodes.GeneralLayoutGenerator import GeneralLayout
+from GraphCodes.GeneralLayoutGenerator import TreeResonators
 
-from LayoutGenerator5 import PlanarLayout
+from GraphCodes.EuclideanLayoutGenerator2 import UnitCell
+from GraphCodes.EuclideanLayoutGenerator2 import EuclideanLayout
+
+from GraphCodes.LayoutGenerator5 import PlanarLayout
 
 
-from GeneralLayoutGenerator import split_resonators
-from GeneralLayoutGenerator import generate_line_graph
-from GeneralLayoutGenerator import decorate_layout
+from GraphCodes.GeneralLayoutGenerator import split_resonators
+from GraphCodes.GeneralLayoutGenerator import generate_line_graph
+from GraphCodes.GeneralLayoutGenerator import decorate_layout
 
 
 
