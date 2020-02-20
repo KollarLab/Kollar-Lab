@@ -21,6 +21,10 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
+pkgDir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+if not pkgDir in sys.path:
+    sys.path.append(pkgDir)
 
 def single_site(xgrid, ygrid, x0, y0, sigma, amp):
     vals = -amp*numpy.exp(-((xgrid-x0)**2 + (ygrid-y0)**2)/sigma**2 )

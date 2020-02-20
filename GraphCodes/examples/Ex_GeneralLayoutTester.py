@@ -20,6 +20,11 @@ import sys
 import scipy.io as sio
 from scipy import signal
 
+pkgDir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+if not pkgDir in sys.path:
+    sys.path.append(pkgDir)
+
 from GeneralLayoutGenerator import GeneralLayout
 from GeneralLayoutGenerator import TreeResonators
 

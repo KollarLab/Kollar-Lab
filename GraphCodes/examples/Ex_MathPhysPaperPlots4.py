@@ -34,7 +34,12 @@ import matplotlib.gridspec as gridspec
 DataPickleFolderPath = r'/volumes/ourphoton/Alicia/Layouts/HyperbolicPickles'
 #if not FunctionFolderPath in sys.path:
 #    sys.path.append(FunctionFolderPath)
-   
+
+pkgDir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+if not pkgDir in sys.path:
+    sys.path.append(pkgDir)
+
 from GeneralLayoutGenerator import GeneralLayout
 from GeneralLayoutGenerator import TreeResonators
 
