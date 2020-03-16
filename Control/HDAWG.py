@@ -8,7 +8,8 @@ import zhinst.utils as ziUtils
 class HDAWG():
     apilevel = 6 # Sets the 'modernity' of the api used (bigger is more modern, 6 is current max version)
     #defaults_path='C:\\Users\\kollarlab\\AppData\\Roaming\\Zurich Instruments\\LabOne\\WebServer\\setting'
-    defaults_path=os.getcwd()
+    #defaults_path=os.getcwd()
+    defaults_path  = os.path.dirname(os.path.realpath(__file__))
     defaults_filename='default_settings.xml'
 
     def __init__(self, device):
