@@ -1476,12 +1476,12 @@ if __name__=="__main__":
 #    Tree2 = TreeResonators(file_path = '3regularTree_ 3_.pkl')
     testLattice = GeneralLayout(resonators , modeType = Tree.modeType, name =  'TREEEEE')
 
-    #######split tree
-    #Tree = TreeResonators(degree = 3, iterations = 4, side = 1, file_path = '', modeType = 'FW')
-    #resonators = Tree.get_all_resonators()
-    #splitGraph = split_resonators(resonators)
-    #resonators = splitGraph
-    #testLattice = GeneralLayout(resonators , modeType = Tree.modeType, name =  'McLaughlinTree')
+    # ######split tree
+    # Tree = TreeResonators(degree = 3, iterations = 4, side = 1, file_path = '', modeType = 'FW')
+    # resonators = Tree.get_all_resonators()
+    # splitGraph = split_resonators(resonators)
+    # resonators = splitGraph
+    # testLattice = GeneralLayout(resonators , modeType = Tree.modeType, name =  'McLaughlinTree')
 
 #    ######non-trivial tree
 #    Tree = TreeResonators(cell ='Peter', degree = 3, iterations = 3, side = 1, file_path = '', modeType = 'FW')

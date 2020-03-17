@@ -178,7 +178,7 @@ class PlanarLayout(object):
             self.radius_method = radius_method
             
             if not ((modeType == 'FW') or (modeType  == 'HW')):
-                raise ValueError, 'Invalid mode type. Must be FW or HW'
+                raise ValueError('Invalid mode type. Must be FW or HW')
             self.modeType = modeType 
     
     ###########
@@ -192,7 +192,7 @@ class PlanarLayout(object):
         save is obvious
         '''
         if self.itter != 0:
-            raise ValueError, 'This is not an empty planar layout'
+            raise ValueError('This is not an empty planar layout')
          
         #make the resonator lattice
         for itt in range(1, maxItter+1):
@@ -242,7 +242,7 @@ class PlanarLayout(object):
         #handle the case of old picle files that do not have a mode type property  
         #they are all calculated for the full wave
         if not 'modeType' in self.__dict__.keys():
-            print 'Old pickle file. Pre FW-HW.'
+            print('Old pickle file. Pre FW-HW.')
             self.modeType = 'FW'
         return
 
@@ -311,7 +311,7 @@ class PlanarLayout(object):
     
     def draw_all_azimuthals(self, ax, maxItter = -1, color = 'g', alpha = 1 , linewidth = 0.5, zorder = 1):
         if maxItter > self.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
             
@@ -321,7 +321,7 @@ class PlanarLayout(object):
                 
     def draw_all_radials(self, ax, maxItter = -1, color = 'g', alpha = 1 , linewidth = 0.5, zorder = 1):
         if maxItter > self.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
             
@@ -331,7 +331,7 @@ class PlanarLayout(object):
 
     def draw_resonator_lattice(self, ax, mode = 'line', maxItter = -1, color = 'g', alpha = 1 , linewidth = 0.5, zorder = 1):
         if maxItter > self.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
             
@@ -355,7 +355,7 @@ class PlanarLayout(object):
 #        return
     def draw_resonator_end_points(self, ax, maxItter = -1, color = 'g', edgecolor = 'k',  marker = 'o' , size = 10, zorder = 1):
         if maxItter > self.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
             
@@ -377,7 +377,7 @@ class PlanarLayout(object):
         
         '''
         if maxItter > self.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
         
@@ -431,8 +431,8 @@ class PlanarLayout(object):
         Spherical tilings tend to crash eventudally because the tiling rule ends
         '''
         
-        print 'finished itteration equals = ' + str(self.itter)
-        print 'attempting itteration ' + str(self.itter+1)
+        print('finished itteration equals = ' + str(self.itter))
+        print('attempting itteration ' + str(self.itter+1))
         numVertices = len(self.points[self.itter])
         numFaces = len(self.points[self.itter])
         numRadials = self.radials[self.itter].shape[0]
@@ -446,8 +446,8 @@ class PlanarLayout(object):
             incoming = len(numpy.where(numpy.mod(self.radials[self.itter][:,1],2*numpy.pi)==currentAngle)[0])
             outgoing_radials_at_each_vertex[ind] = self.vertex-2-incoming
                 
-        print outgoing_radials_at_each_vertex[0:7]
-        print '\n'
+        print(outgoing_radials_at_each_vertex[0:7])
+        print('\n')
         
         
         #find the number of new points
@@ -663,7 +663,7 @@ class PlanarLayout(object):
         '''
         calculate and store all links involving points radials
         '''
-        print 'radial link itteration ' + str(itteration)
+        print('radial link itteration ' + str(itteration))
         i = itteration
         
         #now add the radials
@@ -698,8 +698,8 @@ class PlanarLayout(object):
         
         #do the links to the previous azimuthal ring
         currInd = 0 #index for the rows of the link matrix
-        print 'starting radial  = ' + str(currentIndexR)  + ' of ' + str(numRad) 
-        print 'outgoing radials: '+ str(outgoing_radials_at_each_vertex[0:7])
+        print('starting radial  = ' + str(currentIndexR)  + ' of ' + str(numRad))
+        print('outgoing radials: '+ str(outgoing_radials_at_each_vertex[0:7]))
         for vertex in range(0,numAz_minus1):
             if outgoing_radials_at_each_vertex[vertex] == 0:
                 pass
@@ -777,8 +777,8 @@ class PlanarLayout(object):
                 break
         
         #do the forward links to the current azimuthal ring
-        print 'starting radial  = ' + str(currentIndexR) + ' of ' + str(numRad) 
-        print 'incoming radials: '+ str(incoming_radials_at_each_vertex[0:7])
+        print('starting radial  = ' + str(currentIndexR) + ' of ' + str(numRad))
+        print('incoming radials: '+ str(incoming_radials_at_each_vertex[0:7]))
         for vertex in range(0,numAz):
             if incoming_radials_at_each_vertex[vertex] == 0:
                 pass
@@ -854,7 +854,7 @@ class PlanarLayout(object):
         
         As of 7-20-17 this function is no longer in use.
         '''
-        print itteration
+        print(itteration)
         i = itteration
         
         #now add the radials
@@ -874,7 +874,7 @@ class PlanarLayout(object):
         
         currInd = 0
         currentIndexR = 0
-        print outgoing_radials_at_each_vertex[0:7]
+        print(outgoing_radials_at_each_vertex[0:7])
         for vertex in range(0,numAz_minus1):
             if outgoing_radials_at_each_vertex[vertex] == 0:
                 pass
@@ -1034,7 +1034,7 @@ class PlanarLayout(object):
         is no need to call it again and recalculate.
         '''
         if maxItter > self.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
             
@@ -1069,7 +1069,7 @@ class PlanarLayout(object):
         '''
         
         if maxItter > self.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
         
@@ -1103,7 +1103,7 @@ class PlanarLayout(object):
                     signum =(-1.)**(polarity) #will be zero when  two ends are same, and minus 1 otherwise
                     self.H[source, target] = self.t * signum
                 else:
-                    raise ValueError, 'You screwed around with the mode type. It must be FW or HW.'
+                    raise ValueError('You screwed around with the mode type. It must be FW or HW.')
                 self.H_HW[2*source + sourceEnd, 2*target+targetEnd] = 2*self.t
                 
         #fix the bonds between the two ends of the same site
@@ -1135,7 +1135,7 @@ class PlanarLayout(object):
         Does not mess with the full H or eigenvectors/eigenvlaues
         '''
         if maxItter > self.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
             
@@ -1161,7 +1161,7 @@ class PlanarLayout(object):
         (useful for making localized states at specific sites)
         '''
         if itt == 0 and az == False:
-            raise ValueError, 'no radials in zeroth itteration'
+            raise ValueError('no radials in zeroth itteration')
         
         currInd = 0
         for i in range(0, itt):
@@ -1184,7 +1184,7 @@ class PlanarLayout(object):
         and automatically populate the site-th site on the outermost azimuthal ring
         '''
         if maxItter > self.itter:
-                raise ValueError, 'dont have this many itterations'
+                raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
 
@@ -1216,7 +1216,7 @@ class PlanarLayout(object):
         (use get_SDindex to obtain this in a halfway sensible fashion)
         '''
         if site >= len(self.SDx):
-            raise ValueError, 'lattice doesnt have this many sites'
+            raise ValueError('lattice doesnt have this many sites')
             
         state = numpy.zeros(len(self.SDx))*(0+0j)
         
@@ -1335,10 +1335,10 @@ class PlanarLayout(object):
         returns the polt points as collumn matrix
         '''
         if scaleFactor> 1:
-            raise ValueError, 'scale factor too big'
+            raise ValueError('scale factor too big')
             
         if maxItter > self.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
         elif maxItter <0:
             maxItter = self.itter
             
@@ -1405,7 +1405,7 @@ class PlanarLayout(object):
             
             mColors_end[1::2] = newCols
         else:
-            raise ValueError, 'You screwed around with the mode type. It must be FW or HW.'
+            raise ValueError('You screwed around with the mode type. It must be FW or HW.')
         
         cm = pylab.cm.get_cmap(cmap)
         
@@ -1517,11 +1517,11 @@ if __name__=="__main__":
 #        test = PlanarLayout(gon = 4, vertex = 4, side =1, radius_method = 'lin')  #square
 #        test = PlanarLayout(gon = 4, vertex = 4, side =1, radius_method = 'exp')
 
-#        test = PlanarLayout(gon = 4, vertex = 5, side =1, radius_method = 'lin')
+        # test = PlanarLayout(gon = 4, vertex = 5, side =1, radius_method = 'lin')
         
 #        test = PlanarLayout(gon = 3, vertex = 6, side =1, radius_method = 'lin')    #triangular
         
-#        test = PlanarLayout(gon = 3, vertex = 7, side =1, radius_method = 'lin')
+        # test = PlanarLayout(gon = 3, vertex = 7, side =1, radius_method = 'lin')
 
 
 #        test = PlanarLayout(gon = 5, vertex = 3, side =1, radius_method = 'lin')
@@ -2053,15 +2053,15 @@ if __name__=="__main__":
         
         for i in range(0, len(Es)):
             vect = Psis[:,i]
-            print 'eignenvector : ' + str(i)
-            print numpy.linalg.norm(vect)
-            print '\n'
+            print('eignenvector : ' + str(i))
+            print(numpy.linalg.norm(vect))
+            print('\n')
             
         #        print numpy.dot(vect, vect)
-            print numpy.dot(numpy.conj(vect), vect)
-            print b[i,i]
-            print c[i,i]
-            print '\n\n'
+            print(numpy.dot(numpy.conj(vect), vect))
+            print(b[i,i])
+            print(c[i,i])
+            print('\n\n')
         
         
         pylab.figure(4)
@@ -2086,10 +2086,10 @@ if __name__=="__main__":
         temp = numpy.where(numpy.abs(b) == numpy.max(numpy.abs(b)))
         ind = temp[0][0]
         vect = test.Psis[:,ind]
-        print numpy.max(numpy.abs(b))
-        print numpy.linalg.norm(vect)
-        print numpy.dot(vect, vect)
-        print numpy.dot(numpy.conj(vect), vect)
+        print(numpy.max(numpy.abs(b)))
+        print(numpy.linalg.norm(vect))
+        print(numpy.dot(vect, vect))
+        print(numpy.dot(numpy.conj(vect), vect))
         
         
         

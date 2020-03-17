@@ -1127,17 +1127,17 @@ class UnitCell(object):
         it will multiply everything by self.side, so make sure resonators agrees with a1, and a2
         '''
         if resonators == '':
-            raise ValueError, 'not a built-in unit cell type and no resonators given'
+            raise ValueError('not a built-in unit cell type and no resonators given')
         else:
 #            print resonators.shape
             if resonators.shape[1] != 4:
-                raise ValueError, 'provided resonators are not the right shape'
+                raise ValueError('provided resonators are not the right shape')
             
         if a1.shape != (2,):
-            raise ValueError, 'first reciprocal lattice vector has invalid shape'
+            raise ValueError('first reciprocal lattice vector has invalid shape')
             
         if a2.shape != (2,):
-            raise ValueError, 'first reciprocal lattice vector has invalid shape'
+            raise ValueError('first reciprocal lattice vector has invalid shape')
         
         #set up the sites
         self.numSites = resonators.shape[0]
@@ -1293,7 +1293,7 @@ class UnitCell(object):
         returns the polt points as collumn matrix
         '''
         if scaleFactor> 1:
-            raise ValueError, 'scale factor too big'
+            raise ValueError('scale factor too big')
             
             
         size = len(self.SDx)
@@ -1502,7 +1502,7 @@ class UnitCell(object):
                 elif modeType == 'FW':
                     signum = 1.
                 else:
-                    raise ValueError, 'Incorrect mode type. Must be FW or HW.'
+                    raise ValueError('Incorrect mode type. Must be FW or HW.')
             else: #artificially break TR symmetry
                 if modeType == 'HW':
                     signum =(-1.)**(polarity)
@@ -1519,7 +1519,7 @@ class UnitCell(object):
                 elif modeType == 'FW':
                     signum = 1.
                 else:
-                    raise ValueError, 'Incorrect mode type. Must be FW or HW.'
+                    raise ValueError('Incorrect mode type. Must be FW or HW.')
             
             #corrdiates of origin site
             x0 = self.SDx[startInd]
@@ -1604,7 +1604,7 @@ class UnitCell(object):
         pylab.sca(ax)
         pylab.scatter(self.SDx, self.SDy,c =  mColors, s = mSizes, marker = 'o', edgecolors = 'k', cmap = cm, vmin = -0.5, vmax = 1.5, zorder = zorder)
         if colorbar:
-            print 'making colorbar'
+            print('making colorbar')
             cbar = pylab.colorbar(fraction=0.046, pad=0.04)
             cbar.set_label('phase (pi radians)', rotation=270)
               
@@ -1655,7 +1655,7 @@ class UnitCell(object):
             
             mColors_end[1::2] = newCols
         else:
-            raise ValueError, 'You screwed around with the mode type. It must be FW or HW.'
+            raise ValueError('You screwed around with the mode type. It must be FW or HW.')
         
         cm = pylab.cm.get_cmap(cmap)
         
@@ -1667,7 +1667,7 @@ class UnitCell(object):
         pylab.sca(ax)
         pylab.scatter(xs, ys,c =  mColors_end, s = mSizes_end, marker = 'o', edgecolors = 'k', cmap = cm, vmin = -0.5, vmax = 1.5, zorder = zorder)
         if colorbar:
-            print 'making colorbar'
+            print('making colorbar')
             cbar = pylab.colorbar(fraction=0.046, pad=0.04)
             cbar.set_label('phase (pi radians)', rotation=270)
               
@@ -1688,7 +1688,7 @@ class UnitCell(object):
         oldNum = resMat.shape[0]
     
         if type(splitIn) != int:
-            raise ValueError, 'need an integer split'
+            raise ValueError('need an integer split')
         newNum = oldNum*splitIn
         
         newResonators = numpy.zeros((newNum,4))
@@ -1790,7 +1790,7 @@ class EuclideanLayout(object):
 
             
             if not ((modeType == 'FW') or (modeType  == 'HW')):
-                raise ValueError, 'Invalid mode type. Must be FW or HW'
+                raise ValueError('Invalid mode type. Must be FW or HW')
             self.modeType = modeType
             
             self.populate(resonatorsOnly)
@@ -1852,7 +1852,7 @@ class EuclideanLayout(object):
         #handle the case of old picle files that do not have a mode type property  
         #they are all calculated for the full wave
         if not 'modeType' in self.__dict__.keys():
-            print 'Old pickle file. Pre FW-HW.'
+            print('Old pickle file. Pre FW-HW.')
             self.modeType = 'FW'
         return    
             
@@ -2338,7 +2338,7 @@ class EuclideanLayout(object):
                 signum =(-1.)**(polarity) #will be zero when  two ends are same, and minus 1 otherwise
                 self.H[source, target] = self.t * signum
             else:
-                raise ValueError, 'You screwed around with the mode type. It must be FW or HW.'
+                raise ValueError('You screwed around with the mode type. It must be FW or HW.')
             self.H_HW[2*source + sourceEnd, 2*target+targetEnd] = 2*self.t
                 
         #fix the bonds between the two ends of the same site
@@ -2377,7 +2377,7 @@ class EuclideanLayout(object):
         (use get_SDindex to obtain this in a halfway sensible fashion)
         '''
         if site >= len(self.SDx):
-            raise ValueError, 'lattice doesnt have this many sites'
+            raise ValueError('lattice doesnt have this many sites')
             
         state = numpy.zeros(len(self.SDx))*(0+0j)
         
@@ -2489,7 +2489,7 @@ class EuclideanLayout(object):
             pylab.sca(ax)
             pylab.scatter(xs, ys,c =  mColors_end, s = mSizes/1.4, marker = 'o', edgecolors = 'k', cmap = cm, vmax = vmax, vmin = vmin, zorder = zorder)
         else:
-            raise ValueError, 'You screwed around with the mode type. It must be FW or HW.'
+            raise ValueError('You screwed around with the mode type. It must be FW or HW.')
             
         
         if colorbar:
@@ -2516,7 +2516,7 @@ class EuclideanLayout(object):
         returns the polt points as collumn matrix
         '''
         if scaleFactor> 1:
-            raise ValueError, 'scale factor too big'
+            raise ValueError('scale factor too big')
             
             
         size = len(self.SDx)
@@ -2579,7 +2579,7 @@ class EuclideanLayout(object):
             
             mColors_end[1::2] = newCols
         else:
-            raise ValueError, 'You screwed around with the mode type. It must be FW or HW.'
+            raise ValueError('You screwed around with the mode type. It must be FW or HW.')
         
         cm = pylab.cm.get_cmap(cmap)
         
@@ -2757,8 +2757,8 @@ if __name__=="__main__":
             
             stateInd = 0
             aboveGap = Psis[:,stateInd]
-            print Es[stateInd]
-            print aboveGap
+            print(Es[stateInd])
+            print(aboveGap)
             
             pylab.figure(5)
             pylab.clf()
@@ -2813,14 +2813,14 @@ if __name__=="__main__":
     #    testLattice = EuclideanLayout(2,1,lattice_type = 'Huse', modeType = 'FW')
         
     #    testLattice = EuclideanLayout(4,3,lattice_type = 'Huse', modeType = 'HW')
-    #    testLattice = EuclideanLayout(4,2,lattice_type = 'Huse', modeType = 'HW')
+        testLattice = EuclideanLayout(4,2,lattice_type = 'Huse', modeType = 'HW')
     #    testLattice = EuclideanLayout(2,2,lattice_type = 'Huse', modeType = 'HW')
     #    testLattice = EuclideanLayout(1,1,lattice_type = 'Huse', modeType = 'HW')
     
     
-    #    testLattice = EuclideanLayout(4,3,lattice_type = 'Huse', modeType = 'FW', side = 500)
+        # testLattice = EuclideanLayout(4,3,lattice_type = 'Huse', modeType = 'FW', side = 500)
         
-        testLattice = EuclideanLayout(4,4,lattice_type = 'kagome', modeType = 'FW')
+        # testLattice = EuclideanLayout(4,4,lattice_type = 'kagome', modeType = 'FW')
         
 #        testLattice = EuclideanLayout(2,3,lattice_type = 'Huse2_1', modeType = 'FW')
     
@@ -2830,7 +2830,7 @@ if __name__=="__main__":
 #        testLattice = EuclideanLayout(4,3,lattice_type = '74Huse', modeType = 'FW')
 #        testLattice = EuclideanLayout(4,3,lattice_type = '123Huse', modeType = 'FW')
 
-#        testLattice = EuclideanLayout(3,3,lattice_type = 'square', modeType = 'FW')
+        # testLattice = EuclideanLayout(3,3,lattice_type = 'square', modeType = 'FW')
     
         ######
         #test the unit cell
@@ -2965,8 +2965,8 @@ if __name__=="__main__":
             
             V0 = testLattice.V_int(site1, site1, interactionStates)
             VV = testLattice.V_int(site1, site2, interactionStates)
-            print V0
-            print VV
+            print(V0)
+            print(VV)
             
             Vmap0 = testLattice.V_int_map(site2, interactionStates)
             Vmap1 = testLattice.V_int_map(site2, interactionStates[0:4])
