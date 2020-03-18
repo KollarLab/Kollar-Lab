@@ -64,8 +64,8 @@ class HDAWG():
         time.sleep(0.2)
         i = 0
         while (awgModule.getDouble('progress') < 1.0) and (awgModule.getInt('elf/status') != 1):
-            print("{} progress: {:.2f}".format(i, awgModule.getDouble('progress')))
-            time.sleep(1.0)
+            #print("{} progress: {:.2f}".format(i, awgModule.getDouble('progress')))
+            time.sleep(0.001)
             i += 1
         print("{} progress: {:.2f}".format(i, awgModule.getDouble('progress')))
 
@@ -109,6 +109,23 @@ class HDAWG():
             for channel in range(4): 
                 self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),0)
         
+    #Enable Marker channels (by default AWG will use Triggers sequencer commands but they are less precise)
+    def enable_markers(self,markers={}):
+        for marker in markers:
+            self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker+4)
+        if not markers:
+            for marker in range(4):
+                self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker+4)
+
+    #Use Triggers instead of markers for waveforms
+    #TRIGGERS don't seem to work at the moment (can't get them in GUI...)
+    def enable_triggers(self,markers={}):
+        for marker in markers:
+            self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker)
+        if not markers:
+            for marker in range(4):
+                self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker)
+
     #Turn on AWG
     def AWG_run(self):
         self.daq.setInt('/dev8163/awgs/0/enable',1)
