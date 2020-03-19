@@ -189,7 +189,7 @@ def make_layout_vid(GenLayout, startInd =0, stopInd = -1, figNum = 8, xsize = 14
         breakPoint = stopInd
         
     if startInd > len(GenLayout.Es):
-        raise ValueError , 'dont have this many eigenvectors'
+        raise ValueError('dont have this many eigenvectors')
         
     
     folder = GenLayout.name + '_' + GenLayout.modeType
@@ -203,12 +203,12 @@ def make_layout_vid(GenLayout, startInd =0, stopInd = -1, figNum = 8, xsize = 14
         os.mkdir(saveDir)
     
     
-    print folder + '\n'
+    print(folder + '\n')
         
     fig = pylab.figure(figNum)
     #######################################################
     for eigNum in range(startInd, len(GenLayout.Es)):
-        print eigNum
+        print(eigNum)
         
         eigAmps = GenLayout.Psis[:,GenLayout.Eorder[eigNum]]
         
@@ -285,8 +285,8 @@ def itter_generate_C60():
         if test.itter == 3:
             test.radius = 1.25
         
-        print 'finished itteration equals = ' + str(test.itter)
-        print 'attempting itteration ' + str(test.itter+1)
+        print('finished itteration equals = ' + str(test.itter))
+        print('attempting itteration ' + str(test.itter+1))
         numVertices = len(test.points[test.itter])
         numFaces = len(test.points[test.itter])
         numRadials = test.radials[test.itter].shape[0]
@@ -300,8 +300,8 @@ def itter_generate_C60():
             incoming = len(numpy.where(numpy.mod(test.radials[test.itter][:,1],2*numpy.pi)==currentAngle)[0])
             outgoing_radials_at_each_vertex[ind] = test.vertex-2-incoming
                 
-        print outgoing_radials_at_each_vertex[0:7]
-        print '\n'
+        print(outgoing_radials_at_each_vertex[0:7])
+        print('\n')
         
         
         #find the number of new points
@@ -434,8 +434,8 @@ def itter_generate_C72():
             #set it to 6 so it allocates more space. Will be messing with this
             test.gon = 6
         
-        print 'finished itteration equals = ' + str(test.itter)
-        print 'attempting itteration ' + str(test.itter+1)
+        print('finished itteration equals = ' + str(test.itter))
+        print('attempting itteration ' + str(test.itter+1))
         numVertices = len(test.points[test.itter])
         numFaces = len(test.points[test.itter])
         numRadials = test.radials[test.itter].shape[0]
@@ -449,8 +449,8 @@ def itter_generate_C72():
             incoming = len(numpy.where(numpy.mod(test.radials[test.itter][:,1],2*numpy.pi)==currentAngle)[0])
             outgoing_radials_at_each_vertex[ind] = test.vertex-2-incoming
                 
-        print outgoing_radials_at_each_vertex[0:7]
-        print '\n'
+        print(outgoing_radials_at_each_vertex[0:7])
+        print('\n')
         
         
         #find the number of new points
@@ -584,8 +584,8 @@ def itter_generate_C84_D7():
             #set it to 6 so it allocates more space. Will be messing with this
             test.gon = 6
         
-        print 'finished itteration equals = ' + str(test.itter)
-        print 'attempting itteration ' + str(test.itter+1)
+        print('finished itteration equals = ' + str(test.itter))
+        print('attempting itteration ' + str(test.itter+1))
         numVertices = len(test.points[test.itter])
         numFaces = len(test.points[test.itter])
         numRadials = test.radials[test.itter].shape[0]
@@ -599,8 +599,8 @@ def itter_generate_C84_D7():
             incoming = len(numpy.where(numpy.mod(test.radials[test.itter][:,1],2*numpy.pi)==currentAngle)[0])
             outgoing_radials_at_each_vertex[ind] = test.vertex-2-incoming
                 
-        print outgoing_radials_at_each_vertex[0:7]
-        print '\n'
+        print(outgoing_radials_at_each_vertex[0:7])
+        print('\n')
         
         
         #find the number of new points
@@ -740,7 +740,7 @@ def itter_generate_C84():
         Should be abe to handle and flat or hyperbolic tiling.
         Spherical tilings tend to crash eventudally because the tiling rule ends
         '''
-        print 'running generate_c60 for ' + str(test.itter)
+        print('running generate_c60 for ' + str(test.itter))
         if test.itter == 0:
             #set value for the 1st itteration, whichis about to be done
             test.gon = 6
@@ -752,8 +752,8 @@ def itter_generate_C84():
         if test.itter == 3:
             test.radius = 1.
         
-        print 'finished itteration equals = ' + str(test.itter)
-        print 'attempting itteration ' + str(test.itter+1)
+        print('finished itteration equals = ' + str(test.itter))
+        print('attempting itteration ' + str(test.itter+1))
         numVertices = len(test.points[test.itter])
         numFaces = len(test.points[test.itter])
         numRadials = test.radials[test.itter].shape[0]
@@ -767,8 +767,8 @@ def itter_generate_C84():
             incoming = len(numpy.where(numpy.mod(test.radials[test.itter][:,1],2*numpy.pi)==currentAngle)[0])
             outgoing_radials_at_each_vertex[ind] = test.vertex-2-incoming
                 
-        print outgoing_radials_at_each_vertex[0:7]
-        print '\n'
+        print(outgoing_radials_at_each_vertex[0:7])
+        print('\n')
         
         
         #find the number of new points
@@ -922,8 +922,8 @@ def itter_generate_interface_tiling(gon2, transition):
         else:
             test.gon = gon2
         
-        print 'finished itteration equals = ' + str(test.itter)
-        print 'attempting itteration ' + str(test.itter+1)
+        print('finished itteration equals = ' + str(test.itter))
+        print('attempting itteration ' + str(test.itter+1))
         numVertices = len(test.points[test.itter])
         numFaces = len(test.points[test.itter])
         numRadials = test.radials[test.itter].shape[0]
@@ -937,8 +937,8 @@ def itter_generate_interface_tiling(gon2, transition):
             incoming = len(numpy.where(numpy.mod(test.radials[test.itter][:,1],2*numpy.pi)==currentAngle)[0])
             outgoing_radials_at_each_vertex[ind] = test.vertex-2-incoming
                 
-        print outgoing_radials_at_each_vertex[0:7]
-        print '\n'
+        print(outgoing_radials_at_each_vertex[0:7])
+        print('\n')
         
         
         #find the number of new points
@@ -1113,11 +1113,11 @@ def draw_variable_arc(ax, resonator, d = 1, linewidth = 3, color = 'firebrick', 
     
     xMid = (x1+x2)/2
     yMid = (y1+y2)/2
-    print xMid
-    print yMid
+    print(xMid)
+    print(yMid)
     
     bondOrientation = numpy.arctan((y1-yMid) / (x1-xMid))
-    print 180*bondOrientation/numpy.pi
+    print(180*bondOrientation/numpy.pi)
     
     if direction == 1:
         thetas = numpy.linspace(-theta, theta, numPoints) + bondOrientation + numpy.pi/2
