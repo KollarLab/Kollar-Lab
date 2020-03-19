@@ -1,8 +1,8 @@
-import sdxf
+from . import sdxf
 from math import sin,cos,pi,floor,asin,acos,tan,atan,sqrt
-from alphanum import alphanum_dict
+from .alphanum import alphanum_dict
 from random import randrange
-from MaskMakerPro import *
+from .MaskMakerPro import *
 from scipy.optimize import fsolve
 import numpy
 from sympy import nsolve, Symbol
@@ -42,7 +42,7 @@ class getDrawDictionaries:
                     deltaY = stopPos[1] - startPos[1]
                     deltaX = stopPos[0] - startPos[0]
 
-                    if res in self.resonatorStartStopVertices.keys():
+                    if res in list(self.resonatorStartStopVertices.keys()):
                         resSS = self.resonatorStartStopVertices[res]
                         self.resonatorStartStopVertices[res] = [vtex, resSS[1]]
                     else:
@@ -53,7 +53,7 @@ class getDrawDictionaries:
                     deltaY = startPos[1] - stopPos[1]
                     deltaX = startPos[0] - stopPos[0]
 
-                    if res in self.resonatorStartStopVertices.keys():
+                    if res in list(self.resonatorStartStopVertices.keys()):
                         resSS = self.resonatorStartStopVertices[res]
                         self.resonatorStartStopVertices[res] = [resSS[0],vtex]
                     else:
@@ -179,7 +179,7 @@ class getDrawDictionaries:
 
                 if len(angles)==1:
                     res = connected[0]
-                    if res not in self.resonatorInputOuputAngles.keys():
+                    if res not in list(self.resonatorInputOuputAngles.keys()):
                         self.resonatorInputOuputAngles[res] = [0.0, 0.0]
                 else:
                     # find difference between vertex angle and the capacitor angle
@@ -189,7 +189,7 @@ class getDrawDictionaries:
                     # assign angleDiff to the input and output
                     if startPos[0] == self.vertexPositions[vtex][0] and startPos[1] == self.vertexPositions[vtex][1]:
                         # print('start','angleDiff',angleDiff,'resonatorInputOuputAngles',self.resonatorInputOuputAngles)
-                        if res in self.resonatorInputOuputAngles.keys():
+                        if res in list(self.resonatorInputOuputAngles.keys()):
                             # print('3')
                             resonatorInputOuput = self.resonatorInputOuputAngles[res]
                             self.resonatorInputOuputAngles[res] = [-angleDiff,resonatorInputOuput[1]]
@@ -199,7 +199,7 @@ class getDrawDictionaries:
                         # print('start','angleDiff',angleDiff,'resonatorInputOuputAngles',self.resonatorInputOuputAngles)
                     elif stopPos[0] == self.vertexPositions[vtex][0] and stopPos[1] == self.vertexPositions[vtex][1]:
                         # print('stop','angleDiff',angleDiff,'resonatorInputOuputAngles',self.resonatorInputOuputAngles)
-                        if res in self.resonatorInputOuputAngles.keys():
+                        if res in list(self.resonatorInputOuputAngles.keys()):
                             # print('1')
                             resonatorInputOuput = self.resonatorInputOuputAngles[res]
                             self.resonatorInputOuputAngles[res] = [resonatorInputOuput[0],-angleDiff]
@@ -476,7 +476,7 @@ class connectionResonator:
         talliedLength = talliedLength + cap_length
         # print('added',cap_length)
         # print('res',res,'talliedLength',talliedLength,'abs(3*r*output_angle)+outputExtension', abs(3*r*output_angle)+outputExtension)
-        print('res',res,'talliedLength',talliedLength)
+        print(('res',res,'talliedLength',talliedLength))
            
 
 class bondPadConnection:
@@ -990,7 +990,7 @@ class drawCycloneCap:
         deltaX = 2*(bendradius+gapw+pinw)*sin(rotationAngle*pi/180)-(bendradius)
         deltaY = 2*(bendradius+gapw+pinw)*(1-cos(rotationAngle*pi/180))
         innerRadius = outerRadius-deltaY
-        print('innerRadius',innerRadius)
+        print(('innerRadius',innerRadius))
         beta = atan(bendradius/(2.0*innerRadius + bendradius)) * 180/pi 
         # input_angle = (bendradius/outerRadius)*180/pi
 
@@ -1045,7 +1045,7 @@ class drawRingResonator:
         input_angle = input_angle*pi/180
         output_angle = output_angle*pi/180
 
-        print('input_angle', input_angle, 'output_angle',output_angle)
+        print(('input_angle', input_angle, 'output_angle',output_angle))
 
 
         if input_angle>0:
@@ -1133,7 +1133,7 @@ class drawRingResonator:
                 # print('added',r*pi/2)
                 # print('talliedLength',talliedLength)    
 
-            print('range', range(4), 'num_wiggles', num_wiggles)
+            print(('range', list(range(4)), 'num_wiggles', num_wiggles))
             for ii in range(num_wiggles):
                 isign=(2*(ii%2)-1)                
                 CPWStraight(s,vlength,pinw,gapw)

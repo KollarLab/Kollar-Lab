@@ -191,7 +191,7 @@ class layout(Chip):
                     angle = usign*isign*90
                 CPWBend(mask,angle,pinw,gapw,radius)
                 accumulatedLength = accumulatedLength + radius*abs(angle*pi/180)
-                print('after angle:', angle, 'accumulatedLength',accumulatedLength)
+                print(('after angle:', angle, 'accumulatedLength',accumulatedLength))
 
                 isign = isign*-1
                 if (accumulatedLength+resonatorStraight2)>targetLength:
@@ -200,7 +200,7 @@ class layout(Chip):
                     delta = resonatorStraight2
                 CPWStraight(mask,delta,pinw,gapw) 
                 accumulatedLength = accumulatedLength + delta
-                print('after delta:', delta, 'accumulatedLength',accumulatedLength)
+                print(('after delta:', delta, 'accumulatedLength',accumulatedLength))
             print('             ')
             
         def drawMixedRadiusHanger(structure, start, startDirection, leftRight, pinw, gapw, couplingGap, couplingStraight, resonatorStraight1, resonatorStraight2, resonatorStraight3, targetLength, secondRadius = defaultRadius, upDown = 1):
@@ -241,7 +241,7 @@ class layout(Chip):
                     angle = usign*isign*90
                 CPWBend(mask,angle,pinw,gapw,secondRadius)
                 accumulatedLength = accumulatedLength + secondRadius*abs(angle*pi/180)
-                print('after angle:', angle, 'accumulatedLength',accumulatedLength)
+                print(('after angle:', angle, 'accumulatedLength',accumulatedLength))
 
                 isign = isign*-1
                 if (accumulatedLength+resonatorStraight2)>targetLength:
@@ -250,7 +250,7 @@ class layout(Chip):
                     delta = resonatorStraight2
                 CPWStraight(mask,delta,pinw,gapw) 
                 accumulatedLength = accumulatedLength + delta
-                print('after delta:', delta, 'accumulatedLength',accumulatedLength)
+                print(('after delta:', delta, 'accumulatedLength',accumulatedLength))
             print('             ')
             
         def drawTightHanger(structure, start, startDirection, leftRight, pinw, gapw, couplingGap, couplingStraight, resonatorStraight1, meanderSize, turnEdge, targetLength, hangerRadius = 100):
@@ -269,7 +269,7 @@ class layout(Chip):
             
             ind = 1
             while accumulatedLength<targetLength:
-                print ind
+                print(ind)
                 #make the first turn to parallel to the feedline
                 if (accumulatedLength+pi*hangerRadius/2)>targetLength:
                     angle = isign*((targetLength-accumulatedLength)/hangerRadius)* 180/pi
@@ -293,7 +293,7 @@ class layout(Chip):
                     angle = -isign*90
                 CPWBend(mask,angle,pinw,gapw,hangerRadius)
                 accumulatedLength = accumulatedLength + hangerRadius*abs(angle*pi/180)
-                print('after angle:', angle, 'accumulatedLength',accumulatedLength)
+                print(('after angle:', angle, 'accumulatedLength',accumulatedLength))
 
                 #do the straight in the meander
                 isign = isign*-1
@@ -303,7 +303,7 @@ class layout(Chip):
                     delta = turnEdge
                 CPWStraight(mask,delta,pinw,gapw) 
                 accumulatedLength = accumulatedLength + delta
-                print('after delta:', delta, 'accumulatedLength',accumulatedLength)
+                print(('after delta:', delta, 'accumulatedLength',accumulatedLength))
                 
                 ind = ind +1
             print('             ')
@@ -334,7 +334,7 @@ class layout(Chip):
             targetLength = targetLength - hangerRadius*abs(finalAngle*pi/180) - finalStraight
             
             while accumulatedLength<targetLength:
-                print ind
+                print(ind)
                 #make the first turn to parallel to the feedline
                 if (accumulatedLength+pi*hangerRadius/2)>targetLength:
                     angle = usign*isign*((targetLength-accumulatedLength)/hangerRadius)* 180/pi
@@ -358,7 +358,7 @@ class layout(Chip):
                     angle = -usign*isign*90
                 CPWBend(mask,angle,pinw,gapw,hangerRadius)
                 accumulatedLength = accumulatedLength + hangerRadius*abs(angle*pi/180)
-                print('after angle:', angle, 'accumulatedLength',accumulatedLength)
+                print(('after angle:', angle, 'accumulatedLength',accumulatedLength))
 
                 #do the straight in the meander
                 isign = isign*-1
@@ -368,7 +368,7 @@ class layout(Chip):
                     delta = turnEdge
                 CPWStraight(mask,delta,pinw,gapw) 
                 accumulatedLength = accumulatedLength + delta
-                print('after delta:', delta, 'accumulatedLength',accumulatedLength)
+                print(('after delta:', delta, 'accumulatedLength',accumulatedLength))
                 
                 ind = ind +1
                 
@@ -414,7 +414,7 @@ class layout(Chip):
                     angle = isign*90
                 CPWBend(mask,angle,pinw,gapw,radius)
                 accumulatedLength = accumulatedLength + radius*abs(angle*pi/180)
-                print('after angle:', angle, 'accumulatedLength',accumulatedLength)
+                print(('after angle:', angle, 'accumulatedLength',accumulatedLength))
 
                 isign = isign*-1
                 if (accumulatedLength+resonatorStraight2)>targetLength:
@@ -423,7 +423,7 @@ class layout(Chip):
                     delta = resonatorStraight2
                 CPWStraight_Bridges_Layer1(mask,delta, br_base, br_width, pinw,gapw,bridge_gap=bridge_gap)  
                 accumulatedLength = accumulatedLength + delta
-                print('after delta:', delta, 'accumulatedLength',accumulatedLength)
+                print(('after delta:', delta, 'accumulatedLength',accumulatedLength))
             print('             ')
 
         #####################################################################################################################

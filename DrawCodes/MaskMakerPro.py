@@ -6,11 +6,11 @@ MaskMakerPro. This provides a set of functions for drawing masks
 
 @author: Mattias Fitzpatrick
 """
-import sdxf
+from . import sdxf
 from math import floor
-import sdxf
+from . import sdxf
 from math import sin,cos,pi,floor,asin,acos,tan,atan,sqrt
-from alphanum import alphanum_dict
+from .alphanum import alphanum_dict
 from random import randrange
    
 class MaskError:
@@ -160,7 +160,7 @@ class WaferMask(sdxf.Drawing):
         slots_remaining=self.chip_points.__len__()-self.current_point
         for ii in range (copies):
             if self.current_point>= self.chip_points.__len__():
-                raise MaskError, "MaskError: Cannot add %d copies of chip '%s' Only %d slots on mask and %d remaining." % (copies,chip.name,self.chip_points.__len__(),slots_remaining)
+                raise MaskError("MaskError: Cannot add %d copies of chip '%s' Only %d slots on mask and %d remaining." % (copies,chip.name,self.chip_points.__len__(),slots_remaining))
             p=self.chip_points[self.current_point]
             self.current_point+=1
             self.append(sdxf.Insert(chip.name,point=p))
@@ -211,7 +211,7 @@ class WaferMask(sdxf.Drawing):
         """Get insertion points for all of the chips (layout wafer)"""
         max_cols = int((self.diameter-2*self.buffer)/self.die_size[0])
         max_rows = int((self.diameter-2*self.buffer)/self.die_size[1])
-        print "Maximum number of rows=%d and cols=%d" %(max_rows,max_cols)
+        print("Maximum number of rows=%d and cols=%d" %(max_rows,max_cols))
         #figure out offset for chips (centered on chip or between chips)
         xoffset=-max_cols/2.*self.die_size[0]
         yoffset=-max_rows/2.*self.die_size[1]
@@ -227,7 +227,7 @@ class WaferMask(sdxf.Drawing):
                 pt=(xoffset+jj*self.die_size[0],yoffset+ii*self.die_size[1])
                 if self.die_inside(pt):
                     chip_points.append(translate_pt(pt,(self.dicing_border/2,self.dicing_border/2)))
-        print "Room for %d chips on wafer." % chip_points.__len__()
+        print("Room for %d chips on wafer." % chip_points.__len__())
         return chip_points
         
 class Chip(sdxf.Block):
@@ -370,7 +370,7 @@ class CPWStraight_Bridges_Layer1:
                 ]
                 
         if length < 5*br_width:
-            raise MaskError, "Consider fewer bridges!!"            
+            raise MaskError("Consider fewer bridges!!")            
         
         
         "The commented code makes holes on either side of the resonators"
@@ -1055,7 +1055,7 @@ class CPWWiggles:
         #total_length=(1+num_wiggles)*(pi*radius)+2*num_wiggles*vlength+2*(num_wiggles-1)*radius
         vlength=(total_length-((1+num_wiggles)*(pi*radius)+2*(num_wiggles-1)*radius))/(2*num_wiggles)
 
-        if vlength<0: print "Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles"
+        if vlength<0: print("Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles")
         
         if start_up:  asign=1
         else:         asign=-1
@@ -1107,7 +1107,7 @@ class CPWWigglesByLength:
             vlength=(total_length-2*(start_bend_angle*pi/180*radius)-pi*radius*(2*num_wiggles-1))/(2*num_wiggles)
 
         if vlength<0:
-            raise MaskError, "Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles"
+            raise MaskError("Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles")
 
         self.vlength=vlength
                 
@@ -1165,7 +1165,7 @@ class CPWWigglesByLength_EndStraight:
             vlength=(total_length-2*(start_bend_angle*pi/180*radius)-pi*radius*(2*num_wiggles-1))/(2*num_wiggles)
 
         if vlength<0:
-            raise MaskError, "Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles"
+            raise MaskError("Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles")
 
         self.vlength=vlength
                 
@@ -1186,7 +1186,7 @@ class CPWWigglesByLength_EndStraight:
                     CPWBend(s,asign*180,pinw,gapw,radius)      #if asymmetric must turn around#
         CPWBend(s,start_bend_angle,pinw,gapw,radius)
         
-        print('vlength=', vlength)
+        print(('vlength=', vlength))
 
 
 class drawBondPad:
@@ -1257,7 +1257,7 @@ class CPWWigglesByLength_KagRes1:
             vlength=(total_length-(start_bend_angle*pi/180*radius)-pi*radius*(2*num_wiggles-1))/(2*num_wiggles)
 
         if vlength<0:
-            raise MaskError, "Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles"
+            raise MaskError("Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles")
 
         self.vlength=vlength
         CPWBend(s,start_bend_angle,pinw,gapw,radius)
@@ -1322,7 +1322,7 @@ class CPWWigglesByLength_KagRes2:
             vlength=(total_length-(start_bend_angle*pi/180*radius)-pi*radius*(2*num_wiggles-1))/(2*num_wiggles)
 
         if vlength<0:
-            raise MaskError, "Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles"
+            raise MaskError("Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles")
 
         self.vlength=vlength
         CPWBend(s,start_bend_angle,pinw,gapw,radius)
@@ -1393,7 +1393,7 @@ class CPWPaddedWiggles:
             radius=s.defaults['radius']
             
         if cpw_length<length+(2*pi-4)*radius:
-            raise MaskError, "Error in CPWPaddedWiggles: cpw_length=%f needs less than one wiggle!" %(cpw_length)
+            raise MaskError("Error in CPWPaddedWiggles: cpw_length=%f needs less than one wiggle!" %(cpw_length))
         
         #calculate maximum length possible in area
         num_wiggles=int(floor(length/(2*radius)-1))
@@ -1401,7 +1401,7 @@ class CPWPaddedWiggles:
         vlength=(width-4*radius)/2
         max_length=(1+num_wiggles)*(pi*radius)+2*num_wiggles*vlength+2*(num_wiggles-1)*radius
         if cpw_length > max_length:
-            raise MaskError, "Error in CPWPaddedWiggles: cpw_length=%f > max_length=%f that can be fit into alotted area!" %(cpw_length,max_length)
+            raise MaskError("Error in CPWPaddedWiggles: cpw_length=%f > max_length=%f that can be fit into alotted area!" %(cpw_length,max_length))
         
         #to be finished
         
@@ -1624,7 +1624,7 @@ class CPWFingerCap:
         self.capacitance=capacitance        #simulated capacitance
         self.num_fingers=num_fingers        #number of fingers
         if num_fingers<2:
-            raise MaskError, "CPWFingerCap must have at least 2 fingers!"
+            raise MaskError("CPWFingerCap must have at least 2 fingers!")
         self.finger_length=finger_length    #length of fingers
         self.finger_width=finger_width      #width of each finger
         self.finger_gap=finger_gap
@@ -2154,7 +2154,7 @@ class ChannelWiggles:
         #total_length=(1+num_wiggles)*(pi*radius)+2*num_wiggles*vlength+2*(num_wiggles-1)*radius
         vlength=(total_length-((1+num_wiggles)*(pi*radius)+2*(num_wiggles-1)*radius))/(2*num_wiggles)
 
-        if vlength<0: print "Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles"
+        if vlength<0: print("Warning: length of vertical segments is less than 0, increase total_length or decrease num_wiggles")
         
         if start_up:  asign=1
         else:         asign=-1
@@ -2579,7 +2579,7 @@ class ChannelFingerCap:
         self.capacitance=capacitance        #simulated capacitance
         self.num_fingers=num_fingers        #number of fingers
         if num_fingers<2:
-            raise MaskError, "ChannelFingerCap must have at least 2 fingers!"
+            raise MaskError("ChannelFingerCap must have at least 2 fingers!")
         self.finger_length=finger_length    #length of fingers
         self.finger_width=finger_width      #width of each finger
         self.finger_gap=finger_gap
@@ -2871,7 +2871,7 @@ class QuarterMask(sdxf.Drawing):
         slots_remaining=self.chip_points.__len__()-self.current_point
         for ii in range (copies):
             if self.current_point>= self.chip_points.__len__():
-                raise MaskError, "MaskError: Cannot add %d copies of chip '%s' Only %d slots on mask and %d remaining." % (copies,chip.name,self.chip_points.__len__(),slots_remaining)
+                raise MaskError("MaskError: Cannot add %d copies of chip '%s' Only %d slots on mask and %d remaining." % (copies,chip.name,self.chip_points.__len__(),slots_remaining))
             p=self.chip_points[self.current_point]
             self.current_point+=1
             self.append(sdxf.Insert(chip.name,point=p))
