@@ -423,7 +423,7 @@ pylab.show()
 
 def build_double_plaquette_state(layout, maxItter = -1):
     if maxItter > layout.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
     elif maxItter <0:
         maxItter = layout.itter
     [xs,ys] = layout.get_all_semidual_points()

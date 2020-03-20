@@ -2801,7 +2801,7 @@ else:
 #####
 def build_double_plaquette_state(layout, maxItter = -1):
     if maxItter > layout.itter:
-            raise ValueError, 'dont have this many itterations'
+            raise ValueError('dont have this many itterations')
     elif maxItter <0:
         maxItter = layout.itter
     [xs,ys] = layout.get_all_semidual_points()
@@ -2824,7 +2824,7 @@ def build_double_plaquette_state(layout, maxItter = -1):
             state[0:numPoints] = ring_state
         if itteration == 1:
             ring_state = scipy.arange(0,layout.gon-3,1)
-            print len(ring_state)
+            print(len(ring_state))
             ring_state= 1*(numpy.mod(ring_state,2)*2-1)
             state[currentInd:currentInd + len(ring_state)] = ring_state
         currentInd = currentInd + numPoints
