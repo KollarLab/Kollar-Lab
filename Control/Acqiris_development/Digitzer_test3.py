@@ -144,7 +144,8 @@ class AqMd3(object):
                       self.visession,
                       return_value, 
                       ctypes.byref(error_message))
-            raise IviCError(error_message.value)        
+            # raise IviCError(error_message.value)   
+            raise ValueError(error_message.value)      
             
             
     def close(self):    
@@ -163,18 +164,70 @@ class AqMd3(object):
         #trying to handle the vairous acquistion types. Not quite sure how this logic will 
         #eventually go.
         if self.averager == True:
-            print('Warning: I suspect mutisegment may not work with averager on.')
+            print('Warning: Manual says multiseg should work with this, not sure I have the right read function though.')
             self.segments = segments
+            numRecordsC = ctypes.c_int64(self.segments)
 
-        if self.multiseg == False:
-            self.segments = 1
-            if segments > 1:
-                print('Single Segment Mode: Ignoring requested extra segments')
+            print('Trying to set acquisition parameters manually.')
+            ###!!!!!!!!!!!!!
+            #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
+            #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
+            #or is it just that the ME is only for non-averaging mode?
+            multiple = numpy.ceil(self.samples/1024)
+            if multiple > 512:
+                print('Data is too long for averaging mode. Setting to max length: 512*1024')
+                multiple = 512
+                self.samples = multiple*1024
+                numPointsPerRecordC = ctypes.c_int64(self.samples)
+
+            self.SetAttribute(None, AQMD3_ATTR_RECORD_SIZE, int(1024*multiple), 'ViInt64')
+            self.SetAttribute(None, AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE, int(self.segments), 'ViInt64')
+
+            # self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
+
         else:
-            self.segments = segments
+            if self.multiseg == False:
+                self.segments = 1
+                if segments > 1:
+                    print('Single Segment Mode: Ignoring requested extra segments')
+            else:
+                self.segments = segments
 
-        numRecordsC = ctypes.c_int64(self.segments)
-        self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
+            numRecordsC = ctypes.c_int64(self.segments)
+            print('Using auto config function for the acquisition.')
+            self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
+            #I think this configure funtion only works in non-averaging mode. !!!?????
+
+        #stupid testing
+        # card.SetSingleMode()
+        # self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_MODE, 0, 'ViInt32') 
+        # self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES, 1, 'ViInt32') 
+
+        # print('Configuring')
+        # # self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
+        # self.call('ConfigureAcquisition', self.visession, ctypes.c_int64(numAverages), numPointsPerRecordC, sampleRateC)
+        # print('Setting averaging mode')
+        # self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_MODE, 1, 'ViInt32') 
+        # print('Setting averages')
+        # self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES, 4, 'ViInt32') 
+
+        # print('going to averager mode')
+        # Avs = 4
+        # self.SetAverageMode(Avs)
+
+        # print('going to single mode')
+        # self.SetSingleMode()
+        # print('configuring')
+        # self.call('ConfigureAcquisition', self.visession, ctypes.c_int64(1), numPointsPerRecordC, sampleRateC)
+
+        # print('going to averager mode')
+        # Avs = 4
+        # self.SetAverageMode(Avs)
+        # print('configuring')
+        # self.call('ConfigureAcquisition', self.visession, ctypes.c_int64(Avs), numPointsPerRecordC, sampleRateC)
+
+        # print('Configuring')
+        # self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
         #ConfigureAcquisition(init_status.ViSession, numRecordsC, numPointsPerRecordC, sampleRateC)
 
     def ConfigureChannel(self, channelNum = 1, Range = 2.5, offset = 0, enabled = True):
@@ -238,6 +291,86 @@ class AqMd3(object):
                 out = self._ReadSingleSegData(chanName, returnRaw = returnRaw)
         return out
 
+    def _ReadAveragerData(self,chanName, returnRaw = False):
+        arraySize_int = int(self.totalSamples)
+        segments_int = int(self.segments)
+
+        firstRecordC = ctypes.c_int64(0)
+        numRecordsC = ctypes.c_int64(self.segments)
+        offsetWithinRecordC = ctypes.c_int64(self.offsetWithinRecord)
+        numPointsPerRecordC = ctypes.c_int64(self.samples)
+
+        WavefromArraySizeC = ctypes.c_int64(self.totalSamples)
+
+        ActualAveragesC = ctypes.c_int32()
+        ActualRecordsC = ctypes.c_int64()
+        InitialXOffsetC = ctypes.c_longdouble()
+        XIncrementC = ctypes.c_longdouble()
+
+        # FlagsC = ctypes.c_int32*segments_int
+        # ActualPointsC = ctypes.c_int64*segments_int
+        # FirstValidPointsC = ctypes.c_int64*segments_int
+        # InitialXTimeSecondsC = ctypes.c_longdouble*segments_int
+        # InitialXTimeFractionC = ctypes.c_longdouble*segments_int
+
+        # WaveformArrayC = ctypes.c_double*arraySize_int #this doesn't work
+        class WAVEFORMHOLDER(ctypes.Structure):   
+            _fields_ = [("WaveformArrayC", ctypes.c_longdouble*arraySize_int),
+                        ("ActualPointsC", ctypes.c_int64*segments_int),
+                        ("FirstValidPointsC", ctypes.c_int64*segments_int),
+                        ("InitialXTimeSecondsC", ctypes.c_longdouble*segments_int),
+                        ("InitialXTimeFractionC", ctypes.c_longdouble*segments_int),
+                        ("FlagsC", ctypes.c_int64*segments_int)]
+        WaveHolder = WAVEFORMHOLDER()   # This DOES WORK! It can be sent in.
+        #Successfully returns data to "WaveHolder.WaveformArrayC"
+
+        
+
+        chanNameC = ctypes.c_char_p(chanName)
+
+        self.call('FetchAccumulatedWaveformReal64', self.visession, chanNameC, \
+                    firstRecordC,\
+                    numRecordsC,\
+                    offsetWithinRecordC,\
+                    numPointsPerRecordC,\
+                    WavefromArraySizeC,
+                    WaveHolder.WaveformArrayC,\
+                    ctypes.byref(ActualAveragesC),\
+                    ctypes.byref(ActualRecordsC),\
+                    WaveHolder.ActualPointsC,\
+                    WaveHolder.FirstValidPointsC,\
+                    ctypes.byref(InitialXOffsetC),\
+                    WaveHolder.InitialXTimeSecondsC,\
+                    WaveHolder.InitialXTimeFractionC,\
+                    ctypes.byref(XIncrementC),\
+                    WaveHolder.FlagsC)
+
+        print('Fetch Complete. Processing Data.')
+        rawData = numpy.asarray(WaveHolder.WaveformArrayC)
+        dataRawSize = rawData.size
+        dataActualSegments = int(ActualRecordsC.value)
+        dataActualPoints_full = numpy.asarray(WaveHolder.ActualPointsC)
+        dataActualPoints = dataActualPoints_full[0]
+        dataFirstValidPoints = numpy.asarray(WaveHolder.FirstValidPointsC).astype('int64')
+        if returnRaw:
+            out = [rawData, dataActualPoints, dataFirstValidPoints, dataActualSegments]
+            return out
+        else:
+            if dataActualPoints != self.samples:
+                print("Warning. Data size doesn't match the number of samples. Something wierd happened.")
+
+            if dataActualSegments == 1:
+                startInd = dataFirstValidPoints[0]
+                data = rawData[startInd:(startInd+dataActualPoints)]
+            else:
+                data = numpy.zeros((dataActualSegments,dataActualPoints))
+                for segind in range(0,dataActualSegments ):
+                    startInd = dataFirstValidPoints[segind]
+                    
+                    data[segind,:] = rawData[startInd:(startInd+dataActualPoints)]
+            print('Data Processed.')
+            return data
+
     def _ReadMultiSegData(self,chanName, returnRaw = False):
         arraySize_int = int(self.totalSamples)
         segments_int = int(self.segments)
@@ -250,8 +383,12 @@ class AqMd3(object):
         InitialXTimeFractionC = ctypes.c_longdouble*segments_int
         XIncrementC = ctypes.c_longdouble()
 
+        # WaveformArrayC = ctypes.c_double*arraySize_int #this doesn't work
+        class WAVEFORMHOLDER(ctypes.Structure):   
+            _fields_ = [("WaveformArrayC", ctypes.c_longdouble*arraySize_int)]
+        WaveHolder = WAVEFORMHOLDER()   # This DOES WORK! It can be sent in.
+        #Successfully returns data to "WaveHolder.WaveformArrayC"
         
-        WaveformArrayC = ctypes.c_longdouble*arraySize_int
         WavefromArraySizeC = ctypes.c_int64(self.totalSamples)
 
         chanNameC = ctypes.c_char_p(chanName)
@@ -267,7 +404,7 @@ class AqMd3(object):
                     offsetWithinRecordC,\
                         numPointsPerRecordC,\
                             WavefromArraySizeC,\
-                                 WaveformArrayC,\
+                                 WaveHolder.WaveformArrayC,\
                                  ctypes.byref(ActualRecordsC),\
                                  ActualPointsC,\
                                  FirstValidPointsC,\
@@ -277,14 +414,14 @@ class AqMd3(object):
                                  ctypes.byref(XIncrementC))
 
         print('Fetch Complete. Processing Data.')
-        rawData = numpy.asarray(WaveformArrayC)
+        rawData = numpy.asarray(WaveHolder.WaveformArrayC)
         dataRawSize = rawData.size
         dataActualSegments = numpy.asarray(ActualRecordsC)[0]
         dataActualPoints_full = numpy.asarray(ActualPointsC)
         dataActualPoints = dataActualPoints_full[0]
         dataFirstValidPoints = numpy.asarray(FirstValidPointsC).astype('int64')
         if returnRaw:
-            out = [rawData, dataActualPoints, dataFirstValidPoints. dataActualSegments]
+            out = [rawData, dataActualPoints, dataFirstValidPoints, dataActualSegments]
             return out
         else:
             if dataActualPoints != self.samples:
@@ -307,15 +444,18 @@ class AqMd3(object):
         InitialXTimeFractionC = ctypes.c_longdouble()
         XIncrementC = ctypes.c_longdouble()
 
-        WaveformArrayC = ctypes.c_double*arraySize_int
-        # WaveformArrayC = ctypes.c_longdouble*arraySize_int
-        # tempArray = numpy.zeros(arraySize_int)
-        # WaveformArrayC.value = tempArray
+        # WaveformArrayC = ctypes.c_double*arraySize_int #this doesn't work
+        class WAVEFORMHOLDER(ctypes.Structure):   
+            _fields_ = [("WaveformArrayC", ctypes.c_longdouble*arraySize_int)]
+        WaveHolder = WAVEFORMHOLDER()   # This DOES WORK! It can be sent in.
+        #Successfully returns data to "WaveHolder.WaveformArrayC"
+
         WavefromArraySizeC = ctypes.c_int64(self.totalSamples)
 
         chanNameC = ctypes.c_char_p(chanName)
 
-        self.call('FetchWaveformReal64', self.visession, chanNameC, WavefromArraySizeC, WaveformArrayC,\
+        self.call('FetchWaveformReal64', self.visession, chanNameC, WavefromArraySizeC,\
+             WaveHolder.WaveformArrayC,\
             ctypes.byref(ActualPointsC),\
                  ctypes.byref(FirstValidPointC),\
                       ctypes.byref(InitialXOffsetC),\
@@ -323,16 +463,8 @@ class AqMd3(object):
                       ctypes.byref(InitialXTimeFractionC),\
                        ctypes.byref(XIncrementC))
 
-        # self.call('FetchWaveformInt32', self.visession, chanNameC, WavefromArrayActualSizeC, WaveformArrayC,\
-        #     ctypes.byref(ActualPointsC),\
-        #          ctypes.byref(FirstValidPointC),\
-        #               ctypes.byref(InitialXOffsetC),\
-        #          ctypes.byref(InitialXTimeSecondsC),\
-        #               ctypes.byref(InitialXTimeFractionC),\
-        #                ctypes.byref(XIncrementC))
-
         print('Fetch Complete. Processing Data.')
-        rawData = numpy.asarray(WaveformArrayC)
+        rawData = numpy.asarray(WaveHolder.WaveformArrayC)
         dataRawSize = rawData.size
         dataActualPoints = int(ActualPointsC.value)
         dataFirstValidPoint = int(FirstValidPointC.value)
@@ -406,6 +538,13 @@ if __name__ == '__main__':
     #averaging
     AQMD3_ATTR_ACQUISITION_MODE                     = IVI_SPECIFIC_ATTR_BASE + 11   # ViInt32, read-write 
     AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES       = IVI_SPECIFIC_ATTR_BASE + 69   # ViInt32, read-write 
+
+    #acquistion parameters
+    AQMD3_ATTR_RECORD_SIZE                          = IVI_CLASS_ATTR_BASE + 14      # ViTnt64, read-write
+    AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE               = IVI_CLASS_ATTR_BASE + 13      # ViInt64, read-write
+
+    #sampling and clocking
+    #AQMD3_ATTR_SAMPLE_RATE                   = IVI_CLASS_ATTR_BASE + 15       # ViReal64, read-write  #!!! something here is not quite right
    
     # Read some attributes
     print('Manufacturer  : {}'.format(card.GetAttribute(None, AQMD3_ATTR_INSTRUMENT_MANUFACTURER, 'ViString')))
@@ -456,22 +595,27 @@ if __name__ == '__main__':
     #set up acquisition and try
     #####################
 
-    # averageMode = True
-    averageMode = False
+    averageMode = True
+    # averageMode = False
+
+    # multisegMode = True
+    multisegMode = False
+
     if averageMode:
-        numAverages = 40
+        numAverages = 100
         segments = 1
         card.SetAverageMode(numAverages)
         # card.SetAttribute(None, AQMD3_ATTR_ACQUISITION_MODE, 1, 'ViInt32') 
         # card.SetAttribute(None, AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES, numAverages, 'ViInt32') 
     else:
-        # numAverages = 1
-        # segments = 2
-        # card.SetMultiMode()
-
-        numAverages = 1
-        segments = 1
-        card.SetSingleMode()
+        if multisegMode:
+            numAverages = 1
+            segments = 2
+            card.SetMultiMode()
+        else:
+            numAverages = 1
+            segments = 1
+            card.SetSingleMode()
 
         # card.SetAttribute(None, AQMD3_ATTR_ACQUISITION_MODE, 0, 'ViInt32') 
         # card.SetAttribute(None, AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES, numAverages, 'ViInt32') 
@@ -485,7 +629,8 @@ if __name__ == '__main__':
     card.SetAttribute(None, AQMD3_ATTR_ACTIVE_TRIGGER_SOURCE, 'External1', 'ViString')
 
 
-    samples = 1*10**7
+    # samples = 1*10**7
+    samples = 513*1024
     sampleRate = 1*10**9
     # aconfigout = driverdll.AqMD3_ConfigureAcquisition(init_status.ViSession, numRecordsC, numPointsPerRecordC, sampleRateC)
     card.ConfigureAcquisition(samples, sampleRate, segments)
@@ -505,13 +650,47 @@ if __name__ == '__main__':
     print('Data Acquired (In Theory)')
 
 
-    out = card.ReadData(1, returnRaw = True)
+    # out = card.ReadData(1, returnRaw = True)
+    data = card.ReadData(1, returnRaw = False)
 
 
+    ####
+    #plot data
+
+    numSamples = card.samples
+    #sampleRate = card.GetAttribute('Channel1', AQMD3_ATTR_SAMPLE_RATE, 'ViReal64')
+    dt = 1/sampleRate
+    xaxis = scipy.arange(0, numSamples,1)*dt
+
+    if multisegMode:
+        dataSegments = data.shape[0]
+
+    print('Plotting.')
+
+    pylab.figure(1)
+    pylab.clf()
+    ax = pylab.subplot(1,1,1)
+    if multisegMode:
+        pylab.title('Multiseg: Active Channel')
+        for segind in  range(0,dataSegments ):
+            labelstr = 'seg: ' + str(segind)
+            pylab.plot(xaxis*1000, data[segind,:] + segind*0.125, label = labelstr)
+    else:
+        if averageMode:
+            pylab.title('Averager: Active Channel')
+        else:
+            pylab.title('Singleseg: Active Channel')
+        labelstr = 'seg: 0' 
+        pylab.plot(xaxis*1000, data[:], label = labelstr)
+    ax.legend(loc = 'upper right')
+    pylab.ylabel('Voltage (waterfall)')
+    pylab.xlabel('Time (ms)')
+
+    pylab.show()
 
 
-
+    print('Done plotting.')
     
-#    # Close the instrument
-#    print("\nClose the instrument")    
-#    card.close()
+    # Close the instrument
+    print("\nClose the instrument")    
+    card.close()
