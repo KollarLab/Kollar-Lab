@@ -712,6 +712,13 @@ OffsetWithinRecordC = c_int64(0)
 WaveformArrayPlannedSizeC = c_int64(samplesToTake)
 #byref waveformarray
 
+# class WAVEFORMHOLDER(Structure):   
+#     _fields_ = [("WaveformArrayC", c_longdouble*arraySize)]
+# WaveHolder = WAVEFORMHOLDER()   # This DOES WORK! It can be sent in.
+# #Successfully returns data to "WaveHolder.WaveformArrayC"
+
+
+# WaveformArrayC= c_longdouble*arraySize ## this syntax doesn't work. It can't be cast.
 
 if averageMode:
     fetchout = driverdll.AqMD3_FetchAccumulatedWaveformReal64(init_status.ViSession,\
@@ -732,6 +739,21 @@ if averageMode:
                                                              byref(fetch_params.XIncrement),\
                                                              fetch_params.Flags)
 else:
+    # fetchout = driverdll.AqMD3_FetchMultiRecordWaveformReal64(init_status.ViSession,\
+    #                                                          chanNameC,\
+    #                                                          firstRecordC,\
+    #                                                          numRecordsC,\
+    #                                                          OffsetWithinRecordC,\
+    #                                                          numPointsPerRecordC,\
+    #                                                          WaveformArrayPlannedSizeC,\
+    #                                                          WaveHolder.WaveformArrayC,\
+    #                                                          byref(fetch_params.ActualRecords),\
+    #                                                          fetch_params.ActualPoints,\
+    #                                                          fetch_params.FirstValidPoint,\
+    #                                                          fetch_params.InitialXOffset,\
+    #                                                          fetch_params.InitialXTimeSeconds,\
+    #                                                          fetch_params.InitialXTimeFraction,\
+    #                                                          byref(fetch_params.XIncrement))
     fetchout = driverdll.AqMD3_FetchMultiRecordWaveformReal64(init_status.ViSession,\
                                                              chanNameC,\
                                                              firstRecordC,\
@@ -803,6 +825,8 @@ else:
 #dataHolder = numpy.zeros(arraySize)
 t2 = time.time()
 rawData = numpy.asarray(fetch_params.WaveformArray)
+# rawData = numpy.asarray(WaveHolder.WaveformArrayC)
+
 #temp = numpy.asarray(fetch_params.WaveformArray)*numpy.asarray(fetch_params.ScaleFactor) + numpy.asarray(fetch_params.ScaleOffset)
 #temp = numpy.asarray(fetch_params.WaveformArray).astype('double')
 #temp = numpy.asarray(fetch_params.WaveformArray).astype('float16')

@@ -158,7 +158,7 @@ class AqMd3(object):
         self.samples = samples
         numPointsPerRecordC = ctypes.c_int64(self.samples)
         self.sampleRate = sampleRate
-        sampleRateC = ctypes.c_longdouble(self.sampleRate)
+        sampleRateC = ctypes.c_double(self.sampleRate)
 
         #trying to handle the vairous acquistion types. Not quite sure how this logic will 
         #eventually go.
@@ -252,7 +252,7 @@ class AqMd3(object):
 
         
         WaveformArrayC = ctypes.c_longdouble*arraySize_int
-        WavefromArrayActualSizeC = ctypes.c_int64(self.totalSamples)
+        WavefromArraySizeC = ctypes.c_int64(self.totalSamples)
 
         chanNameC = ctypes.c_char_p(chanName)
 
@@ -266,7 +266,7 @@ class AqMd3(object):
                 numRecordsC,\
                     offsetWithinRecordC,\
                         numPointsPerRecordC,\
-                            WavefromArrayActualSizeC,\
+                            WavefromArraySizeC,\
                                  WaveformArrayC,\
                                  ctypes.byref(ActualRecordsC),\
                                  ActualPointsC,\
@@ -311,11 +311,11 @@ class AqMd3(object):
         # WaveformArrayC = ctypes.c_longdouble*arraySize_int
         # tempArray = numpy.zeros(arraySize_int)
         # WaveformArrayC.value = tempArray
-        WavefromArrayActualSizeC = ctypes.c_int64(self.totalSamples)
+        WavefromArraySizeC = ctypes.c_int64(self.totalSamples)
 
         chanNameC = ctypes.c_char_p(chanName)
 
-        self.call('FetchWaveformReal64', self.visession, chanNameC, WavefromArrayActualSizeC, WaveformArrayC,\
+        self.call('FetchWaveformReal64', self.visession, chanNameC, WavefromArraySizeC, WaveformArrayC,\
             ctypes.byref(ActualPointsC),\
                  ctypes.byref(FirstValidPointC),\
                       ctypes.byref(InitialXOffsetC),\
