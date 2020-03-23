@@ -12,7 +12,7 @@ AWG.set_AWGamp([1.,1.],[0,1]) #set output amplitude
 AWG.enable_markers([0,1]) #enable markers for our channels 
 
 ## Read in the sequencer program we want to use
-progFile = open("HDAWG_sequencer_codes/T1Measurement",'r')
+progFile = open("HDAWG_sequencer_codes/T1Measurement.cpp",'r')
 rawprog  = progFile.read()
 loadprog = rawprog
 
