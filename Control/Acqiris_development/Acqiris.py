@@ -46,14 +46,44 @@ class Acqiris(object):
         
         #fill in and store the necessary driver-level attribute ID numbers
         self._fillHardwareIDs()
-
+        
+        
+        #set default values. Eventrually this should probable load from some default config file
+        self._loadDefaultConfig()
         
         self.simulate = simulate
         self.hardwareAddress = ResourceName
         self.ReInitialize()
+        
+        
             
+    def SetParams(self):
+        '''Autoinititalize function that will set up the card with all the driver
+        parameters stored in this object. It will push all the settings and do cross checks.'''
+        
+        #configure the trigger
+        self.ConfigureTrigger(Source = self.triggerSource, Level = self.triggerLevel, Slope = self.triggerSlope, Mode = self.triggerMode)
+        
+        #configure the channels:
+        for chind in [1,2]:
+            if chind in self.activeChannels:
+                enabled = True
+            else:
+                enabled= False
+            self.ConfigureChannel(channelNum = chind, Range = self.channelRange, offset = self.channelOffset, enabled = enabled)
+            
+        #configure the acquisition
+        self.ConfigureAcquisition(self.samples, self.sampleRate, self.segments)
+        
 
     def SetDriverAttribute(self, keyword, val, recap = None):
+        '''Set function for atributes of the Cdriver.
+        takes in a python string keyword which needs to be a key of 
+        self.hardwareIDs. Then it uses thes stored information in there
+        to call the lower level _Set function. 
+        Note: if the variable is associated with a repeat capability identifier
+        then that needs to be handled separately. 
+        Also: this function will not check that the value is of the right type. User beware.'''
         if keyword in self.hardwareIDs.keys():
             #known driver attribute
             [attrNum, attrType] = self.hardwareIDs[keyword]
@@ -105,6 +135,12 @@ class Acqiris(object):
                   ctypes.c_char_p(Value.encode('utf-8')))
             
     def GetDriverAttribute(self, keyword, recap = None):
+        '''Get function for atributes of the Cdriver.
+        takes in a python string keyword which needs to be a key of 
+        self.hardwareIDs. Then it uses thes stored information in there
+        to call the lower level _Get function. 
+        Note: if the variable is associated with a repeat capability identifier
+        then that needs to be handled separately. '''
         if keyword in self.hardwareIDs.keys():
             #known driver attribute
             [attrNum, attrType] = self.hardwareIDs[keyword]
@@ -186,6 +222,25 @@ class Acqiris(object):
     def SelfCalibrate(self):    
         self.call('SelfCalibrate', self.visession) 
 
+    ##################################################
+    
+    def Arm(self):
+        '''Initialize the acquisition and get ready to take and read data '''
+        try:
+            self.InitiateAcquisition()
+        except:
+            if self.verbose:
+                print('Initiate Failed. Trying to fix with a recalibrate.')
+            self.SelfCalibrate()
+            self.InitiateAcquisition()
+    
+    def ArmAndWait(self):
+        '''Initialize the acquisition and get ready to take and read data.
+        Then wait for it to finish'''
+        self.Arm()
+        self.WaitForAcquisition()
+        
+
     def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
         
         self.samples = samples
@@ -195,12 +250,14 @@ class Acqiris(object):
 
         #trying to handle the vairous acquistion types. Not quite sure how this logic will 
         #eventually go.
-        if self.averager == True:
-            print('Warning: Manual says multiseg should work with this, not sure I have the right read function though.')
+        if self.averageMode == True:
+            if self.verbose:
+                print('Warning: Manual says multiseg should work with this, not sure I have the right read function though.')
             self.segments = segments
             numRecordsC = ctypes.c_int64(self.segments)
-
-            print('Trying to set acquisition parameters manually.')
+            
+            if self.verbose:
+                print('Trying to set acquisition parameters manually.')
             ###!!!!!!!!!!!!!
             #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
             #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
@@ -222,15 +279,16 @@ class Acqiris(object):
             # self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
 
         else:
-            if self.multiseg == False:
-                self.segments = 1
-                if segments > 1:
-                    print('Single Segment Mode: Ignoring requested extra segments')
-            else:
-                self.segments = segments
+#            if self.multiseg == False:
+#                self.segments = 1
+#                if segments > 1:
+#                    print('Single Segment Mode: Ignoring requested extra segments')
+#            else:
+#                self.segments = segments
 
             numRecordsC = ctypes.c_int64(self.segments)
-            print('Using auto config function for the acquisition.')
+            if self.verbose:
+                print('Using auto config function for the acquisition.')
             self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
             #I think this configure funtion only works in non-averaging mode. !!!?????
 
@@ -243,11 +301,14 @@ class Acqiris(object):
         else:
             raise ValueError('Invalid channel. Should be 1 or 2')
         chanNameC = ctypes.c_char_p(chanName)
-
+        
         if Range in [0.5, 2.5]:
             rangeC = ctypes.c_double(Range)
         else:
             raise ValueError('Range must be 0.5 or 2.5')
+            
+        self.channelRange = Range
+        self.channelOffset = offset
 
         offsetC = ctypes.c_double(offset)
 
@@ -263,6 +324,9 @@ class Acqiris(object):
     #     #actually set the trigger source
     #     pass
     
+#    def _autoConfigureChannels(self):
+        
+    
     def ConfigureTrigger(self, Source = 'External1', Level = 0, Slope = 'Falling', Mode = 'Edge'):
         if Mode != 'Edge':
             raise ValueError('This trigger mode not yet supported. Edge trigger only.')
@@ -271,7 +335,6 @@ class Acqiris(object):
             self.triggerSource = Source
             self.triggerLevel = Level
             
-            print(Slope)
             if Slope == 'Falling':
                 self.triggerSlope = Slope
                 triggerSlopeC = ctypes.c_int32(0)
@@ -335,9 +398,9 @@ class Acqiris(object):
     
         #averaging
 #        AQMD3_ATTR_ACQUISITION_MODE                     = IVI_SPECIFIC_ATTR_BASE + 11   # ViInt32, read-write 
-        self.hardwareIDs['acquisitionMode'] = [specificID + 11, 'ViInt32']
+        self.hardwareIDs['averageMode'] = [specificID + 11, 'ViInt32']
 #        AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES       = IVI_SPECIFIC_ATTR_BASE + 69   # ViInt32, read-write 
-        self.hardwareIDs['numAverages'] = [specificID+69, 'ViInt32']
+        self.hardwareIDs['averages'] = [specificID+69, 'ViInt32']
     
         #acquistion parameters
 #        AQMD3_ATTR_RECORD_SIZE                          = IVI_CLASS_ATTR_BASE + 14      # ViTnt64, read-write
@@ -356,8 +419,53 @@ class Acqiris(object):
 
     def InitiateAcquisition(self):
         self.call('InitiateAcquisition', self.visession)
+        
+    def _loadDefaultConfig(self):
+        #sampling
+        self.samples = 1024
+        self.sampleRate = 1*10**9
+        
+        #averaging
+        self.averageMode = 0
+        self.averages = 1
+        
+        #multisegment acquisition
+#        self.multiseg = 0
+        self.segments = 1
+        
+        #channel settings
+        self.activeChannels = [1,2]
+        self.channelRange = 2.5
+        self.channelOffset = 0
+        
+        #trigger settings
+        self.triggerSource = 'External1'
+        self.triggerMode = 'Edge'
+        self.triggerLevel = 0
+        self.triggerSlope = 'Falling'
+
+        #diagnostic prints
+        self.verbose = False
+        
+        #timeout of failed acquisitions
+        self.timeout = 5  #seconds
+        
+    def ReadAllData(self, returnRaw = False):
+        ''' Highest level read function. Will automatically  '''
+        data1 = []
+        data2 = []
+        if len(self.activeChannels) > 1:
+            data1 = self.ReadData(1, returnRaw = returnRaw)
+            data2 = self.ReadData(2, returnRaw = returnRaw)
+            return data1, data2
+        else:
+            data =  self.ReadData(self.activeChannels[0], returnRaw = returnRaw)
+            return data
 
     def ReadData(self, chanNum, returnRaw = False):
+        '''Single channel data read function.
+        Will automatically call lowerlevel read functions of the driver,
+        depending on how the card is set up.'''
         if chanNum ==1:
             chanName = b'Channel1'
         elif chanNum ==2:
@@ -373,21 +481,26 @@ class Acqiris(object):
         numSamplesC = ctypes.c_int64()
         self.call('QueryMinWaveformMemory', self.visession, ctypes.c_int32(64), numRecordsC,\
              offsetWithinRecordC, numPointsPerRecordC, ctypes.byref(numSamplesC))
-        print('Memeory Allocation Determined')
+        if self.verbose:
+            print('Memeory Allocation Determined')
         numSamples = int(numSamplesC.value)
         self.totalSamples = numSamples
 
-        print('Trying to Read')
-        if self.averager:
+        if self.verbose:
+            print('Trying to Read')
+        if self.averageMode:
             out = self._ReadAveragerData(chanName, returnRaw = returnRaw)
         else:
-            if self.multiseg:
+#            if self.multiseg:
+            if self.segments > 1:
                 out = self._ReadMultiSegData(chanName, returnRaw = returnRaw)
             else:
                 out = self._ReadSingleSegData(chanName, returnRaw = returnRaw)
         return out
 
     def _ReadAveragerData(self,chanName, returnRaw = False):
+        if self.verbose:
+            print('reading averaged data')
         arraySize_int = int(self.totalSamples)
         segments_int = int(self.segments)
 
@@ -440,8 +553,9 @@ class Acqiris(object):
                     WaveHolder.InitialXTimeFractionC,\
                     ctypes.byref(XIncrementC),\
                     WaveHolder.FlagsC)
-
-        print('Fetch Complete. Processing Data.')
+        
+        if self.verbose:
+            print('Fetch Complete. Processing Data.')
         rawData = numpy.asarray(WaveHolder.WaveformArrayC)
         dataRawSize = rawData.size
         dataActualSegments = int(ActualRecordsC.value)
@@ -464,10 +578,13 @@ class Acqiris(object):
                     startInd = dataFirstValidPoints[segind]
                     
                     data[segind,:] = rawData[startInd:(startInd+dataActualPoints)]
-            print('Data Processed.')
+            if self.verbose:
+                print('Data Processed.')
             return data
 
     def _ReadMultiSegData(self,chanName, returnRaw = False):
+        if self.verbose:
+            print('reading non-averaged, multisegment data')
         arraySize_int = int(self.totalSamples)
         segments_int = int(self.segments)
 
@@ -508,8 +625,8 @@ class Acqiris(object):
                                  InitialXTimeSecondsC,\
                                  InitialXTimeFractionC,\
                                  ctypes.byref(XIncrementC))
-
-        print('Fetch Complete. Processing Data.')
+        if self.verbose:
+            print('Fetch Complete. Processing Data.')
         rawData = numpy.asarray(WaveHolder.WaveformArrayC)
         dataRawSize = rawData.size
         dataActualSegments = numpy.asarray(ActualRecordsC)[0]
@@ -531,6 +648,8 @@ class Acqiris(object):
             return data
 
     def _ReadSingleSegData(self,chanName, returnRaw = False):
+        if self.verbose:
+            print('reading non-averaged, single-segment data')
         arraySize_int = int(self.totalSamples)
 
         ActualPointsC = ctypes.c_int64()
@@ -558,8 +677,9 @@ class Acqiris(object):
                  ctypes.byref(InitialXTimeSecondsC),\
                       ctypes.byref(InitialXTimeFractionC),\
                        ctypes.byref(XIncrementC))
-
-        print('Fetch Complete. Processing Data.')
+        
+        if self.verbose:
+            print('Fetch Complete. Processing Data.')
         rawData = numpy.asarray(WaveHolder.WaveformArrayC)
         dataRawSize = rawData.size
         dataActualPoints = int(ActualPointsC.value)
@@ -576,7 +696,8 @@ class Acqiris(object):
             return data
         
     def ReInitialize(self):
-        '''Basic init function. Can also be used to wipe he settings if the card is very confused. '''
+        '''Basic init function. Can also be used to wipe he settings if the card is very confused. 
+        Will push the currently stored settings to the card and calibrate'''
         if self.simulate == True:
             strInitOptionsC = ctypes.c_char_p(b'Simulate=True,  DriverSetup= model = SA220P')
         else:
@@ -588,43 +709,60 @@ class Acqiris(object):
             False, 
             strInitOptionsC,
             ctypes.byref(self.visession))
+        
+        #push the currently stored settings to the card and calibrate. Hopefully ths will actually save hassle.
+        #if this is running at _init_ then it will push the defaults
+        self.SetParams()
+        self.SelfCalibrate()
 
     def SetAverageMode(self, averages):
+        ''' Intermediate function to switch the card over to averaging mode.
+        It manually writes the necessary fields. 
+        I expect that it will fall out of use ang instead be done in the general 
+        SetParams'''
 #        self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_MODE, 1, 'ViInt32') 
-        self.SetDriverAttribute('acquisitionMode', 1)
-#        self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES, numAverages, 'ViInt32') 
-        self.SetDriverAttribute('numAverages', numAverages)
-        self.averager = True
-        self.multiseg = False
+        self.SetDriverAttribute('averageMode', 1)
+#        self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES, averages, 'ViInt32') 
+        self.SetDriverAttribute('averages', averages)
+        self.averageMode = True
+#        self.multiseg = False
 
     def SetSingleMode(self):
+        ''' Intermediate function to switch the card over to single acquisition mode.
+        It manually writes the necessary fields. 
+        I expect that it will fall out of use ang instead be done in the general 
+        SetParams'''
 #        self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_MODE, 0, 'ViInt32') 
-        self.SetDriverAttribute('acquisitionMode', 0)
+        self.SetDriverAttribute('averageMode', 0)
 #        self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES, 1, 'ViInt32') 
-        self.SetDriverAttribute('numAverages', 1)
-        self.averager = False
-        self.multiseg = False
+        self.SetDriverAttribute('averages', 1)
+        self.averageMode = False
+#        self.multiseg = False
+        self.segments = 1
 
     def SetMultiMode(self):
+        ''' Intermediate function to switch the card over to multisegment, non-avergaing mode.
+        It manually writes the necessary fields. 
+        I expect that it will fall out of use ang instead be done in the general 
+        SetParams'''
 #        self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_MODE, 0, 'ViInt32') 
-        self.SetDriverAttribute('acquisitionMode', 0)
+        self.SetDriverAttribute('averageMode', 0)
 #        self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES, 1, 'ViInt32') 
-        self.SetDriverAttribute('numAverages', 1)
-        self.averager = False
-        self.multiseg = True   #segment number will be configured elsewhere
+        self.SetDriverAttribute('averages', 1)
+        self.averageMode = False
+#        self.multiseg = True   #segment number will be configured elsewhere
+        self.segments = 2
 
-    def WaitForAcquisition(self, timeOut = 5):
+    def WaitForAcquisition(self, timeout = 5):
         '''Timeout in seconds '''
-        timeOutC = ctypes.c_int32(timeOut*1000)
-        self.call('WaitForAcquisitionComplete', self.visession, timeOutC)
+        self.timeout = timeout
+        timeoutC = ctypes.c_int32(timeout*1000)
+        self.call('WaitForAcquisitionComplete', self.visession, timeoutC)
 
 
 
 if __name__ == '__main__':
-    
 
-
-    
     hardwareAddress = "PXI23::0::0::INSTR"
 
     IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
@@ -647,70 +785,74 @@ if __name__ == '__main__':
     
 
     #####################
-    #set up acquisition and try
+    #schose acquisition type
     #####################
 
 #    averageMode = True
     averageMode = False
 
-    # multisegMode = True
+#    multisegMode = True
     multisegMode = False
-
+    
+    
+    
+    ##########
+    #set settings to the card object
+    ### samples = 1*10**7
+    card.samples = 513*1024
+    card.sampleRate = 1*10**9
+    
+    
     if averageMode:
-        numAverages = 100
-        segments = 1
-        card.SetAverageMode(numAverages)
+        card.averages = 100
+        card.segements = 1
     else:
         if multisegMode:
-            numAverages = 1
-            segments = 2
-            card.SetMultiMode()
+            card.averages = 1
+            card.segments = 2
         else:
-            numAverages = 1
-            segments = 1
-            card.SetSingleMode()
+            card.averages = 1
+            card.segments = 1
+            
+    card.triggerSource = 'External1'
+    card.triggerLevel = 0
+    card.triggerSlope = 'Falling'
+    
+    card.activeChannels = [1,2]
+    
+    card.timeOut = 2
+    
+    card.verbose = True #get lots of diagnostic print statements
+    
+    ##########
+    #push settings to hardware
+    card.SetParams()
+#    card.ConfigureChannel(channelNum = 1, Range = 2.5, offset = 0, enabled = True)
+#    card.ConfigureChannel(channelNum = 2, Range = 2.5, offset = 0, enabled = True)
+#    card.ConfigureTrigger('External1', 0, 'Falling')
+#    card.ConfigureAcquisition(samples, sampleRate, segments)
 
 
-    #configure channels
-    card.ConfigureChannel(channelNum = 1, Range = 2.5, offset = 0, enabled = True)
-    card.ConfigureChannel(channelNum = 2, Range = 2.5, offset = 0, enabled = True)
-
-    # Set active trigger source to External1
-    print('\nSet active trigger source to External1')
-    card.ConfigureTrigger('External1', 0, 'Falling')
-
-
-    # samples = 1*10**7
-    samples = 513*1024
-    sampleRate = 1*10**9
-    # aconfigout = driverdll.AqMD3_ConfigureAcquisition(init_status.ViSession, numRecordsC, numPointsPerRecordC, sampleRateC)
-    card.ConfigureAcquisition(samples, sampleRate, segments)
-
-    # acqout = driverdll.AqMD3_InitiateAcquisition(init_status.ViSession)
-    # waitout = driverdll.AqMD3_WaitForAcquisitionComplete(init_status.ViSession,c_int32(timeouttime) )
-    try:
-        card.InitiateAcquisition()
-    except:
-        print('Initiate Failed. Trying a Calibration and Reinnitiate')
-        card.SelfCalibrate()
-        card.InitiateAcquisition()
-
-    timeOut = 10
-    card.WaitForAcquisition(timeOut)
+    ##########
+    #initiate acquisition and wait for it to finish
+    card.ArmAndWait()
+#    card.Arm()
+#    card.WaitForAcquisition()
+#    card.WaitForAcquisition(timeOut)
 
     print('Data Acquired (In Theory)')
 
-
-    # out = card.ReadData(1, returnRaw = True)
-    data = card.ReadData(1, returnRaw = False)
-
+    
+    data = card.ReadData(1, returnRaw = False) #read channel 1
+#    data, data2 = card.ReadAllData()
+    
 
     ####
     #plot data
 
     numSamples = card.samples
-    #sampleRate = card.GetAttribute('Channel1', AQMD3_ATTR_SAMPLE_RATE, 'ViReal64')
-    sampleRate = card.GetDriverAttribute('sampleRate')
+#    sampleRate = card.GetDriverAttribute('sampleRate')
+    sampleRate = card.sampleRate
     dt = 1/sampleRate
     xaxis = scipy.arange(0, numSamples,1)*dt
 
@@ -746,3 +888,121 @@ if __name__ == '__main__':
 #    # Close the instrument
 #    print("\nClose the instrument")    
 #    card.close()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    ###################
+    #older, cruder codes
+    ################
+    #    #    averageMode = True
+#    averageMode = False
+#
+#    # multisegMode = True
+#    multisegMode = False
+#    
+#    # samples = 1*10**7
+#    samples = 513*1024
+#    sampleRate = 1*10**9
+    
+
+#    if averageMode:
+#        numAverages = 100
+#        segments = 1
+#        card.SetAverageMode(numAverages)
+#    else:
+#        if multisegMode:
+#            numAverages = 1
+#            segments = 2
+#            card.SetMultiMode()
+#        else:
+#            numAverages = 1
+#            segments = 1
+#            card.SetSingleMode()
+#
+#
+#    #configure channels
+#    card.activeChannels = [1,2]
+#    card.ConfigureChannel(channelNum = 1, Range = 2.5, offset = 0, enabled = True)
+#    card.ConfigureChannel(channelNum = 2, Range = 2.5, offset = 0, enabled = True)
+#
+#    # Set active trigger source to External1
+#    print('\nSet active trigger source to External1')
+#    card.ConfigureTrigger('External1', 0, 'Falling')
+#
+#    # aconfigout = driverdll.AqMD3_ConfigureAcquisition(init_status.ViSession, numRecordsC, numPointsPerRecordC, sampleRateC)
+#    card.ConfigureAcquisition(samples, sampleRate, segments)
+    
+#    # acqout = driverdll.AqMD3_InitiateAcquisition(init_status.ViSession)
+#    # waitout = driverdll.AqMD3_WaitForAcquisitionComplete(init_status.ViSession,c_int32(timeouttime) )
+#    try:
+#        card.InitiateAcquisition()
+#    except:
+#        print('Initiate Failed. Trying a Calibration and Reinnitiate')
+#        card.SelfCalibrate()
+#        card.InitiateAcquisition()
+#
+#    timeOut = 10
+#    card.WaitForAcquisition(timeOut)
+#
+#    print('Data Acquired (In Theory)')
+#
+#
+#    # out = card.ReadData(1, returnRaw = True)
+#    data = card.ReadData(1, returnRaw = False)
+#
+#
+#    ####
+#    #plot data
+#
+#    numSamples = card.samples
+#    #sampleRate = card.GetAttribute('Channel1', AQMD3_ATTR_SAMPLE_RATE, 'ViReal64')
+#    sampleRate = card.GetDriverAttribute('sampleRate')
+#    dt = 1/sampleRate
+#    xaxis = scipy.arange(0, numSamples,1)*dt
+#
+#    if multisegMode:
+#        dataSegments = data.shape[0]
+#
+#    print('Plotting.')
+#
+#    fig1 = pylab.figure(1)
+#    pylab.clf()
+#    ax = pylab.subplot(1,1,1)
+#    if multisegMode:
+#        pylab.title('Multiseg: Active Channel')
+#        for segind in  range(0,dataSegments ):
+#            labelstr = 'seg: ' + str(segind)
+#            pylab.plot(xaxis*1000, data[segind,:] + segind*0.125, label = labelstr)
+#    else:
+#        if averageMode:
+#            pylab.title('Averager: Active Channel')
+#        else:
+#            pylab.title('Singleseg: Active Channel')
+#        labelstr = 'seg: 0' 
+#        pylab.plot(xaxis*1000, data[:], label = labelstr)
+#    ax.legend(loc = 'upper right')
+#    pylab.ylabel('Voltage (waterfall)')
+#    pylab.xlabel('Time (ms)')
+#
+#    pylab.show()
+#
+#
+#    print('Done plotting.')
+#    
+##    # Close the instrument
+##    print("\nClose the instrument")    
+##    card.close()    
+    
+    
+    
+    
+    

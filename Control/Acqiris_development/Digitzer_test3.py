@@ -662,8 +662,8 @@ if __name__ == '__main__':
 #    averageMode = True
     averageMode = False
 
-    # multisegMode = True
-    multisegMode = False
+    multisegMode = True
+#    multisegMode = False
 
     if averageMode:
         numAverages = 100
