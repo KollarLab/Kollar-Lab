@@ -26,18 +26,22 @@ import sys
 
 
 class AqMd3(object):
-    def __init__(self, library, ResourceName):        
+    def __init__(self, library, ResourceName, simulate = False):        
         self._prefix = "AqMD3"
         self._lib = ctypes.cdll.LoadLibrary(library)
               
         self.visession = ctypes.c_int()
         
-        self.call('InitWithOptions',
-            ctypes.create_string_buffer(ResourceName.encode('utf-8')),
-            False,
-            False, 
-            '',
-            ctypes.byref(self.visession))
+        self.simulate = simulate
+        self.hardwareAddress = ResourceName
+        self.ReInitialize()
+            
+#        self.call('InitWithOptions',
+#            ctypes.create_string_buffer(ResourceName.encode('utf-8')),
+#            False,
+#            False, 
+#            '',
+#            ctypes.byref(self.visession))
 
     def SetAttribute(self, RepCapIdentifier, Attribute, Value, AttributeType) :
 
@@ -182,6 +186,7 @@ class AqMd3(object):
 
             self.SetAttribute(None, AQMD3_ATTR_RECORD_SIZE, int(1024*multiple), 'ViInt64')
             self.SetAttribute(None, AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE, int(self.segments), 'ViInt64')
+            self.SetAttribute(None, AQMD3_ATTR_SAMPLE_RATE, self.sampleRate, 'ViReal64')
 
             # self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
 
@@ -257,6 +262,31 @@ class AqMd3(object):
 
     #     #actually set the trigger source
     #     pass
+    
+    def ConfigureTrigger(self, Source = 'External1', Level = 0, Slope = 'Falling', Mode = 'Edge'):
+        if Mode != 'Edge':
+            raise ValueError('This trigger mode not yet supported. Edge trigger only.')
+        else:
+            self.triggerMode = Mode
+            self.triggerSource = Source
+            self.triggerLevel = Level
+            
+            print(Slope)
+            if Slope == 'Falling':
+                self.triggerSlope = Slope
+                triggerSlopeC = ctypes.c_int32(0)
+            elif Slope == 'Rising':
+                self.triggerSlope = Slope
+                triggerSlopeC = ctypes.c_int32(1)
+            else:
+                raise ValueError("Edge trigger slope must be either 'Rising' or 'Falling'")
+            
+            triggerSourceC = ctypes.create_string_buffer(self.triggerSource.encode('utf-8'))
+            triggerLevelC = ctypes.c_longdouble(self.triggerLevel)
+
+            self.call('ConfigureEdgeTriggerSource', self.visession, triggerSourceC ,triggerLevelC, triggerSlopeC)
+            #manually set trigger source because the configure function doesn't actually do it.
+            self.SetAttribute(None,AQMD3_ATTR_ACTIVE_TRIGGER_SOURCE, self.triggerSource, 'ViString')
 
     def InitiateAcquisition(self):
         self.call('InitiateAcquisition', self.visession)
@@ -478,6 +508,20 @@ class AqMd3(object):
             startInd = dataFirstValidPoint
             data = rawData[startInd: (startInd + dataActualPoints)]
             return data
+        
+    def ReInitialize(self):
+        '''Basic init function. Can also be used to wipe he settings if the card is very confused. '''
+        if self.simulate == True:
+            strInitOptionsC = ctypes.c_char_p(b'Simulate=True,  DriverSetup= model = SA220P')
+        else:
+            strInitOptionsC = ctypes.c_char_p(b'Simulate=False,  DriverSetup= model = SA220P')
+            
+        self.call('InitWithOptions',
+            ctypes.create_string_buffer(self.hardwareAddress.encode('utf-8')),
+            False,
+            False, 
+            strInitOptionsC,
+            ctypes.byref(self.visession))
 
     def SetAverageMode(self, averages):
         self.SetAttribute(None, AQMD3_ATTR_ACQUISITION_MODE, 1, 'ViInt32') 
@@ -505,14 +549,6 @@ class AqMd3(object):
 
 
 if __name__ == '__main__':
-    
-    ResourceName = "PXI23::0::0::INSTR"
-
-    IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
-    sys.path.append(IVIbinPath)
-    
-    print("Initialize instrument @", ResourceName)
-    card = AqMd3("AqMd3_64.dll", ResourceName)
     
     # Declaration of some attributes (values from AqMd3.h)
     IVI_ATTR_BASE          = 1000000
@@ -544,8 +580,36 @@ if __name__ == '__main__':
     AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE               = IVI_CLASS_ATTR_BASE + 13      # ViInt64, read-write
 
     #sampling and clocking
-    #AQMD3_ATTR_SAMPLE_RATE                   = IVI_CLASS_ATTR_BASE + 15       # ViReal64, read-write  #!!! something here is not quite right
+    AQMD3_ATTR_SAMPLE_RATE                          = IVI_CLASS_ATTR_BASE + 15       # ViReal64, read-write  
    
+    #simulation mode
+    AQMD3_ATTR_SIMULATE                             = IVI_INHERENT_ATTR_BASE + 5       # ViBoolean, read-write  
+    
+    
+    
+    
+    
+    ResourceName = "PXI23::0::0::INSTR"
+
+    IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
+    sys.path.append(IVIbinPath)
+    
+#    alwaysInit = False
+    alwaysInit = True
+    if alwaysInit:
+        print("Initialize instrument @", ResourceName)
+        card = AqMd3("AqMd3_64.dll", ResourceName)
+    else:
+        try:
+            #random driver call to see if things are set up
+            card.GetAttribute(None, AQMD3_ATTR_SIMULATE, 'ViBoolean')
+            print('Card already initialized')
+        except:
+            print("Initialize instrument @", ResourceName)
+            card = AqMd3("AqMd3_64.dll", ResourceName)
+    
+    
+    
     # Read some attributes
     print('Manufacturer  : {}'.format(card.GetAttribute(None, AQMD3_ATTR_INSTRUMENT_MANUFACTURER, 'ViString')))
     print('Description   : {}'.format(card.GetAttribute(None, AQMD3_ATTR_SPECIFIC_DRIVER_DESCRIPTION, 'ViString')))
@@ -595,8 +659,8 @@ if __name__ == '__main__':
     #set up acquisition and try
     #####################
 
-    averageMode = True
-    # averageMode = False
+#    averageMode = True
+    averageMode = False
 
     # multisegMode = True
     multisegMode = False
@@ -626,7 +690,8 @@ if __name__ == '__main__':
 
     # Set active trigger source to External1
     print('\nSet active trigger source to External1')
-    card.SetAttribute(None, AQMD3_ATTR_ACTIVE_TRIGGER_SOURCE, 'External1', 'ViString')
+#    card.SetAttribute(None, AQMD3_ATTR_ACTIVE_TRIGGER_SOURCE, 'External1', 'ViString')
+    card.ConfigureTrigger('External1', 0, 'Falling')
 
 
     # samples = 1*10**7
@@ -667,7 +732,7 @@ if __name__ == '__main__':
 
     print('Plotting.')
 
-    pylab.figure(1)
+    fig1 = pylab.figure(1)
     pylab.clf()
     ax = pylab.subplot(1,1,1)
     if multisegMode:
@@ -691,6 +756,6 @@ if __name__ == '__main__':
 
     print('Done plotting.')
     
-    # Close the instrument
-    print("\nClose the instrument")    
-    card.close()
+#    # Close the instrument
+#    print("\nClose the instrument")    
+#    card.close()
