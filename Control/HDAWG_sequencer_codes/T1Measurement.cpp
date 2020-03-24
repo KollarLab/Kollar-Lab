@@ -3,23 +3,24 @@
 //_samplesparam_ should be used to specify the number of points in the waveforms
 //Wait time can be set either here or by formatting the string
 
-const NumSamples = _NumSamples_;
-const waitInc    = _waitInc_;
-const clearTime  = _clearTime_;
-const markerPos  = _markerPos_;
+const NumSamples = 800;
+const waitInc    = 1000;
+const clearTime  = 1000;
+const markerPos  = 300;
 
-wave w1   = ones(NumSamples);
-wave w2   = zeros(NumSamples);
-wave markL = marker(markerPos,0);
-wave markR = marker(NumSamples-markerPos,1);
-wave mark  = join(markL,markR);
-wave w1m  = w1 + mark; //Add markers to waveform to trigger digitizer
-
-for(var i=1; i<5;i=i+1){
-    playWave(w1m,w2);
-    waitWave(); //Wait until the end of playback to continue to the next command
-    wait(waitInc*i); //Sets the amount of time between the two pulses (is multiples of sequencer clock, around 3.3 ns)
-    playWave(w2,w1m);
-    waitWave();
-    wait(clearTime);
+wave w1   = gauss(NumSamples,NumSamples/2,NumSamples/8);
+wave w1f  = zeros(NumSamples); //Gaussian starting at 0
+wave mark = marker(NumSamples,1); //Make rectangular window around gaussian pulse to be used as trigger for digitizer or something
+cvar i;
+for(i=0;i<NumSamples;i++){
+  w1f[i]=w1[i]-w1[0]; //Remove offset from discrete gaussian
+}
+w1f=w1f+mark;
+for (i=0;i<5;i++){
+  playWave(w1f);
+  waitWave();
+  wait(waitInc*i);
+  playWave(w1f);
+  waitWave();
+  wait(clearTime);
 }
