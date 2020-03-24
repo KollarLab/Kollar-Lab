@@ -3,46 +3,37 @@ from Instruments.SGS import RFgen
 import numpy as np
 import time
 
-AWG=HDAWG('dev8163') #HDAWG device name
 #RFsource=RFgen('TCPIP0::rssgs100a110739::inst0::INSTR') #SGS visa resource name
 
-AWG.enable_channels([0,1])
-AWG.set_AWGamp([1.,1.],[0,1])
+## Connect to HDAWG and initialize it 
+AWG = HDAWG('dev8163') #HDAWG device name
+AWG.enable_channels([0,1]) #turn on output for channels 0 and 1
+AWG.set_AWGamp([1.,1.],[0,1]) #set output amplitude
+AWG.enable_markers([0,1]) #enable markers for our channels 
 
-#Most basic program for AWG
-initprog="""
-const NumSamples=_samplesparam_;
-wave w1=ones(NumSamples);
-wave w2=zeros(NumSamples);
+## Read in the sequencer program we want to use
+progFile = open("HDAWG_sequencer_codes/T1Measurement.cpp",'r')
+rawprog  = progFile.read()
+loadprog = rawprog
 
-for(var i=1; i<5;i=i+1){
-playWave(w1,w2);
-waitWave();
-wait(1000*i); //Sets the amount of time between the two pulses (is multiples of sequencer clock, around 3.3 ns)
-playWave(w2,w1);
-waitWave();
-wait(1000);
-}
-"""
-#Program using markers
-markerprog="""
-const marker_pos = 1000;
-wave w_gauss = gauss(8000, 4000, 1000);
-wave w_left = marker(marker_pos, 0);
-wave w_right = marker(8000-marker_pos, 1);
-wave w_marker = join(w_left, w_right);
-wave w_gauss_marker = w_gauss + w_marker;
-playWave(w_gauss_marker,w_gauss_marker);
-"""
+## Configure program to our parameters
+NumSamples = 800 #sets number of samples to use for the waveform (try to make it a multiple of 16 otherwise AWG pads with zeros)
+waitInc    = 1000 #sets increment of wait time between two pulses (in units of clock cycles, approx 3.3 ns)
+clearTime  = 1000 #time between two measurements (clock cycles)
+markerPos  = 300 #sets position of trigger relative to signal (0 is coicident)
 
-NumSamples=800 #sets number of samples to use for the waveform (try to make it a multiple of 16 otherwise AWG pads with zeros)
-x=np.linspace(-np.pi,np.pi, NumSamples)
-Isignal=np.sin(x)
-Qsignal=np.cos(x)
-
-loadprog=initprog.replace('_samplesparam_', str(NumSamples))
+loadprog = loadprog.replace('_NumSamples_', str(NumSamples))
+loadprog = loadprog.replace('_waitInc_', str(waitInc))
+loadprog = loadprog.replace('_clearTime_', str(clearTime))
+loadprog = loadprog.replace('_markerPos_', str(markerPos))
 AWG.load_program(loadprog)
-#AWG.load_waveform(0,Isignal,Qsignal)
-t1=time.time()
 
+## Create waveforms we want to use for channels 1 and 2
+time    = np.linspace(-np.pi,np.pi, NumSamples)
+Isignal = np.sin(time)
+Qsignal = np.cos(time)
+
+#AWG.load_waveform(0,Isignal,Qsignal)
+
+## Run AWG program
 AWG.AWG_run()
