@@ -415,7 +415,13 @@ class AqMd3(object):
 
         # WaveformArrayC = ctypes.c_double*arraySize_int #this doesn't work
         class WAVEFORMHOLDER(ctypes.Structure):   
-            _fields_ = [("WaveformArrayC", ctypes.c_longdouble*arraySize_int)]
+            _fields_ = [("WaveformArrayC", ctypes.c_longdouble*arraySize_int),
+                        ("ActualPointsC", ctypes.c_int64*segments_int),
+                        ("FirstValidPointsC", ctypes.c_int64*segments_int),
+                        ("InitialXOffsetC", ctypes.c_longdouble*segments_int),
+                        ("InitialXTimeSecondsC", ctypes.c_longdouble*segments_int),
+                        ("InitialXTimeFractionC", ctypes.c_longdouble*segments_int)]
+#                        ("XIncrementC", ctypes.c_longdouble*1)]
         WaveHolder = WAVEFORMHOLDER()   # This DOES WORK! It can be sent in.
         #Successfully returns data to "WaveHolder.WaveformArrayC"
         
@@ -436,20 +442,20 @@ class AqMd3(object):
                             WavefromArraySizeC,\
                                  WaveHolder.WaveformArrayC,\
                                  ctypes.byref(ActualRecordsC),\
-                                 ActualPointsC,\
-                                 FirstValidPointsC,\
-                                 InitialXOffsetC,\
-                                 InitialXTimeSecondsC,\
-                                 InitialXTimeFractionC,\
+                                 WaveHolder.ActualPointsC,\
+                                 WaveHolder.FirstValidPointsC,\
+                                 WaveHolder.InitialXOffsetC,\
+                                 WaveHolder.InitialXTimeSecondsC,\
+                                 WaveHolder.InitialXTimeFractionC,\
                                  ctypes.byref(XIncrementC))
 
         print('Fetch Complete. Processing Data.')
         rawData = numpy.asarray(WaveHolder.WaveformArrayC)
         dataRawSize = rawData.size
-        dataActualSegments = numpy.asarray(ActualRecordsC)[0]
-        dataActualPoints_full = numpy.asarray(ActualPointsC)
+        dataActualSegments = int(ActualRecordsC.value)
+        dataActualPoints_full = numpy.asarray(WaveHolder.ActualPointsC)
         dataActualPoints = dataActualPoints_full[0]
-        dataFirstValidPoints = numpy.asarray(FirstValidPointsC).astype('int64')
+        dataFirstValidPoints = numpy.asarray(WaveHolder.FirstValidPointsC).astype('int64')
         if returnRaw:
             out = [rawData, dataActualPoints, dataFirstValidPoints, dataActualSegments]
             return out
