@@ -73,7 +73,11 @@ class Acqiris(object):
             
     def SetParams(self):
         '''Autoinititalize function that will set up the card with all the driver
-        parameters stored in this object. It will push all the settings and do cross checks.'''
+        parameters stored in this object. It will push all the settings and do cross checks.
+        
+        This function loads all the settings to the card, so it sets up the trigger and the
+        data acquisition channels. Then it calls Configure Acquisition to set up things
+        like averaging and sample/sample rate'''
         
         #configure the trigger
         self.ConfigureTrigger(Source = self.triggerSource, Level = self.triggerLevel, Slope = self.triggerSlope, Mode = self.triggerMode)
@@ -109,7 +113,7 @@ class Acqiris(object):
                 #this should be driver and firmware info, not acquisition settings for the card.
                 pass
             else:
-    #            print(key)
+                print(key)
                 #channel properties need special handling
                 if key[0:7] == 'channel':
                     #this is a channel specific variable and needs to be access with a repeat capability identifier
@@ -134,7 +138,7 @@ class Acqiris(object):
                 #trigger properties need special handling        
                 elif key[0:7] == 'trigger':
                     #trigger settings are mixed convnetional and recap identifier settings
-                    if key == 'triggerSource':
+                    if (key == 'triggerSource') or (key == 'triggerDelay'):
                         val = self.GetDriverAttribute(key)
                     else:
                         trigSource = self.GetDriverAttribute('triggerSource')
@@ -148,8 +152,7 @@ class Acqiris(object):
                 if self.verbose:
                     print(key + ' : ' + str(val))
                 
-                
-                    
+   
         if self.verbose:
             print('    ')
             
@@ -299,7 +302,8 @@ class Acqiris(object):
     def close(self):    
         self.call('close', self.visession) 
         
-    def SelfCalibrate(self):    
+    def SelfCalibrate(self):
+        print('Calibrating...')
         self.call('SelfCalibrate', self.visession) 
 
     ##################################################
@@ -319,60 +323,102 @@ class Acqiris(object):
         Then wait for it to finish'''
         self.Arm()
         self.WaitForAcquisition()
-        
-
+     
     def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
+        '''Configure Acquistion function that gets everything ready for data taking.
+        Does more than the equivelent C function.
+        If handles the averaging as well as samples, segments, and sample rate.
+        Order of operations is important here. Averaging can't b turned on if the
+        number of samples is too high, and vice versa.
         
-        self.samples = samples
-        numPointsPerRecordC = ctypes.c_int64(self.samples)
+        We are not currently using the C driver's CONFIGURE_ACQUISITION function
+        because it sees to have more safety checks and make it harder to turn averaging 
+        on and off. The price we pay is that we have to handle keeping the number of samples
+        an integer multiple of 1024, both as a number, and as a datatype.'''
+        
         self.sampleRate = sampleRate
-        sampleRateC = ctypes.c_double(self.sampleRate)
 
-        #trying to handle the vairous acquistion types. Not quite sure how this logic will 
-        #eventually go.
-        self.ConfigureAveraging() #trip the flags to handle the averaging
-        #NOTE!!!! There may eventually be a problem here when I stop initializing every time.
-        if self.averageMode == True:
-            if self.verbose:
-                print('Warning: Manual says multiseg should work with this, not sure I have the right read function though.')
-            self.segments = segments
-            numRecordsC = ctypes.c_int64(self.segments)
-            
-            if self.verbose:
-                print('Trying to set acquisition parameters manually.')
-            ###!!!!!!!!!!!!!
-            #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
-            #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
-            #or is it just that the ME is only for non-averaging mode?
-            multiple = numpy.ceil(self.samples/1024)
+        self.segments = segments
+        
+        if self.verbose:
+            print('Setting acquisition parameters manually.')
+            print('Sample will autoround to a multiple of 1024 and shorten if tto long for avg mode.')
+        ###!!!!!!!!!!!!!
+        #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
+        #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
+        #or is it just that the ME is only for non-averaging mode?
+        multiple = int(numpy.ceil(self.samples/1024))
+        if self.averageMode:
             if multiple > 512:
                 print('Data is too long for averaging mode. Setting to max length: 512*1024')
                 multiple = 512
-                self.samples = multiple*1024
-                numPointsPerRecordC = ctypes.c_int64(self.samples)
+        self.samples = int(multiple*1024) #it is very important that this winds up an integer
 
 #            self.SetAttribute(None, AQMD3_ATTR_RECORD_SIZE, int(1024*multiple), 'ViInt64')
-            self.SetDriverAttribute('samples', int(1024*multiple))
+        self.SetDriverAttribute('samples', int(self.samples))
 #            self.SetAttribute(None, AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE, int(self.segments), 'ViInt64')
-            self.SetDriverAttribute('segments', int(self.segments))
+        self.SetDriverAttribute('segments', int(self.segments))
 #            self.SetAttribute(None, AQMD3_ATTR_SAMPLE_RATE, self.sampleRate, 'ViReal64')
-            self.SetDriverAttribute('sampleRate', self.sampleRate)
+        self.SetDriverAttribute('sampleRate', self.sampleRate)
+        
+        #trying to handle the vairous acquistion types. Not quite sure how this logic will 
+        #eventually go.
+        self.ConfigureAveraging() #trip the flags to handle the averaging
+        #Hopefully doing it after everything else is set will only try to flip to averager 
+        #after the number of samples has been reduced.
 
-            # self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
-
-        else:
-#            if self.multiseg == False:
-#                self.segments = 1
-#                if segments > 1:
-#                    print('Single Segment Mode: Ignoring requested extra segments')
-#            else:
-#                self.segments = segments
-
-            numRecordsC = ctypes.c_int64(self.segments)
-            if self.verbose:
-                print('Using auto config function for the acquisition.')
-            self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
-            #I think this configure funtion only works in non-averaging mode. !!!?????
+#    def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
+#        
+#        self.samples = samples
+#        numPointsPerRecordC = ctypes.c_int64(self.samples)
+#        self.sampleRate = sampleRate
+#        sampleRateC = ctypes.c_double(self.sampleRate)
+#
+#        #trying to handle the vairous acquistion types. Not quite sure how this logic will 
+#        #eventually go.
+#        self.ConfigureAveraging() #trip the flags to handle the averaging
+#        #NOTE!!!! There may eventually be a problem here when I stop initializing every time.
+#        if self.averageMode == True:
+#            if self.verbose:
+#                print('Warning: Manual says multiseg should work with this, not sure I have the right read function though.')
+#            self.segments = segments
+#            numRecordsC = ctypes.c_int64(self.segments)
+#            
+#            if self.verbose:
+#                print('Trying to set acquisition parameters manually.')
+#            ###!!!!!!!!!!!!!
+#            #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
+#            #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
+#            #or is it just that the ME is only for non-averaging mode?
+#            multiple = numpy.ceil(self.samples/1024)
+#            if multiple > 512:
+#                print('Data is too long for averaging mode. Setting to max length: 512*1024')
+#                multiple = 512
+#                self.samples = multiple*1024
+#                numPointsPerRecordC = ctypes.c_int64(self.samples)
+#
+##            self.SetAttribute(None, AQMD3_ATTR_RECORD_SIZE, int(1024*multiple), 'ViInt64')
+#            self.SetDriverAttribute('samples', int(1024*multiple))
+##            self.SetAttribute(None, AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE, int(self.segments), 'ViInt64')
+#            self.SetDriverAttribute('segments', int(self.segments))
+##            self.SetAttribute(None, AQMD3_ATTR_SAMPLE_RATE, self.sampleRate, 'ViReal64')
+#            self.SetDriverAttribute('sampleRate', self.sampleRate)
+#
+#            # self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
+#
+#        else:
+##            if self.multiseg == False:
+##                self.segments = 1
+##                if segments > 1:
+##                    print('Single Segment Mode: Ignoring requested extra segments')
+##            else:
+##                self.segments = segments
+#
+#            numRecordsC = ctypes.c_int64(self.segments)
+#            if self.verbose:
+#                print('Using auto config function for the acquisition.')
+#            self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
+#            #I think this configure funtion only works in non-averaging mode. !!!?????
 
     def ConfigureAveraging(self):
         if self.averages >1:
@@ -435,6 +481,10 @@ class Acqiris(object):
             
             triggerSourceC = ctypes.create_string_buffer(self.triggerSource.encode('utf-8'))
             triggerLevelC = ctypes.c_longdouble(self.triggerLevel)
+            
+            self.SetDriverAttribute('triggerDelay', self.triggerDelay)
+            self.SetDriverAttribute('triggerCoupling', self.triggerCoupling, recap = self.triggerSource)
+
 
             self.call('ConfigureEdgeTriggerSource', self.visession, triggerSourceC ,triggerLevelC, triggerSlopeC)
             #manually set trigger source because the configure function doesn't actually do it.
@@ -487,6 +537,8 @@ class Acqiris(object):
         self.hardwareIDs['triggerLevel'] = [classID+19, 'ViReal64']
         self.hardwareIDs['triggerSlope'] = [classID+21, 'ViInt32']
         self.hardwareIDs['triggerMode'] = [classID+23, 'ViInt32']
+        self.hardwareIDs['triggerDelay'] = [classID+17, 'ViReal64']
+        self.hardwareIDs['triggerCoupling'] = [classID+16, 'ViInt32']
     
         #averaging
 #        AQMD3_ATTR_ACQUISITION_MODE                     = IVI_SPECIFIC_ATTR_BASE + 11   # ViInt32, read-write 
@@ -534,6 +586,9 @@ class Acqiris(object):
         self.triggerMode = 'Edge'
         self.triggerLevel = 0
         self.triggerSlope = 'Falling'
+        self.triggerDelay = 0
+        self.triggerCoupling = 1 #1 for DC, 0 for AC
+        
 
         #diagnostic prints
         self.verbose = False
@@ -568,12 +623,17 @@ class Acqiris(object):
         numPointsPerRecordC = ctypes.c_int64(self.samples) 
         numRecordsC = ctypes.c_int64(self.segments)
         self.offsetWithinRecord = 0
+#        self.offsetWithinRecord = 1
         offsetWithinRecordC = ctypes.c_int64(self.offsetWithinRecord) 
         numSamplesC = ctypes.c_int64()
         self.call('QueryMinWaveformMemory', self.visession, ctypes.c_int32(64), numRecordsC,\
              offsetWithinRecordC, numPointsPerRecordC, ctypes.byref(numSamplesC))
         if self.verbose:
             print('Memeory Allocation Determined')
+            
+#        print(chanNum)
+#        print(offsetWithinRecordC.value)
+            
         numSamples = int(numSamplesC.value)
         self.totalSamples = numSamples
 
@@ -653,6 +713,7 @@ class Acqiris(object):
         dataActualPoints_full = numpy.asarray(WaveHolder.ActualPointsC)
         dataActualPoints = dataActualPoints_full[0]
         dataFirstValidPoints = numpy.asarray(WaveHolder.FirstValidPointsC).astype('int64')
+#        print(dataFirstValidPoints)
         if returnRaw:
             out = [rawData, dataActualPoints, dataFirstValidPoints, dataActualSegments]
             return out
@@ -794,6 +855,7 @@ class Acqiris(object):
     def ReInitialize(self):
         '''Basic init function. Can also be used to wipe he settings if the card is very confused. 
         Will push the currently stored settings to the card and calibrate'''
+        print('Initializing...')
         if self.simulate == True:
             strInitOptionsC = ctypes.c_char_p(b'Simulate=True,  DriverSetup= model = SA220P')
         else:
