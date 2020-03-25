@@ -55,7 +55,21 @@ class Acqiris(object):
         self.hardwareAddress = ResourceName
         self.ReInitialize()
         
-        
+#    ##############################
+#    #hardwae properties
+#    
+#    def get_samples(self):
+#        return self.GetDriverAttribute('samples')
+#    
+#    def set_samples(self,val):
+#        self.SetDriverAttribute('samples', val)
+#    
+#    samples = property()
+#    
+#    
+#    
+#    #############################
+#        
             
     def SetParams(self):
         '''Autoinititalize function that will set up the card with all the driver
@@ -75,6 +89,72 @@ class Acqiris(object):
         #configure the acquisition
         self.ConfigureAcquisition(self.samples, self.sampleRate, self.segments)
         
+    def GetParams(self, driverInfo = False):
+        '''Autoget function for params. Will querry the hardware and package all the settings, as well as 
+        update the fields of the python software object.'''
+        
+#        self.hardwareIDs['channelOffset'] = [classID + 25, 'ViReal64']
+#        self.hardwareIDs['channelRange'] = [classID + 26, 'ViReal64']
+#        self.hardwareIDs['channelEnabled'] = [classID + 2, 'ViBoolean']
+        
+        if self.verbose:
+            print('    ')
+        
+        hardwareSettings = {}
+        for key in self.hardwareIDs.keys():
+            ID = self.hardwareIDs[key][0]
+            driverInfoFlag =  (ID > self.driverBases['IVI_INHERENT_ATTR_BASE'] + 500) and  (ID < self.driverBases['IVI_INHERENT_ATTR_BASE'] + 600)
+            serialNumberFlag = (ID == self.driverBases['IVI_SPECIFIC_ATTR_BASE'] + 8)
+            if (driverInfoFlag or serialNumberFlag) and not driverInfo:
+                #this should be driver and firmware info, not acquisition settings for the card.
+                pass
+            else:
+    #            print(key)
+                #channel properties need special handling
+                if key[0:7] == 'channel':
+                    #this is a channel specific variable and needs to be access with a repeat capability identifier
+                    val = self.GetDriverAttribute(key, recap = 'Channel1')
+                    val2 = self.GetDriverAttribute(key, recap = 'Channel2')
+                    if not val == val2:
+                        print('Warning: ' + key+ ' set differently on the two channels')
+                        
+                    if  key == 'channelEnabled':
+                        flags = numpy.asarray([val,val2])
+                        inds = numpy.where(flags == True)[0]
+                        full = numpy.asarray([1,2])
+                        actives = full[inds]
+                        hardwareSettings['activeChannels'] = actives
+                        if self.verbose:
+                            print('activeChannels : ' + str(actives))
+                    else:
+                        hardwareSettings[key] = val
+                        if self.verbose:
+                            print(key + ' : ' + str(val) + ' , ' + str(val2))
+                            
+                #trigger properties need special handling        
+                elif key[0:7] == 'trigger':
+                    #trigger settings are mixed convnetional and recap identifier settings
+                    if key == 'triggerSource':
+                        val = self.GetDriverAttribute(key)
+                    else:
+                        trigSource = self.GetDriverAttribute('triggerSource')
+                        val = self.GetDriverAttribute(key, recap = trigSource)
+                    hardwareSettings[key] = val
+                else:
+                    val = self.GetDriverAttribute(key)
+                    hardwareSettings[key] = val
+                
+                #print all the results    
+                if self.verbose:
+                    print(key + ' : ' + str(val))
+                
+                
+                    
+        if self.verbose:
+            print('    ')
+            
+        return hardwareSettings
+            
 
     def SetDriverAttribute(self, keyword, val, recap = None):
         '''Set function for atributes of the Cdriver.
@@ -382,28 +462,31 @@ class Acqiris(object):
             
         #firmware
 #        AQMD3_ATTR_SPECIFIC_DRIVER_DESCRIPTION          = IVI_INHERENT_ATTR_BASE + 514  # ViString, read-only 
-        self.hardwareIDs['driverDescription'] = [baseID + 514, 'ViString']
+        self.hardwareIDs['driverDescription'] = [inherentID + 514, 'ViString']
 #        AQMD3_ATTR_SPECIFIC_DRIVER_REVISION             = IVI_INHERENT_ATTR_BASE + 551  # ViString, read-only  
-        self.hardwareIDs['driverRevision'] = [baseID + 551, 'ViString']
+        self.hardwareIDs['driverRevision'] = [inherentID + 551, 'ViString']
 #        AQMD3_ATTR_INSTRUMENT_FIRMWARE_REVISION         = IVI_INHERENT_ATTR_BASE + 510  # ViString, read-only
-        self.hardwareIDs['firmwareRevision'] = [baseID + 510, 'ViString']
+        self.hardwareIDs['firmwareRevision'] = [inherentID + 510, 'ViString']
 #        AQMD3_ATTR_INSTRUMENT_MANUFACTURER              = IVI_INHERENT_ATTR_BASE + 511  # ViString, read-only
-        self.hardwareIDs['manufacturer'] = [baseID+511, 'ViString']
+        self.hardwareIDs['manufacturer'] = [inherentID+511, 'ViString']
 #        AQMD3_ATTR_INSTRUMENT_MODEL                     = IVI_INHERENT_ATTR_BASE + 512  # ViString, read-only
-        self.hardwareIDs['instrumentModel'] = [baseID + 512, 'ViString']
+        self.hardwareIDs['instrumentModel'] = [inherentID + 512, 'ViString']
 #        AQMD3_ATTR_INSTRUMENT_INFO_SERIAL_NUMBER_STRING = IVI_SPECIFIC_ATTR_BASE + 8    # ViString, read-only 
-        self.hardwareIDs['serialNumber'] = [baseID +8, 'ViString']
+        self.hardwareIDs['serialNumber'] = [specificID +8, 'ViString']
         
         #channel
 #        AQMD3_ATTR_VERTICAL_OFFSET                      = IVI_CLASS_ATTR_BASE + 25      # ViReal64, read-write 
-        self.hardwareIDs['verticalOffset'] = [classID + 25, 'ViReal64']
-        self.hardwareIDs['channelEnables'] = [classID + 2, 'ViBoolean']
+#        self.hardwareIDs['verticalOffset'] = [classID + 25, 'ViReal64']
+        self.hardwareIDs['channelOffset'] = [classID + 25, 'ViReal64']
+        self.hardwareIDs['channelRange'] = [classID + 26, 'ViReal64']
+        self.hardwareIDs['channelEnabled'] = [classID + 2, 'ViBoolean']
         
         #trigger
 #        AQMD3_ATTR_ACTIVE_TRIGGER_SOURCE                = IVI_CLASS_ATTR_BASE + 1       # ViString, read-write
         self.hardwareIDs['triggerSource'] = [classID+1, 'ViString']
         self.hardwareIDs['triggerLevel'] = [classID+19, 'ViReal64']
         self.hardwareIDs['triggerSlope'] = [classID+21, 'ViInt32']
+        self.hardwareIDs['triggerMode'] = [classID+23, 'ViInt32']
     
         #averaging
 #        AQMD3_ATTR_ACQUISITION_MODE                     = IVI_SPECIFIC_ATTR_BASE + 11   # ViInt32, read-write 
@@ -439,7 +522,6 @@ class Acqiris(object):
         self.averages = 1
         
         #multisegment acquisition
-#        self.multiseg = 0
         self.segments = 1
         
         #channel settings
@@ -853,7 +935,8 @@ if __name__ == '__main__':
 #    card.ConfigureTrigger('External1', 0, 'Falling')
 #    card.ConfigureAcquisition(samples, sampleRate, segments)
 
-
+    card.GetParams()
+    
     ##########
     #initiate acquisition and wait for it to finish
     card.ArmAndWait()
@@ -864,8 +947,8 @@ if __name__ == '__main__':
     print('Data Acquired (In Theory)')
 
     
-#    data = card.ReadData(1, returnRaw = False) #read channel 1
-    data = card.ReadData(2, returnRaw = False) #read channel 1
+    data = card.ReadData(1, returnRaw = False) #read channel 1
+#    data = card.ReadData(2, returnRaw = False) #read channel 1
 #    data, data2 = card.ReadAllData()
     
 
