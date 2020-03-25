@@ -250,6 +250,8 @@ class Acqiris(object):
 
         #trying to handle the vairous acquistion types. Not quite sure how this logic will 
         #eventually go.
+        self.ConfigureAveraging() #trip the flags to handle the averaging
+        #NOTE!!!! There may eventually be a problem here when I stop initializing every time.
         if self.averageMode == True:
             if self.verbose:
                 print('Warning: Manual says multiseg should work with this, not sure I have the right read function though.')
@@ -292,6 +294,13 @@ class Acqiris(object):
             self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
             #I think this configure funtion only works in non-averaging mode. !!!?????
 
+    def ConfigureAveraging(self):
+        if self.averages >1:
+            self.averageMode = 1 #make sure this variable is conistent. I probably want to do away with it eventually
+        else:
+            self.averageMode = 0
+        self.SetDriverAttribute('averageMode', self.averageMode)
+        self.SetDriverAttribute('averages', self.averages)
 
     def ConfigureChannel(self, channelNum = 1, Range = 2.5, offset = 0, enabled = True):
         if channelNum ==1:
@@ -808,10 +817,17 @@ if __name__ == '__main__':
     card.sampleRate = 1*10**9
     
     
+    #swtich between test cases
     if averageMode:
-        card.averages = 100
-        card.segements = 1
+        card.averageMode = 1
+        if multisegMode:
+            card.averages = 100
+            card.segments = 2
+        else:
+            card.averages = 100
+            card.segments = 1
     else:
+        card.averageMode = 0
         if multisegMode:
             card.averages = 1
             card.segments = 2
@@ -848,7 +864,8 @@ if __name__ == '__main__':
     print('Data Acquired (In Theory)')
 
     
-    data = card.ReadData(1, returnRaw = False) #read channel 1
+#    data = card.ReadData(1, returnRaw = False) #read channel 1
+    data = card.ReadData(2, returnRaw = False) #read channel 1
 #    data, data2 = card.ReadAllData()
     
 
@@ -895,7 +912,7 @@ if __name__ == '__main__':
 #    card.close()
     
     
-    
+
     
     
     
