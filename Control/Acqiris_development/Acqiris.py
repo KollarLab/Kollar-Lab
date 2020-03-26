@@ -681,6 +681,13 @@ class Acqiris(object):
                         ("InitialXTimeSecondsC", ctypes.c_longdouble*segments_int),
                         ("InitialXTimeFractionC", ctypes.c_longdouble*segments_int),
                         ("FlagsC", ctypes.c_int64*segments_int)]
+#        class WAVEFORMHOLDER(ctypes.Structure):   
+#            _fields_ = [("WaveformArrayC", ctypes.c_int32*arraySize_int),
+#                        ("ActualPointsC", ctypes.c_int64*segments_int),
+#                        ("FirstValidPointsC", ctypes.c_int64*segments_int),
+#                        ("InitialXTimeSecondsC", ctypes.c_longdouble*segments_int),
+#                        ("InitialXTimeFractionC", ctypes.c_longdouble*segments_int),
+#                        ("FlagsC", ctypes.c_int64*segments_int)]
         WaveHolder = WAVEFORMHOLDER()   # This DOES WORK! It can be sent in.
         #Successfully returns data to "WaveHolder.WaveformArrayC"
 
@@ -704,10 +711,27 @@ class Acqiris(object):
                     WaveHolder.InitialXTimeFractionC,\
                     ctypes.byref(XIncrementC),\
                     WaveHolder.FlagsC)
+#        self.call('FetchAccumulatedWaveformInt32', self.visession, chanNameC, \
+#                    firstRecordC,\
+#                    numRecordsC,\
+#                    offsetWithinRecordC,\
+#                    numPointsPerRecordC,\
+#                    WavefromArraySizeC,
+#                    WaveHolder.WaveformArrayC,\
+#                    ctypes.byref(ActualAveragesC),\
+#                    ctypes.byref(ActualRecordsC),\
+#                    WaveHolder.ActualPointsC,\
+#                    WaveHolder.FirstValidPointsC,\
+#                    ctypes.byref(InitialXOffsetC),\
+#                    WaveHolder.InitialXTimeSecondsC,\
+#                    WaveHolder.InitialXTimeFractionC,\
+#                    ctypes.byref(XIncrementC),\
+#                    WaveHolder.FlagsC)
         
         if self.verbose:
             print('Fetch Complete. Processing Data.')
         rawData = numpy.asarray(WaveHolder.WaveformArrayC)
+#        rawData = numpy.asarray(WaveHolder.WaveformArrayC)
         dataRawSize = rawData.size
         dataActualSegments = int(ActualRecordsC.value)
         dataActualPoints_full = numpy.asarray(WaveHolder.ActualPointsC)
@@ -946,11 +970,11 @@ if __name__ == '__main__':
     #schose acquisition type
     #####################
 
-#    averageMode = True
-    averageMode = False
+    averageMode = True
+#    averageMode = False
 
-    multisegMode = True
-#    multisegMode = False
+#    multisegMode = True
+    multisegMode = False
     
     
     
@@ -984,6 +1008,7 @@ if __name__ == '__main__':
     card.triggerSlope = 'Falling'
     
     card.activeChannels = [1,2]
+#    card.activeChannels = [1] #it looks like single channel has to be channel 1
     
     card.timeOut = 2
     
@@ -1009,8 +1034,8 @@ if __name__ == '__main__':
     print('Data Acquired (In Theory)')
 
     
-    data = card.ReadData(1, returnRaw = False) #read channel 1
-#    data = card.ReadData(2, returnRaw = False) #read channel 1
+#    data = card.ReadData(1, returnRaw = False) #read channel 1
+    data = card.ReadData(2, returnRaw = False) #read channel 1
 #    data, data2 = card.ReadAllData()
     
 
