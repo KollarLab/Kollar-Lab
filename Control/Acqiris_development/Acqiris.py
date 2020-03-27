@@ -324,21 +324,70 @@ class Acqiris(object):
         self.Arm()
         self.WaitForAcquisition()
      
-    def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
-        '''Configure Acquistion function that gets everything ready for data taking.
-        Does more than the equivelent C function.
-        If handles the averaging as well as samples, segments, and sample rate.
-        Order of operations is important here. Averaging can't b turned on if the
-        number of samples is too high, and vice versa.
+#    def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
+#        '''Configure Acquistion function that gets everything ready for data taking.
+#        Does more than the equivelent C function.
+#        I handles the averaging as well as samples, segments, and sample rate.
+#        Order of operations is important here. Averaging can't b turned on if the
+#        number of samples is too high, and vice versa.
+#        
+#        We are not currently using the C driver's CONFIGURE_ACQUISITION function
+#        because it sees to have more safety checks and make it harder to turn averaging 
+#        on and off. The price we pay is that we have to handle keeping the number of samples
+#        an integer multiple of 1024, both as a number, and as a datatype.'''
+#        
+#        self.sampleRate = sampleRate
+#
+#        self.segments = segments
+#        
+#        if self.verbose:
+#            print('Setting acquisition parameters manually.')
+#            print('Sample will autoround to a multiple of 1024 and shorten if tto long for avg mode.')
+#        ###!!!!!!!!!!!!!
+#        #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
+#        #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
+#        #or is it just that the ME is only for non-averaging mode?
+#        multiple = int(numpy.ceil(self.samples/1024))
+#        if self.averageMode:
+#            if multiple > 512:
+#                print('Data is too long for averaging mode. Setting to max length: 512*1024')
+#                multiple = 512
+#        self.samples = int(multiple*1024) #it is very important that this winds up an integer
+#
+##            self.SetAttribute(None, AQMD3_ATTR_RECORD_SIZE, int(1024*multiple), 'ViInt64')
+#        self.SetDriverAttribute('samples', int(self.samples))
+##            self.SetAttribute(None, AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE, int(self.segments), 'ViInt64')
+#        self.SetDriverAttribute('segments', int(self.segments))
+##            self.SetAttribute(None, AQMD3_ATTR_SAMPLE_RATE, self.sampleRate, 'ViReal64')
+#        self.SetDriverAttribute('sampleRate', self.sampleRate)
+#        
+#        #trying to handle the vairous acquistion types. Not quite sure how this logic will 
+#        #eventually go.
+#        self.ConfigureAveraging() #trip the flags to handle the averaging
+#        #Hopefully doing it after everything else is set will only try to flip to averager 
+#        #after the number of samples has been reduced.
         
-        We are not currently using the C driver's CONFIGURE_ACQUISITION function
-        because it sees to have more safety checks and make it harder to turn averaging 
-        on and off. The price we pay is that we have to handle keeping the number of samples
-        an integer multiple of 1024, both as a number, and as a datatype.'''
+    def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
+        ''''Configure Acquistion function that gets everything ready for data taking.
+#        Does more than the equivelent C function.
+        
+        Test version of configure acquisition. Trying to use the built in function of the C
+        driver and not manually setting all the variables.'''
         
         self.sampleRate = sampleRate
+        sampleRateC = ctypes.c_double(self.sampleRate)
 
         self.segments = segments
+        numRecordsC = ctypes.c_int64(self.segments)
+        
+        #trip python flag for averaging
+        if self.averages > 1:
+            self.averageMode = 1
+        else:
+            self.averageMode = 0
+        #software needs to know at this point so that it can adjust the number of samples
+        #I can't write to the driver here because old number of samples could still be
+        #large from a non-averaged run.
         
         if self.verbose:
             print('Setting acquisition parameters manually.')
@@ -353,21 +402,27 @@ class Acqiris(object):
                 print('Data is too long for averaging mode. Setting to max length: 512*1024')
                 multiple = 512
         self.samples = int(multiple*1024) #it is very important that this winds up an integer
-
-#            self.SetAttribute(None, AQMD3_ATTR_RECORD_SIZE, int(1024*multiple), 'ViInt64')
-        self.SetDriverAttribute('samples', int(self.samples))
-#            self.SetAttribute(None, AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE, int(self.segments), 'ViInt64')
-        self.SetDriverAttribute('segments', int(self.segments))
-#            self.SetAttribute(None, AQMD3_ATTR_SAMPLE_RATE, self.sampleRate, 'ViReal64')
-        self.SetDriverAttribute('sampleRate', self.sampleRate)
+        numPointsPerRecordC = ctypes.c_int64(self.samples)
+        #it looks like now that we have the order of operations right between configuring
+        #the acquisition and turning averaging on and off, so that we can use the
+        #built in C function for configuring, that we might not need this multiple of 1024 check.
+        #But we do need the auto check that turns down the number of samples if its averaging mode
         
-        #trying to handle the vairous acquistion types. Not quite sure how this logic will 
-        #eventually go.
+#        print('self.averageMode = ' + str(self.averageMode))
+#        print('self.averages = ' + str(self.averages))
+#        print('self.samples = ' + str(self.samples))
+        
+        self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
+        
+
         self.ConfigureAveraging() #trip the flags to handle the averaging
+        #(both in python and sending down to the hardware driver.)
         #Hopefully doing it after everything else is set will only try to flip to averager 
         #after the number of samples has been reduced.
 
 #    def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
+#        '''First version of configure Acquisition. It works separately for
+#        Average (accumulation) mode and regular, but didn't allow switching between them'''
 #        
 #        self.samples = samples
 #        numPointsPerRecordC = ctypes.c_int64(self.samples)
@@ -485,7 +540,8 @@ class Acqiris(object):
             self.SetDriverAttribute('triggerDelay', self.triggerDelay)
             self.SetDriverAttribute('triggerCoupling', self.triggerCoupling, recap = self.triggerSource)
 
-
+            #set trigger source before and after to make sure configure hits the right hardware channel
+            self.SetDriverAttribute('triggerSource', self.triggerSource)
             self.call('ConfigureEdgeTriggerSource', self.visession, triggerSourceC ,triggerLevelC, triggerSlopeC)
             #manually set trigger source because the configure function doesn't actually do it.
 #            self.SetAttribute(None,AQMD3_ATTR_ACTIVE_TRIGGER_SOURCE, self.triggerSource, 'ViString')
