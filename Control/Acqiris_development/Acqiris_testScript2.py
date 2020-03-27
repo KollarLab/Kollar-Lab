@@ -41,7 +41,7 @@ sys.path.append(IVIbinPath)
 #minimum acquisition
 ###############
 
-#card = Acqiris(hardwareAddress)
+card = Acqiris(hardwareAddress)
 
 card.samples = 1024*600 #too long for averaging mode, but fine for regular
 card.segments = 2
@@ -56,7 +56,7 @@ print('Took regular data')
 #
 #card.ReInitialize()
 
-card.samples = 1024*500 #going down to something short enogh for regular
+card.samples = 1024*500 #going down to something short enough for regular
 card.segments = 2
 card.averages = 100
 card.triggerDelay = 25*10**-6
@@ -68,14 +68,15 @@ avTs = 10**6* scipy.arange(0, avData1.shape[1],1.)*1/card.sampleRate
 print('Took regular averaged data')
 
 
-#card.samples = 1024*513 #too long for averaging mode, but fine for regular
-#card.segments = 2
-#card.averages = 1
-#card.SetParams() #pushes default to to card if the fields haven't been edited
-#card.ArmAndWait() #initiates aquisition and calibrates if need be
-#data1, data2 = card.ReadAllData() #read data for the active channels.
-##
-#print('Took regular data again')
+card.samples = 1024*605 #too long for averaging mode, but fine for regular
+card.segments = 2
+card.averages = 1
+card.SetParams() #pushes default to to card if the fields haven't been edited
+card.ArmAndWait() #initiates aquisition and calibrates if need be
+data1, data2 = card.ReadAllData() #read data for the active channels.
+ts = 10**6* scipy.arange(0, data1.shape[1],1.)*1/card.sampleRate
+#
+print('Took regular data again')
 
 pylab.figure(4)
 pylab.clf()

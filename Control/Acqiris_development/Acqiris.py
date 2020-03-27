@@ -380,14 +380,21 @@ class Acqiris(object):
         self.segments = segments
         numRecordsC = ctypes.c_int64(self.segments)
         
-        #trip python flag for averaging
-        if self.averages > 1:
-            self.averageMode = 1
-        else:
-            self.averageMode = 0
-        #software needs to know at this point so that it can adjust the number of samples
-        #I can't write to the driver here because old number of samples could still be
-        #large from a non-averaged run.
+
+#        #software needs to know at this point so that it can adjust the number of samples
+#        #I can't write to the driver here because old number of samples could still be
+#        #large from a non-averaged run.
+        
+        #turn off averaging in hardware so that it doesn't muck with setting the number of samples.
+        #This is necessary when switching back from averaging mode.
+        self.SetDriverAttribute('averageMode', 0)
+        self.SetDriverAttribute('averages', 1)
+        #using this low-level hack isntead of ConfigureAveraging, because at this point, python needs
+        #to know about averaging, but the hardware needs to always not be in averaging mode, so that 
+        #it can take a large number of samples if the upcoming acqusition is going to be in regular mode.
+        #whereas the software needs to adjust the limit on the number of samples if the upcoming acquisition
+        # is going to be in averaging mode.
+        
         
         if self.verbose:
             print('Setting acquisition parameters manually.')
@@ -397,11 +404,11 @@ class Acqiris(object):
         #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
         #or is it just that the ME is only for non-averaging mode?
         multiple = int(numpy.ceil(self.samples/1024))
-        if self.averageMode:
+        if self.averages > 1:
             if multiple > 512:
                 print('Data is too long for averaging mode. Setting to max length: 512*1024')
                 multiple = 512
-        self.samples = int(multiple*1024) #it is very important that this winds up an integer
+        self.samples = int(multiple*1024) #it is very important that this winds up an integer, or it least it was at some point
         numPointsPerRecordC = ctypes.c_int64(self.samples)
         #it looks like now that we have the order of operations right between configuring
         #the acquisition and turning averaging on and off, so that we can use the
@@ -414,7 +421,7 @@ class Acqiris(object):
         
         self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
         
-
+        #configure the the actual averaging mode and restore number of averages
         self.ConfigureAveraging() #trip the flags to handle the averaging
         #(both in python and sending down to the hardware driver.)
         #Hopefully doing it after everything else is set will only try to flip to averager 
