@@ -405,10 +405,21 @@ class Acqiris(object):
         #or is it just that the ME is only for non-averaging mode?
         multiple = int(numpy.ceil(self.samples/1024))
         if self.averages > 1:
-            if multiple > 512:
+            #check the number of channels
+            numChans = len(self.activeChannels)
+            if numChans == 1:
+                maxSamples = 1024*1024
+            else:
+                maxSamples = 1024*512
+                
+            if multiple*1024 > maxSamples:
                 print('Data is too long for averaging mode. Setting to max length: 512*1024')
-                multiple = 512
-        self.samples = int(multiple*1024) #it is very important that this winds up an integer, or it least it was at some point
+                self.samples = int(maxSamples)
+            else:
+                #auto round to next multiple of 1024 up, regardless
+                self.samples = int(multiple*1024) 
+                #it is very important that this winds up an integer, or it least it was at some point
+                
         numPointsPerRecordC = ctypes.c_int64(self.samples)
         #it looks like now that we have the order of operations right between configuring
         #the acquisition and turning averaging on and off, so that we can use the
@@ -998,10 +1009,10 @@ class Acqiris(object):
 #        self.multiseg = True   #segment number will be configured elsewhere
         self.segments = 2
 
-    def WaitForAcquisition(self, timeout = 5):
+    def WaitForAcquisition(self):
         '''Timeout in seconds '''
-        self.timeout = timeout
-        timeoutC = ctypes.c_int32(timeout*1000)
+#        self.timeout = timeout
+        timeoutC = ctypes.c_int32(self.timeout*1000)
         self.call('WaitForAcquisitionComplete', self.visession, timeoutC)
 
 
