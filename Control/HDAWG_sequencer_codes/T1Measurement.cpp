@@ -15,9 +15,9 @@ cvar i;
 for(i=0;i<NumSamples;i++){
   w1f[i]=w1[i]-w1[0]; //Remove offset from discrete gaussian
 }
-w1f=w1f+mark;
+wave w1ff=w1f+mark;
 for (i=0;i<5;i++){
-  playWave(w1f);
+  playWave(w1ff);
   waitWave();
   wait(waitInc*i);
   playWave(w1f);
