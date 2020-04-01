@@ -38,6 +38,19 @@ class HDAWG():
         path='/{:s}/awgs/0/waveform/waves/{:d}'.format(self.device, index)
         self.daq.setVector(path, wave_awg)
 
+    #method to read waveform from device, requires it to be part of a 'playwave' command in the sequencer code
+    def read_waveform(self,index, channels=1, markers_present=False):
+        path='/{:s}/awgs/0/waveform/waves/{:d}'.format(self.device, index) #Path to wave data
+        #prepare data to be read out, unclear what this does exactly but in combination with the poll command this will read arbitrarily long data
+        checktime=0.1 #time to record data for (s)
+        timeout=5 #timeout for poll command (ms)
+        self.daq.getAsEvent(path) 
+        pollReturn=self.daq.poll(checktime,timeout,flat=True)
+        #poll command returns dictionary so we need to access the actual array data
+        wave_awg=pollReturn[path][0]['vector']
+        [ch1,ch2,markers]=ziUtils.parse_awg_waveform(wave_awg,channels,markers_present)
+        return [ch1,ch2,markers]
+
     #load program to AWG, essentially copied from the example section for HDAWG
     def load_program(self, awg_program):
         awgModule = self.daq.awgModule()
