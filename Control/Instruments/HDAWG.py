@@ -23,12 +23,12 @@ class HDAWG():
         ziUtils.load_settings(self.daq, self.device, file)
 
     #load settings from xml file
-    def load_settings(self,path,filename):
+    def load_settings_xml(self,path,filename):
         file = path + os.sep + filename
         ziUtils.load_settings(self.daq,self.device, file)
 
     #save settings to xml file
-    def save_settings(self, path, filename):
+    def save_settings_xml(self, path, filename):
         file = path + os.sep + filename
         ziUtils.save_settings(self.daq, self.device, file)
 
@@ -92,7 +92,7 @@ class HDAWG():
         ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
         for amp, channel in zip(amps, channels):
             for maxval in ranges:
-                if amp < maxval:
+                if amp <= maxval:
                     print('Channel: {}, range: {}'.format(channel, maxval))
                     self.daq.setDouble('/{}/sigouts/{}/range'.format(self.device, channel), maxval) #set the max range of output channel
                     scaled_amp = amp/maxval
@@ -139,9 +139,13 @@ class HDAWG():
             for marker in range(4):
                 self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker)
 
-    #Turn on AWG
-    def AWG_run(self):
-        self.daq.setInt('/dev8163/awgs/0/enable',1)
+    #Turn on AWG and run through program once
+    def run(self,AWGcore=0):
+        self.daq.setInt('/{}/awgs/{}/single'.format(self.device,AWGcore),1)
+
+    #Run AWG continuously
+    def run_loop(self,AWGcore=0):
+        self.daq.setInt('/{}/awgs/{}/enable'.format(self.device,AWGcore),1)
     
     #disconnect device
     def done(self):
