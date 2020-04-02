@@ -1,46 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Mar 29 16:44:14 2020
-
-@author: Kollarlab
-"""
-
-# import comtypes
-import os
-import time
-#import subprocess
-
-#import re
-import scipy
-import pylab
-#import tarfile
-#import struct
-#import glob
-import numpy
-import time
-
-#import pickle
-#import datetime
-#import itertools
-import sys
-
-
-#hardwareAddress = "PXI23::0::0::INSTR"
 #
-IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
-AcqirisBinPath = r'C:\\Program Files\\Acqiris\\MD3\\bin\\'
-#IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin"
-#AcqirisBinPath = r'C:\\Program Files\\Acqiris\\MD3\\bin'
-sys.path.append(IVIbinPath)
-sys.path.append(AcqirisBinPath)
-
-if not IVIbinPath in sys.path:
-    sys.path.append(IVIbinPath)
-if not AcqirisBinPath in sys.path:
-    sys.path.append(AcqirisBinPath)
-
-###############
-#modified from:
 # Acqiris IVI-Python AqMD3 Driver Example Program
 #
 # Creates a driver object, reads a few Identity interface properties, and performs a simple
@@ -56,7 +14,7 @@ if not AcqirisBinPath in sys.path:
 from AqMD3 import *
 
 # Edit resource and options as needed. Resource is ignored if option Simulate=True.
-resourceString = "PXI23::0::0::INSTR"
+resourceString = "PXI40::0::0::INSTR"
 initOptions = "Simulate=True, DriverSetup= Model=U5303A"
 idquery = False
 reset = False
@@ -155,5 +113,4 @@ except RuntimeError as e:
 
 print("\nDone - Press enter to exit")
 print()
-
 
