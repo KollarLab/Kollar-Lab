@@ -27,6 +27,7 @@ import sys
 
 #hardwareAddress = "PXI23::0::0::INSTR"
 #
+dotNetPath = "C:\\Program Files\\IVI Foundation\\IVI\\Microsoft.NET\\Framework64\\v4.0.30319\\Acqiris.AqMD3 3.6.7913\\"
 IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
 AcqirisBinPath = r'C:\\Program Files\\Acqiris\\MD3\\bin\\'
 #IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin"
@@ -38,6 +39,8 @@ if not IVIbinPath in sys.path:
     sys.path.append(IVIbinPath)
 if not AcqirisBinPath in sys.path:
     sys.path.append(AcqirisBinPath)
+if not dotNetPath in sys.path:
+    sys.path.append(dotNetPath)
 
 ###############
 #modified from:
