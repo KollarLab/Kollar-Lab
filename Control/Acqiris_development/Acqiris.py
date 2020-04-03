@@ -40,11 +40,7 @@ class Acqiris(object):
         if not IVIbinPath in sys.path:
             sys.path.append(IVIbinPath)
         
-#        self._prefix = "AqMD3"
-#        self._lib = ctypes.cdll.LoadLibrary(library)
-#        self.visession = ctypes.c_int()
-#        #fill in and store the necessary driver-level attribute ID numbers
-#        self._fillHardwareIDs()
+        self.settingsCurrent = False
             
         self._fillHardwareKeys()
         
@@ -62,17 +58,189 @@ class Acqiris(object):
         self.acquisitionFinished = False
         
 #    ##############################
-#    #hardwae properties
-#    
-#    def get_samples(self):
-#        return self.GetDriverAttribute('samples')
-#    
-#    def set_samples(self,val):
-#        self.SetDriverAttribute('samples', val)
-#    
-#    samples = property()
-#    
-#    
+    #hardware properties
+    
+    #icky properties that have to be batch set
+    @property
+    def sampleRate(self): #this one might not need to be here, but I did it already
+        val = self.driver.Acquisition.SampleRate
+        self._sampleRate = val
+        return val
+    @sampleRate.setter
+    def sampleRate(self,val):
+        self.settingsCurrent = False
+        self._sampleRate = val 
+    
+    @property
+    def samples(self):
+        val = self.driver.Acquisition.RecordSize
+        self._samples = val
+        return val
+    @samples.setter
+    def samples(self,val):
+        self.settingsCurrent = False
+        self._samples = val 
+
+    @property
+    def segments(self):
+        val = self.driver.Acquisition.NumberOfRecordsToAcquire
+        self._segments = val
+        return val
+    @segments.setter
+    def segments(self,val):
+        self.settingsCurrent = False
+        self._segments = val 
+    
+    @property
+    def averageMode(self):
+        val = self.driver.Acquisition.Mode
+        self._averageMode = val
+        return val
+    @averageMode.setter
+    def averageMode(self,val):
+        self.settingsCurrent = False
+        self._averageMode = val 
+
+    @property
+    def averages(self):
+        val = self.driver.Acquisition.NumberOfAverages
+        self._averages = val
+        return val
+    @averages.setter
+    def averages(self,val):
+        self.settingsCurrent = False
+        self._averages = val 
+        if val > 1:
+            self.averageMode = 1
+        else:
+            self.averageMode = 0
+            
+            
+#    #not yet finished. Have to add the underscores everywhere down below.
+#    @property
+#    def activeChannels(self):
+#        #have to check what it enabled and convert
+#        val = self.driver.Channels[0].Enabled
+#        val2 = self.driver.Channels[1].Enabled
+#        flags = numpy.asarray([val,val2])
+#        inds = numpy.where(flags == True)[0]
+#        full = numpy.asarray([1,2])
+#        actives = full[inds]
+#        self._activeChannels = actives
+#        return val
+#    @activeChannels.setter
+#    def activeChannels(self,val):
+#        self.settingsCurrent = False
+#        self._activeChannels = val
+
+
+    
+    
+    #normal properties that I think can be set reasonably.
+    @property
+    def triggerSource(self):
+        val = self.driver.Trigger.ActiveSource
+        return val
+    @triggerSource.setter
+    def triggerSource(self,val):
+        self.driver.Trigger.ActiveSource = val 
+
+    @property
+    def triggerLevel(self):
+        activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
+        val = activeTrigger.Level
+        return val
+    @triggerLevel.setter
+    def triggerLevel(self,val):
+        activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
+        activeTrigger.Level = val 
+    
+    @property
+    def triggerSlope(self):
+        activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
+        temp = activeTrigger.Edge.Slope
+        self._triggerSlope = temp
+        if temp == 0:
+            val = 'Falling'
+        if temp == 1:
+            val = 'Rising'
+        else:
+            raise ValueError("Unkown trigger slope returned")
+        return val
+    @triggerSlope.setter
+    def triggerSlope(self,val):
+        if val == 'Falling':
+            triggerSlopeC = 0
+        elif val == 'Rising':
+            triggerSlopeC = 1
+        else:
+            raise ValueError("Edge trigger slope must be either 'Rising' or 'Falling'")
+        self._triggerSlope = triggerSlopeC
+        activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
+        activeTrigger.Edge.Slope = triggerSlopeC 
+        
+    @property
+    def triggerDelay(self):
+        val = self.driver.Trigger.Delay
+        return val
+    @triggerDelay.setter
+    def triggerDelay(self,val):
+        self.driver.Trigger.Delay = val 
+        
+    @property
+    def triggerCoupling(self):
+        activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
+        val = activeTrigger.coupling
+        return val
+    @triggerCoupling.setter
+    def triggerCoupling(self,val):
+         activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
+         activeTrigger.coupling = val
+         
+         
+    
+    @property
+    def channelRange(self):
+        #have to check what it enabled and convert
+        val = self.driver.Channels[0].Range
+        val2 = self.driver.Channels[1].Range
+        if not val == val2:
+            print('Warning: Range set differently on the two channels')
+        return val
+    @channelRange.setter
+    def channelRange(self,val):
+        if val in [0.5, 2.5]:
+            self.driver.Channels[0].Range = val
+            self.driver.Channels[1].Range = val
+        else:
+            raise ValueError('Range must be 0.5 or 2.5')
+            
+    @property
+    def channelOffset(self):
+        #have to check what it enabled and convert
+        val = self.driver.Channels[0].Offset
+        val2 = self.driver.Channels[1].Offset
+        if not val == val2:
+            print('Warning: Offset set differently on the two channels')
+        return val
+    @channelOffset.setter
+    def channelOffset(self,val):
+        self.driver.Channels[0].Offset = val
+        self.driver.Channels[1].Offset = val
+        
+        
+        
+    @property
+    def simulateMode(self):
+        val = self.driver.DriverOperation.Simulate
+        return val
+    @simulateMode.setter
+    def simulateMode(self,val):  #be very wary just trrying to set this blindly.
+        self.driver.DriverOperation.Simulate = val 
+        
+
+
+    
 #    
 #    #############################
 #        
@@ -97,7 +265,10 @@ class Acqiris(object):
             self.ConfigureChannel(channelNum = chind, Range = self.channelRange, offset = self.channelOffset, enabled = enabled)
             
         #configure the acquisition
-        self.ConfigureAcquisition(self.samples, self.sampleRate, self.segments)
+#        self.ConfigureAcquisition(self.samples, self.sampleRate, self.segments)
+        self.ConfigureAcquisition(self._samples, self._sampleRate, self._segments)
+        
+        self.settingsCurrent = True
         
     def GetParams(self, driverInfo = False):
         '''Autoget function for params. Will querry the hardware and package all the settings, as well as 
@@ -113,52 +284,19 @@ class Acqiris(object):
             print('    ')
         
         hardwareSettings = {}
-        for key in self.hardwareIDs.keys():
-            ID = self.hardwareIDs[key][0]
-            driverInfoFlag =  (ID > self.driverBases['IVI_INHERENT_ATTR_BASE'] + 500) and  (ID < self.driverBases['IVI_INHERENT_ATTR_BASE'] + 600)
-            serialNumberFlag = (ID == self.driverBases['IVI_SPECIFIC_ATTR_BASE'] + 8)
-            if (driverInfoFlag or serialNumberFlag) and not driverInfo:
-                #this should be driver and firmware info, not acquisition settings for the card.
-                pass
-            else:
-                print(key)
-                #channel properties need special handling
-                if key[0:7] == 'channel':
-                    #this is a channel specific variable and needs to be access with a repeat capability identifier
-                    val = self.GetDriverAttribute(key, recap = 'Channel1')
-                    val2 = self.GetDriverAttribute(key, recap = 'Channel2')
-                    if not val == val2:
-                        print('Warning: ' + key+ ' set differently on the two channels')
-                        
-                    if  key == 'channelEnabled':
-                        flags = numpy.asarray([val,val2])
-                        inds = numpy.where(flags == True)[0]
-                        full = numpy.asarray([1,2])
-                        actives = full[inds]
-                        hardwareSettings['activeChannels'] = actives
-                        if self.verbose:
-                            print('activeChannels : ' + str(actives))
-                    else:
-                        hardwareSettings[key] = val
-                        if self.verbose:
-                            print(key + ' : ' + str(val) + ' , ' + str(val2))
-                            
-                #trigger properties need special handling        
-                elif key[0:7] == 'trigger':
-                    #trigger settings are mixed convnetional and recap identifier settings
-                    if (key == 'triggerSource') or (key == 'triggerDelay'):
-                        val = self.GetDriverAttribute(key)
-                    else:
-                        trigSource = self.GetDriverAttribute('triggerSource')
-                        val = self.GetDriverAttribute(key, recap = trigSource)
-                    hardwareSettings[key] = val
-                else:
-                    val = self.GetDriverAttribute(key)
-                    hardwareSettings[key] = val
-                
-                #print all the results    
-                if self.verbose:
-                    print(key + ' : ' + str(val))
+        for key in self.hardwareKeys():
+            print(key)
+            
+            #If these are all properties, then I can do this like this
+            val = getattr(self,key)
+            
+            #print all the results    
+            if self.verbose:
+                print(key + ' : ' + str(val))
+            
+            #print all the results    
+            if self.verbose:
+                print(key + ' : ' + str(val))
                 
    
         if self.verbose:
@@ -168,13 +306,11 @@ class Acqiris(object):
             
             
     def close(self):    
-#        self.call('close', self.visession) 
         self.driver.Close()
         
     def SelfCalibrate(self):
         print('Calibrating...')
         self.driver.Calibration.SelfCalibrate()
-#        self.call('SelfCalibrate', self.visession) 
 
     ##################################################
     
@@ -198,14 +334,14 @@ class Acqiris(object):
              self.SelfCalibrate()
         self.InitiateAcquisition()
         
+#        time.sleep(0.1) #putting in a pause to see if that stops the clocks from being unhappy. Nope.
 #        try:
 #            self.InitiateAcquisition()
 #        except:
-#            if self.verbose:
-#                print('Initiate Failed. Trying to fix with a recalibrate.')
-#            self.SelfCalibrate()
+#            time.sleep(5)
+#            print('Waiting for clocks to stabilize?') #hopefully this fixes stuff
 #            self.InitiateAcquisition()
-    
+            
     def ArmAndWait(self):
         '''Initialize the acquisition and get ready to take and read data.
         Tells the card to get ready and wait for triggers, and then waits 
@@ -229,10 +365,8 @@ class Acqiris(object):
         driver and not manually setting all the variables.'''
         
         self.sampleRate = sampleRate
-#        sampleRateC = ctypes.c_double(self.sampleRate)
 
         self.segments = segments
-#        numRecordsC = ctypes.c_int64(self.segments)
         
 
 #        #software needs to know at this point so that it can adjust the number of samples
@@ -241,9 +375,7 @@ class Acqiris(object):
         
         #turn off averaging in hardware so that it doesn't muck with setting the number of samples.
         #This is necessary when switching back from averaging mode.
-#        self.SetDriverAttribute('averageMode', 0)
         self.driver.Acquisition.Mode = 0
-#        self.SetDriverAttribute('averages', 1)
         self.driver.Acquisition.NumberOfAverages = 1
         #using this low-level hack isntead of ConfigureAveraging, because at this point, python needs
         #to know about averaging, but the hardware needs to always not be in averaging mode, so that 
@@ -259,8 +391,8 @@ class Acqiris(object):
         #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
         #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
         #or is it just that the ME is only for non-averaging mode?
-        multiple = int(numpy.ceil(self.samples/1024))
-        if self.averages > 1:
+        multiple = int(numpy.ceil(self._samples/1024))
+        if self._averages > 1:
             #check the number of channels
             numChans = len(self.activeChannels)
             if numChans == 1:
@@ -276,15 +408,13 @@ class Acqiris(object):
                 self.samples = int(multiple*1024) 
                 #it is very important that this winds up an integer, or it least it was at some point
                 
-#        numPointsPerRecordC = ctypes.c_int64(self.samples)
-                
         #it looks like now that we have the order of operations right between configuring
         #the acquisition and turning averaging on and off, so that we can use the
         #built in C function for configuring, that we might not need this multiple of 1024 check.
         #But we do need the auto check that turns down the number of samples if its averaging mode
         
-#        self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
-        self.driver.Acquisition.ConfigureAcquisition(int(self.segments), int(self.samples), self.sampleRate)
+#        self.driver.Acquisition.ConfigureAcquisition(int(self.segments), int(self.samples), self.sampleRate)
+        self.driver.Acquisition.ConfigureAcquisition(int(self._segments), int(self._samples), self._sampleRate)
         
         #configure the the actual averaging mode and restore number of averages
         self.ConfigureAveraging() #trip the flags to handle the averaging
@@ -294,14 +424,14 @@ class Acqiris(object):
 
 
     def ConfigureAveraging(self):
-        if self.averages >1:
+        if self._averages >1:
             self.averageMode = 1 #make sure this variable is conistent. I probably want to do away with it eventually
         else:
             self.averageMode = 0
-#        self.SetDriverAttribute('averageMode', self.averageMode)
-        self.driver.Acquisition.Mode = self.averageMode
-#        self.SetDriverAttribute('averages', self.averages)
-        self.driver.Acquisition.NumberOfAverages = self.averages
+#        self.driver.Acquisition.Mode = self.averageMode 
+#        self.driver.Acquisition.NumberOfAverages = self.averages
+        self.driver.Acquisition.Mode = self._averageMode 
+        self.driver.Acquisition.NumberOfAverages = self._averages
 
     def ConfigureChannel(self, channelNum = 1, Range = 2.5, offset = 0, enabled = True):
         '''Configure channel function.
@@ -309,32 +439,21 @@ class Acqiris(object):
         Meant to becalled by configure acquisiton, but can be called manually.
         If it is called mnaually, it will write it's inputs to the driver settings.
         '''
-        
-#        if channelNum ==1:
-#            chanName = 'Channel1'
-#        elif channelNum ==2:
-#            chanName = 'Channel2'
+
         if channelNum in [1,2]:
             pass
         else:
             raise ValueError('Invalid channel. Should be 1 or 2')
-#        chanNameC = ctypes.c_char_p(chanName)
         
         if Range in [0.5, 2.5]:
-#            rangeC = ctypes.c_double(Range)
             self.channelRange = Range
         else:
             raise ValueError('Range must be 0.5 or 2.5')
             
         self.channelOffset = offset
 
-#        offsetC = ctypes.c_double(offset)
-
         couplingC = 1 # 1 = DC coupling. Always. Card can't do AC.
 
-#        enabledC = enabled
-
-#        self.call('ConfigureChannel', self.visession, chanNameC, rangeC, offsetC, couplingC, enabledC)
         chan = self.driver.Channels[int(channelNum-1)] #python channels are index from 0
         chan.Configure(self.channelRange, self.channelOffset, couplingC, enabled)
     
@@ -355,26 +474,17 @@ class Acqiris(object):
             else:
                 raise ValueError("Edge trigger slope must be either 'Rising' or 'Falling'")
             
-#            triggerSourceC = ctypes.create_string_buffer(self.triggerSource.encode('utf-8'))
-#            triggerLevelC = ctypes.c_longdouble(self.triggerLevel)
-            
-#            self.SetDriverAttribute('triggerDelay', self.triggerDelay)
             self.driver.Trigger.Delay = self.triggerDelay
-            
-
 
 
             #manually set trigger source because the configure function doesn't actually do it.
-#            self.SetDriverAttribute('triggerSource', self.triggerSource)
             self.driver.Trigger.ActiveSource = self.triggerSource
             
-#            self.SetDriverAttribute('triggerCoupling', self.triggerCoupling, recap = self.triggerSource)
-            #!!!!!!!!haven't found this one
-            #self..driver.Trigger.Sources[self.triggerSource].Coupling, but I think this always has to be 1
-            self.driver.Trigger.Sources[self.triggerSource].Coupling = self.triggerCoupling
+
+            #self.driver.Trigger.Sources[self.triggerSource].Coupling, but I think this always has to be 1
+#            self.driver.Trigger.Sources[self.triggerSource].Coupling = self.triggerCoupling
             
-            #set trigger source before and after to make sure configure hits the right hardware channel
-#            self.call('ConfigureEdgeTriggerSource', self.visession, triggerSourceC ,triggerLevelC, triggerSlopeC)
+            #couldn't find a configure trigger function in the python. Just set all the fields instead
             activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
             activeTrigger.Level = self.triggerLevel
             activeTrigger.Edge.Slope = triggerSlopeC 
@@ -398,11 +508,13 @@ class Acqiris(object):
         self.hardwareKeys = []
         self.hardwareKeys.append('channelOffset')
         self.hardwareKeys.append('channelRange')
-        self.hardwareKeys.append('channelEnabled')
+#        self.hardwareKeys.append('channelEnabled') #removed for better syntax
+        self.hardwareKeys.append('activeChannels')
         
         self.hardwareKeys.append('triggerSource')
         self.hardwareKeys.append('triggerLevel')
-        self.hardwareKeys.append('triggerMode')
+#        self.hardwareKeys.append('triggerMode') #I don't think we can change this one
+        self.hardwareKeys.append('triggerSlope')
         self.hardwareKeys.append('triggerDelay')
         self.hardwareKeys.append('triggerCoupling')
         
@@ -416,9 +528,10 @@ class Acqiris(object):
         
         self.hardwareKeys.append('simulateMode')
         
+#        self.hardwareKeys.append('timeout') #i don't know how to get this from the hardware, so it's a software setting
+        
 
     def InitiateAcquisition(self):
-#        self.call('InitiateAcquisition', self.visession)
         self.driver.Acquisition.Initiate()
         self.armed = True #throw flag so that python knows acquisition has been itiated
         #and system is waiting for trigger.
@@ -442,11 +555,11 @@ class Acqiris(object):
         
         #trigger settings
         self.triggerSource = 'External1'
-        self.triggerMode = 'Edge'
+        self.triggerMode = 'Edge' #this thing should maybe go away.
         self.triggerLevel = 0
         self.triggerSlope = 'Falling'
         self.triggerDelay = 0
-        self.triggerCoupling = 1 #1 for DC, 0 for AC
+#        self.triggerCoupling = 1 #1 for DC, 0 for AC. I think it must always be DC, at least on external
         
 
         #diagnostic prints
@@ -520,40 +633,25 @@ class Acqiris(object):
             pass
         else:
             raise ValueError('Invalid channel. Should be 1 or 2')
-
-        
-#        numPointsPerRecordC = ctypes.c_int64(self.samples) 
-#        numRecordsC = ctypes.c_int64(self.segments)
         
         self.offsetWithinRecord = 0
-        
-#        offsetWithinRecordC = ctypes.c_int64(self.offsetWithinRecord) 
-#        numSamplesC = ctypes.c_int64()
-        
-        
-#        self.call('QueryMinWaveformMemory', self.visession, ctypes.c_int32(64), numRecordsC,\
-#             offsetWithinRecordC, numPointsPerRecordC, ctypes.byref(numSamplesC))
         numSamples = self.driver.Acquisition.QueryMinWaveformMemory(64, int(self.segments), int(self.offsetWithinRecord), \
                                                        int(self.samples))
         if self.verbose:
             print('Memeory Allocation Determined')
             
        
-#        numSamples = int(numSamplesC.value)
+
         self.totalSamples = numSamples
 
         if self.verbose:
             print('Trying to Read')
         if self.averageMode:
-#            out = self._ReadAveragerData(chanName, returnRaw = returnRaw)
             out = self._ReadAveragerData(chanNum, returnRaw = returnRaw)
         else:
-#            if self.multiseg:
             if self.segments > 1:
-#                out = self._ReadMultiSegData(chanName, returnRaw = returnRaw)
                 out = self._ReadMultiSegData(chanNum, returnRaw = returnRaw)
             else:
-#                out = self._ReadSingleSegData(chanName, returnRaw = returnRaw)
                 out = self._ReadSingleSegData(chanNum, returnRaw = returnRaw)
                 
 
@@ -570,9 +668,7 @@ class Acqiris(object):
                                                                       numberOfRecords = int(self.segments),\
                                                                       offsetWithinRecord = int(self.offsetWithinRecord), \
                                                                       numberOfPointsPerRecord = int(self.samples))   
-#        waveformObj = channel.Measurement.FetchAccumulatedWaveform(firstRecord =0, numberOfRecords = int(card.segments), offsetWithinRecord = 0, numberOfPointsPerRecord = card.samples)
 
-        
         if self.verbose:
             print('Fetch Complete. Processing Data.')
             
@@ -597,187 +693,6 @@ class Acqiris(object):
             if self.verbose:
                 print('Data Processed.')
             return data
-
-#    def _ReadAveragerData(self,chanName, returnRaw = False):
-#        if self.verbose:
-#            print('reading averaged data')
-#        arraySize_int = int(self.totalSamples)
-#        segments_int = int(self.segments)
-#
-#        firstRecordC = ctypes.c_int64(0)
-#        numRecordsC = ctypes.c_int64(self.segments)
-#        offsetWithinRecordC = ctypes.c_int64(self.offsetWithinRecord)
-#        numPointsPerRecordC = ctypes.c_int64(self.samples)
-#
-#        WavefromArraySizeC = ctypes.c_int64(self.totalSamples)
-#
-#        ActualAveragesC = ctypes.c_int32()
-#        ActualRecordsC = ctypes.c_int64()
-#        InitialXOffsetC = ctypes.c_longdouble()
-#        XIncrementC = ctypes.c_longdouble()
-#
-#        # FlagsC = ctypes.c_int32*segments_int
-#        # ActualPointsC = ctypes.c_int64*segments_int
-#        # FirstValidPointsC = ctypes.c_int64*segments_int
-#        # InitialXTimeSecondsC = ctypes.c_longdouble*segments_int
-#        # InitialXTimeFractionC = ctypes.c_longdouble*segments_int
-#
-#        # WaveformArrayC = ctypes.c_double*arraySize_int #this doesn't work
-#        class WAVEFORMHOLDER(ctypes.Structure):   
-#            _fields_ = [("WaveformArrayC", ctypes.c_longdouble*arraySize_int),
-#                        ("ActualPointsC", ctypes.c_int64*segments_int),
-#                        ("FirstValidPointsC", ctypes.c_int64*segments_int),
-#                        ("InitialXTimeSecondsC", ctypes.c_longdouble*segments_int),
-#                        ("InitialXTimeFractionC", ctypes.c_longdouble*segments_int),
-#                        ("FlagsC", ctypes.c_int64*segments_int)]
-##        class WAVEFORMHOLDER(ctypes.Structure):   
-##            _fields_ = [("WaveformArrayC", ctypes.c_int32*arraySize_int),
-##                        ("ActualPointsC", ctypes.c_int64*segments_int),
-##                        ("FirstValidPointsC", ctypes.c_int64*segments_int),
-##                        ("InitialXTimeSecondsC", ctypes.c_longdouble*segments_int),
-##                        ("InitialXTimeFractionC", ctypes.c_longdouble*segments_int),
-##                        ("FlagsC", ctypes.c_int64*segments_int)]
-#        WaveHolder = WAVEFORMHOLDER()   # This DOES WORK! It can be sent in.
-#        #Successfully returns data to "WaveHolder.WaveformArrayC"
-#
-#        
-#
-#        chanNameC = ctypes.c_char_p(chanName)
-#
-#        self.call('FetchAccumulatedWaveformReal64', self.visession, chanNameC, \
-#                    firstRecordC,\
-#                    numRecordsC,\
-#                    offsetWithinRecordC,\
-#                    numPointsPerRecordC,\
-#                    WavefromArraySizeC,
-#                    WaveHolder.WaveformArrayC,\
-#                    ctypes.byref(ActualAveragesC),\
-#                    ctypes.byref(ActualRecordsC),\
-#                    WaveHolder.ActualPointsC,\
-#                    WaveHolder.FirstValidPointsC,\
-#                    ctypes.byref(InitialXOffsetC),\
-#                    WaveHolder.InitialXTimeSecondsC,\
-#                    WaveHolder.InitialXTimeFractionC,\
-#                    ctypes.byref(XIncrementC),\
-#                    WaveHolder.FlagsC)
-##        self.call('FetchAccumulatedWaveformInt32', self.visession, chanNameC, \
-##                    firstRecordC,\
-##                    numRecordsC,\
-##                    offsetWithinRecordC,\
-##                    numPointsPerRecordC,\
-##                    WavefromArraySizeC,
-##                    WaveHolder.WaveformArrayC,\
-##                    ctypes.byref(ActualAveragesC),\
-##                    ctypes.byref(ActualRecordsC),\
-##                    WaveHolder.ActualPointsC,\
-##                    WaveHolder.FirstValidPointsC,\
-##                    ctypes.byref(InitialXOffsetC),\
-##                    WaveHolder.InitialXTimeSecondsC,\
-##                    WaveHolder.InitialXTimeFractionC,\
-##                    ctypes.byref(XIncrementC),\
-##                    WaveHolder.FlagsC)
-#        
-#        if self.verbose:
-#            print('Fetch Complete. Processing Data.')
-#        rawData = numpy.asarray(WaveHolder.WaveformArrayC)
-##        rawData = numpy.asarray(WaveHolder.WaveformArrayC)
-#        dataRawSize = rawData.size
-#        dataActualSegments = int(ActualRecordsC.value)
-#        dataActualPoints_full = numpy.asarray(WaveHolder.ActualPointsC)
-#        dataActualPoints = dataActualPoints_full[0]
-#        dataFirstValidPoints = numpy.asarray(WaveHolder.FirstValidPointsC).astype('int64')
-##        print(dataFirstValidPoints)
-#        if returnRaw:
-#            out = [rawData, dataActualPoints, dataFirstValidPoints, dataActualSegments]
-#            return out
-#        else:
-#            if dataActualPoints != self.samples:
-#                print("Warning. Data size doesn't match the number of samples. Something wierd happened.")
-#
-#            if dataActualSegments == 1:
-#                startInd = dataFirstValidPoints[0]
-#                data = rawData[startInd:(startInd+dataActualPoints)]
-#            else:
-#                data = numpy.zeros((dataActualSegments,dataActualPoints))
-#                for segind in range(0,dataActualSegments ):
-#                    startInd = dataFirstValidPoints[segind]
-#                    
-#                    data[segind,:] = rawData[startInd:(startInd+dataActualPoints)]
-#            if self.verbose:
-#                print('Data Processed.')
-#            return data
-
-#    def _ReadMultiSegData(self,chanName, returnRaw = False):
-#        if self.verbose:
-#            print('reading non-averaged, multisegment data')
-#        arraySize_int = int(self.totalSamples)
-#        segments_int = int(self.segments)
-#
-#        ActualRecordsC = ctypes.c_int64()
-#        ActualPointsC = ctypes.c_int64*segments_int
-#        FirstValidPointsC = ctypes.c_int64*segments_int
-#        InitialXOffsetC = ctypes.c_longdouble*segments_int
-#        InitialXTimeSecondsC = ctypes.c_longdouble*segments_int
-#        InitialXTimeFractionC = ctypes.c_longdouble*segments_int
-#        XIncrementC = ctypes.c_longdouble()
-#
-#        # WaveformArrayC = ctypes.c_double*arraySize_int #this doesn't work
-#        class WAVEFORMHOLDER(ctypes.Structure):   
-#            _fields_ = [("WaveformArrayC", ctypes.c_longdouble*arraySize_int),
-#                        ("ActualPointsC", ctypes.c_int64*segments_int),
-#                        ("FirstValidPointsC", ctypes.c_int64*segments_int),
-#                        ("InitialXOffsetC", ctypes.c_longdouble*segments_int),
-#                        ("InitialXTimeSecondsC", ctypes.c_longdouble*segments_int),
-#                        ("InitialXTimeFractionC", ctypes.c_longdouble*segments_int)]
-#        WaveHolder = WAVEFORMHOLDER()   # This DOES WORK! It can be sent in.
-#        #Successfully returns data to "WaveHolder.WaveformArrayC"
-#        
-#        WavefromArraySizeC = ctypes.c_int64(self.totalSamples)
-#
-#        chanNameC = ctypes.c_char_p(chanName)
-#
-#        firstRecordC = ctypes.c_int64(0)
-#        offsetWithinRecordC = ctypes.c_int64(self.offsetWithinRecord)
-#        numRecordsC = ctypes.c_int64(self.segments)
-#        numPointsPerRecordC = ctypes.c_int64(self.samples)
-#
-#        self.call('FetchMultiRecordWaveformReal64', self.visession, chanNameC,\
-#            firstRecordC,\
-#                numRecordsC,\
-#                    offsetWithinRecordC,\
-#                        numPointsPerRecordC,\
-#                            WavefromArraySizeC,\
-#                                 WaveHolder.WaveformArrayC,\
-#                                 ctypes.byref(ActualRecordsC),\
-#                                 WaveHolder.ActualPointsC,\
-#                                 WaveHolder.FirstValidPointsC,\
-#                                 WaveHolder.InitialXOffsetC,\
-#                                 WaveHolder.InitialXTimeSecondsC,\
-#                                 WaveHolder.InitialXTimeFractionC,\
-#                                 ctypes.byref(XIncrementC))
-#        if self.verbose:
-#            print('Fetch Complete. Processing Data.')
-#        rawData = numpy.asarray(WaveHolder.WaveformArrayC)
-#        dataRawSize = rawData.size
-#        dataActualSegments = int(ActualRecordsC.value)
-#        dataActualPoints_full = numpy.asarray(WaveHolder.ActualPointsC)
-#        dataActualPoints = dataActualPoints_full[0]
-#        dataFirstValidPoints = numpy.asarray(WaveHolder.FirstValidPointsC).astype('int64')
-#        if returnRaw:
-#            out = [rawData, dataActualPoints, dataFirstValidPoints, dataActualSegments]
-#            return out
-#        else:
-#            if dataActualPoints != self.samples:
-#                print("Warning. Data size doesn't match the number of samples. Something wierd happened.")
-#
-#            data = numpy.zeros((dataActualSegments,dataActualPoints))
-#            for segind in range(0,dataActualSegments ):
-#                startInd = dataFirstValidPoints[segind]
-#                
-#                data[segind,:] = rawData[startInd:(startInd+dataActualPoints)]
-#            return data
-            
-        
         
     def _ReadMultiSegData(self,chanNum, returnRaw = False):
         '''Python function for reading non-averaged multisegment data. '''
@@ -843,55 +758,7 @@ class Acqiris(object):
             if self.verbose:
                 print('Data Processed.')
             return data
-
-#    def _ReadSingleSegData(self,chanName, returnRaw = False):
-#        if self.verbose:
-#            print('reading non-averaged, single-segment data')
-#        arraySize_int = int(self.totalSamples)
-#
-#        ActualPointsC = ctypes.c_int64()
-#        FirstValidPointC = ctypes.c_int64()
-#        InitialXOffsetC = ctypes.c_longdouble()
-#        InitialXTimeSecondsC = ctypes.c_longdouble()
-#        InitialXTimeFractionC = ctypes.c_longdouble()
-#        XIncrementC = ctypes.c_longdouble()
-#
-#        # WaveformArrayC = ctypes.c_double*arraySize_int #this doesn't work
-#        class WAVEFORMHOLDER(ctypes.Structure):   
-#            _fields_ = [("WaveformArrayC", ctypes.c_longdouble*arraySize_int)]
-#        WaveHolder = WAVEFORMHOLDER()   # This DOES WORK! It can be sent in.
-#        #Successfully returns data to "WaveHolder.WaveformArrayC"
-#
-#        WavefromArraySizeC = ctypes.c_int64(self.totalSamples)
-#
-#        chanNameC = ctypes.c_char_p(chanName)
-#
-#        self.call('FetchWaveformReal64', self.visession, chanNameC, WavefromArraySizeC,\
-#             WaveHolder.WaveformArrayC,\
-#            ctypes.byref(ActualPointsC),\
-#                 ctypes.byref(FirstValidPointC),\
-#                      ctypes.byref(InitialXOffsetC),\
-#                 ctypes.byref(InitialXTimeSecondsC),\
-#                      ctypes.byref(InitialXTimeFractionC),\
-#                       ctypes.byref(XIncrementC))
-#        
-#        if self.verbose:
-#            print('Fetch Complete. Processing Data.')
-#        rawData = numpy.asarray(WaveHolder.WaveformArrayC)
-#        dataRawSize = rawData.size
-#        dataActualPoints = int(ActualPointsC.value)
-#        dataFirstValidPoint = int(FirstValidPointC.value)
-#        if returnRaw:
-#            out = [rawData, dataActualPoints, dataFirstValidPoint]
-#            return out
-#        else:
-#            if dataActualPoints != self.samples:
-#                print("Warning. Data size doesn't match the number of samples. Something wierd happened.")
-#
-#            startInd = dataFirstValidPoint
-#            data = rawData[startInd: (startInd + dataActualPoints)]
-#            return data
-        
+  
     def ReInitialize(self):
         '''Basic init function. Can also be used to wipe he settings if the card is very confused. 
         Will push the currently stored settings to the card and calibrate'''
@@ -903,27 +770,18 @@ class Acqiris(object):
         
         self.driver =  AqMD3.AqMD3( self.hardwareAddress , False, False, strInitOptions)
         
-##        with AqMD3( resourceString, False, False, initOptions ) as driver:
-#        self.call('InitWithOptions',
-#            ctypes.create_string_buffer(self.hardwareAddress.encode('utf-8')),
-#            False,
-#            False, 
-#            strInitOptionsC,
-#            ctypes.byref(self.visession))
         
        
         #push the currently stored settings to the card and calibrate. Hopefully ths will actually save hassle.
         #if this is running at _init_ then it will push the defaults
-#        self.SetParams()  #!!!!!!!!!!!!!!!
+        self.SetParams()
         self.SelfCalibrate()
 
     def WaitForAcquisition(self):
         '''Timeout in seconds '''
         if self.verbose:
             print('Waiting until the acquisition is done (or checking that it is) and getting confirmation')
-#        timeoutC = ctypes.c_int32(self.timeout*1000)
         timeoutC = self.timeout*1000 #convert to ms
-#        self.call('WaitForAcquisitionComplete', self.visession, timeoutC)
         self.driver.Acquisition.WaitForAcquisitionComplete(timeoutC)
         self.acquisitionFinished = True #throw the internal flag to show that the card is done.
 
@@ -1071,13 +929,13 @@ if __name__ == '__main__':
 
     pylab.show()
 
-
-    print('Done plotting.')
-    
-    # Close the instrument
-    print("\nClose the instrument")    
-    card.close()
-    
+#
+#    print('Done plotting.')
+#    
+#    # Close the instrument
+#    print("\nClose the instrument")    
+#    card.close()
+#    
     
 
     
