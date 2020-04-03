@@ -103,9 +103,9 @@ class Acqiris(object):
         '''Autoget function for params. Will querry the hardware and package all the settings, as well as 
         update the fields of the python software object.'''
         
-        #going to need this
-        for key in pickledict.keys():
-                    setattr(self, key, pickledict[key])
+#        #going to need this
+#        for key in pickledict.keys():
+#                    setattr(self, key, pickledict[key])
         
         if self.verbose:
             print('    ')
@@ -360,10 +360,10 @@ class Acqiris(object):
         driver and not manually setting all the variables.'''
         
         self.sampleRate = sampleRate
-        sampleRateC = ctypes.c_double(self.sampleRate)
+#        sampleRateC = ctypes.c_double(self.sampleRate)
 
         self.segments = segments
-        numRecordsC = ctypes.c_int64(self.segments)
+#        numRecordsC = ctypes.c_int64(self.segments)
         
 
 #        #software needs to know at this point so that it can adjust the number of samples
@@ -372,8 +372,10 @@ class Acqiris(object):
         
         #turn off averaging in hardware so that it doesn't muck with setting the number of samples.
         #This is necessary when switching back from averaging mode.
-        self.SetDriverAttribute('averageMode', 0)
-        self.SetDriverAttribute('averages', 1)
+#        self.SetDriverAttribute('averageMode', 0)
+        self.driver.Acquisition.Mode = 0
+#        self.SetDriverAttribute('averages', 1)
+        self.driver.Acquisition.NumberOfAverages = 1
         #using this low-level hack isntead of ConfigureAveraging, because at this point, python needs
         #to know about averaging, but the hardware needs to always not be in averaging mode, so that 
         #it can take a large number of samples if the upcoming acqusition is going to be in regular mode.
@@ -405,17 +407,15 @@ class Acqiris(object):
                 self.samples = int(multiple*1024) 
                 #it is very important that this winds up an integer, or it least it was at some point
                 
-        numPointsPerRecordC = ctypes.c_int64(self.samples)
+#        numPointsPerRecordC = ctypes.c_int64(self.samples)
+                
         #it looks like now that we have the order of operations right between configuring
         #the acquisition and turning averaging on and off, so that we can use the
         #built in C function for configuring, that we might not need this multiple of 1024 check.
         #But we do need the auto check that turns down the number of samples if its averaging mode
         
-#        print('self.averageMode = ' + str(self.averageMode))
-#        print('self.averages = ' + str(self.averages))
-#        print('self.samples = ' + str(self.samples))
-        
-        self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
+#        self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
+        self.driver.Acquisition.ConfigureAcquisition(int(self.segments), int(self.samples), self.sampleRate)
         
         #configure the the actual averaging mode and restore number of averages
         self.ConfigureAveraging() #trip the flags to handle the averaging
@@ -435,30 +435,39 @@ class Acqiris(object):
         self.driver.Acquisition.NumberOfAverages = self.averages
 
     def ConfigureChannel(self, channelNum = 1, Range = 2.5, offset = 0, enabled = True):
-        if channelNum ==1:
-            chanName = b'Channel1'
-        elif channelNum ==2:
-            chanName = b'Channel2'
+        '''Configure channel function.
+        
+        Meant to becalled by configure acquisiton, but can be called manually.
+        If it is called mnaually, it will write it's inputs to the driver settings.
+        '''
+        
+#        if channelNum ==1:
+#            chanName = 'Channel1'
+#        elif channelNum ==2:
+#            chanName = 'Channel2'
+        if channelNum in [1,2]:
+            pass
         else:
             raise ValueError('Invalid channel. Should be 1 or 2')
-        chanNameC = ctypes.c_char_p(chanName)
+#        chanNameC = ctypes.c_char_p(chanName)
         
         if Range in [0.5, 2.5]:
-            rangeC = ctypes.c_double(Range)
+#            rangeC = ctypes.c_double(Range)
+            self.channelRange = Range
         else:
             raise ValueError('Range must be 0.5 or 2.5')
             
-        self.channelRange = Range
         self.channelOffset = offset
 
-        offsetC = ctypes.c_double(offset)
+#        offsetC = ctypes.c_double(offset)
 
-        couplingC = ctypes.c_int32(1) # 1 = DC coupling. Always. Card can't do AC.
+        couplingC = 1 # 1 = DC coupling. Always. Card can't do AC.
 
-        enabledC = ctypes.c_bool(enabled)
+#        enabledC = enabled
 
-        self.call('ConfigureChannel', self.visession, chanNameC, rangeC, offsetC, couplingC, enabledC)
- 
+#        self.call('ConfigureChannel', self.visession, chanNameC, rangeC, offsetC, couplingC, enabledC)
+        chan = self.driver.Channels[int(channelNum-1)] #python channels are index from 0
+        chan.Configure(self.channelRange, self.channelOffset, couplingC, enabled)
     
     def ConfigureTrigger(self, Source = 'External1', Level = 0, Slope = 'Falling', Mode = 'Edge'):
         if Mode != 'Edge':
@@ -1063,6 +1072,15 @@ if __name__ == '__main__':
         except:
             print("Initialize instrument @", hardwareAddress)
             card = Acqiris(hardwareAddress)
+    
+    
+    ######
+    #testing raw functions
+#    card.ConfigureTrigger()
+#    card.ConfigureAveraging()
+#    card.ConfigureChannel(channelNum = 1, Range = 2.5, offset = 0, enabled = True)
+#    card.SetParams()
+    
     
 
 #    #####################
