@@ -192,13 +192,19 @@ class Acqiris(object):
         but FYI.
         
         '''
-        try:
-            self.InitiateAcquisition()
-        except:
-            if self.verbose:
-                print('Initiate Failed. Trying to fix with a recalibrate.')
-            self.SelfCalibrate()
-            self.InitiateAcquisition()
+        if self.driver.Calibration.IsRequired:
+             if self.verbose:
+                print('Calibration needed before acquisition. Doing it.')
+             self.SelfCalibrate()
+        self.InitiateAcquisition()
+        
+#        try:
+#            self.InitiateAcquisition()
+#        except:
+#            if self.verbose:
+#                print('Initiate Failed. Trying to fix with a recalibrate.')
+#            self.SelfCalibrate()
+#            self.InitiateAcquisition()
     
     def ArmAndWait(self):
         '''Initialize the acquisition and get ready to take and read data.
