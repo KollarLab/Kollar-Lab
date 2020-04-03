@@ -45,12 +45,19 @@ class Acqiris(object):
         self._fillHardwareKeys()
         
         
+        self.simulate = simulate
+        self.hardwareAddress = ResourceName
+#        self.ReInitialize()
+        
+        self.InitializeDriver()
+        
         #set default values. Eventrually this should probable load from some default config file
         self._loadDefaultConfig()
         
-        self.simulate = simulate
-        self.hardwareAddress = ResourceName
-        self.ReInitialize()
+        #push the currently stored settings to the card and calibrate. Hopefully ths will actually save hassle.
+        #if this is running at _init_ then it will push the defaults
+        self.SetParams()
+        self.SelfCalibrate()
         
         
         #some flags for controlling the read
@@ -162,7 +169,7 @@ class Acqiris(object):
         self._triggerSlope = temp
         if temp == 0:
             val = 'Falling'
-        if temp == 1:
+        elif temp == 1:
             val = 'Rising'
         else:
             raise ValueError("Unkown trigger slope returned")
@@ -328,6 +335,12 @@ class Acqiris(object):
         but FYI.
         
         '''
+#        #check if the settings are up to date
+#        if not self.settingsCurrent: 
+#            print('Warning: Python contains stale settings.')
+#            print('Pushing current settings.')
+#            self.SetParams()
+        
         if self.driver.Calibration.IsRequired:
              if self.verbose:
                 print('Calibration needed before acquisition. Doing it.')
@@ -529,6 +542,16 @@ class Acqiris(object):
         self.hardwareKeys.append('simulateMode')
         
 #        self.hardwareKeys.append('timeout') #i don't know how to get this from the hardware, so it's a software setting
+        
+    def InitializeDriver(self):
+        '''Basic init function. Creates the driver.'''
+        print('Initializing...')
+        if self.simulate == True:
+            strInitOptions =  'Simulate=True,  DriverSetup= model = SA220P'
+        else:
+            strInitOptions = 'Simulate=False,  DriverSetup= model = SA220P'
+        
+        self.driver =  AqMD3.AqMD3( self.hardwareAddress , False, False, strInitOptions)
         
 
     def InitiateAcquisition(self):
@@ -762,15 +785,15 @@ class Acqiris(object):
     def ReInitialize(self):
         '''Basic init function. Can also be used to wipe he settings if the card is very confused. 
         Will push the currently stored settings to the card and calibrate'''
-        print('Initializing...')
-        if self.simulate == True:
-            strInitOptions =  'Simulate=True,  DriverSetup= model = SA220P'
-        else:
-            strInitOptions = 'Simulate=False,  DriverSetup= model = SA220P'
+#        print('Initializing...')
+#        if self.simulate == True:
+#            strInitOptions =  'Simulate=True,  DriverSetup= model = SA220P'
+#        else:
+#            strInitOptions = 'Simulate=False,  DriverSetup= model = SA220P'
+#        
+#        self.driver =  AqMD3.AqMD3( self.hardwareAddress , False, False, strInitOptions)
         
-        self.driver =  AqMD3.AqMD3( self.hardwareAddress , False, False, strInitOptions)
-        
-        
+        self.InitializeDriver()
        
         #push the currently stored settings to the card and calibrate. Hopefully ths will actually save hassle.
         #if this is running at _init_ then it will push the defaults
