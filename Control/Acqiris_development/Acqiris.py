@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
-'''3/24/20 First version of a proper python object for the acqiris. Starting from Digitizer_test3 which 
-demonstrated basic functionality. Now Trying to really hide all the mess of the C driver in the undrbelly.
-
-Going to have to handle get and set at a better level than so far. 
-
-Also. Changing the name of the class from the hardware driver to the name of the hardware.
-New declaration will be something like
-from Acqiris import Acqiris
+'''4/3/20
+Modifying old version of the Acqiris object that ran off of the C driver to use 
+the new python beta version of the driver from acqiris.
 
 card = Acqiris(hardwareAddress)  '''
 
@@ -33,19 +28,25 @@ import time
 import sys
 
 
+import AqMD3 as driver #this is the Acqiris python driver
 
 
 
 class Acqiris(object):
-    def __init__(self, ResourceName, simulate = False, library = 'AqMD3_64.dll'):        
-        self._prefix = "AqMD3"
-   
-        self._lib = ctypes.cdll.LoadLibrary(library)
-              
-        self.visession = ctypes.c_int()
+    def __init__(self, ResourceName, simulate = False):  
+        #look to the right place.
+        IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
         
-        #fill in and store the necessary driver-level attribute ID numbers
-        self._fillHardwareIDs()
+        if not IVIbinPath in sys.path:
+            sys.path.append(IVIbinPath)
+        
+#        self._prefix = "AqMD3"
+#        self._lib = ctypes.cdll.LoadLibrary(library)
+#        self.visession = ctypes.c_int()
+#        #fill in and store the necessary driver-level attribute ID numbers
+#        self._fillHardwareIDs()
+            
+        self._fillHardwareKeys()
         
         
         #set default values. Eventrually this should probable load from some default config file
@@ -102,9 +103,9 @@ class Acqiris(object):
         '''Autoget function for params. Will querry the hardware and package all the settings, as well as 
         update the fields of the python software object.'''
         
-#        self.hardwareIDs['channelOffset'] = [classID + 25, 'ViReal64']
-#        self.hardwareIDs['channelRange'] = [classID + 26, 'ViReal64']
-#        self.hardwareIDs['channelEnabled'] = [classID + 2, 'ViBoolean']
+        #going to need this
+        for key in pickledict.keys():
+                    setattr(self, key, pickledict[key])
         
         if self.verbose:
             print('    ')
@@ -164,144 +165,144 @@ class Acqiris(object):
         return hardwareSettings
             
 
-    def SetDriverAttribute(self, keyword, val, recap = None):
-        '''Set function for atributes of the Cdriver.
-        takes in a python string keyword which needs to be a key of 
-        self.hardwareIDs. Then it uses thes stored information in there
-        to call the lower level _Set function. 
-        Note: if the variable is associated with a repeat capability identifier
-        then that needs to be handled separately. 
-        Also: this function will not check that the value is of the right type. User beware.'''
-        if keyword in self.hardwareIDs.keys():
-            #known driver attribute
-            [attrNum, attrType] = self.hardwareIDs[keyword]
-            self._SetAttribute(recap, attrNum, val, attrType)
-        else:
-            raise ValueError('Invalid keyword. Either a typo, or it needs to be looked up in AqMD3 and added.')
+#    def SetDriverAttribute(self, keyword, val, recap = None):
+#        '''Set function for atributes of the Cdriver.
+#        takes in a python string keyword which needs to be a key of 
+#        self.hardwareIDs. Then it uses thes stored information in there
+#        to call the lower level _Set function. 
+#        Note: if the variable is associated with a repeat capability identifier
+#        then that needs to be handled separately. 
+#        Also: this function will not check that the value is of the right type. User beware.'''
+#        if keyword in self.hardwareIDs.keys():
+#            #known driver attribute
+#            [attrNum, attrType] = self.hardwareIDs[keyword]
+#            self._SetAttribute(recap, attrNum, val, attrType)
+#        else:
+#            raise ValueError('Invalid keyword. Either a typo, or it needs to be looked up in AqMD3 and added.')
 
-    def _SetAttribute(self, RepCapIdentifier, Attribute, Value, AttributeType) :
-        '''Raw set attribute frunction from Acqiris '''
-
-        # Encode the RepCapIdentifier if needed
-        if (RepCapIdentifier != None):
-            RepCapIdentifier = ctypes.c_char_p(RepCapIdentifier.encode('utf-8'))
-                   
-        if (AttributeType == 'ViBoolean') :            
-            self.call('SetAttributeViBoolean',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute,
-                  ctypes.c_bool(Value))
+#    def _SetAttribute(self, RepCapIdentifier, Attribute, Value, AttributeType) :
+#        '''Raw set attribute frunction from Acqiris '''
+#
+#        # Encode the RepCapIdentifier if needed
+#        if (RepCapIdentifier != None):
+#            RepCapIdentifier = ctypes.c_char_p(RepCapIdentifier.encode('utf-8'))
+#                   
+#        if (AttributeType == 'ViBoolean') :            
+#            self.call('SetAttributeViBoolean',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute,
+#                  ctypes.c_bool(Value))
+#            
+#        if (AttributeType == 'ViInt32') :
+#            self.call('SetAttributeViInt32',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute,
+#                 ctypes.c_int32(Value))
+#        
+#        if (AttributeType == 'ViInt64') :            
+#            self.call('SetAttributeViInt64',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute,
+#                  ctypes.c_int64(Value))
+#
+#        if (AttributeType == 'ViReal64') :
+#            self.call('SetAttributeViReal64',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute,
+#                  ctypes.c_double(Value))
+#            
+#        if (AttributeType == 'ViString') :
+#            buffer = ctypes.create_string_buffer(256)
+#            self.call('SetAttributeViString',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute,
+#                  ctypes.c_char_p(Value.encode('utf-8')))
             
-        if (AttributeType == 'ViInt32') :
-            self.call('SetAttributeViInt32',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute,
-                 ctypes.c_int32(Value))
-        
-        if (AttributeType == 'ViInt64') :            
-            self.call('SetAttributeViInt64',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute,
-                  ctypes.c_int64(Value))
+#    def GetDriverAttribute(self, keyword, recap = None):
+#        '''Get function for atributes of the Cdriver.
+#        takes in a python string keyword which needs to be a key of 
+#        self.hardwareIDs. Then it uses thes stored information in there
+#        to call the lower level _Get function. 
+#        Note: if the variable is associated with a repeat capability identifier
+#        then that needs to be handled separately. '''
+#        if keyword in self.hardwareIDs.keys():
+#            #known driver attribute
+#            [attrNum, attrType] = self.hardwareIDs[keyword]
+#            return self._GetAttribute(recap, attrNum, attrType)
+#        else:
+#            raise ValueError('Invalid keyword. Either a typo, or it needs to be looked up in AqMD3 and added.')
+#
+#    def _GetAttribute(self, RepCapIdentifier, Attribute, AttributeType) :
+#        '''Raw get attribute function from Acqiris '''
+#        
+#        # Encode the RepCapIdentifier if needed
+#        if (RepCapIdentifier != None):
+#            RepCapIdentifier = ctypes.c_char_p(RepCapIdentifier.encode('utf-8'))
+#                   
+#        if (AttributeType == 'ViBoolean') :
+#            buffer = ctypes.c_bool();
+#            self.call('GetAttributeViBoolean',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute, 
+#                  ctypes.byref(buffer))
+#            return buffer.value      
+#            
+#        if (AttributeType == 'ViInt32') :
+#            buffer = ctypes.c_int32()
+#            self.call('GetAttributeViInt32',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute, 
+#                  ctypes.byref(buffer))
+#            return buffer.value
+#        
+#        if (AttributeType == 'ViInt64') :
+#            buffer = ctypes.c_int64()
+#            self.call('GetAttributeViInt64',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute, 
+#                  ctypes.byref(buffer))
+#            return buffer.value
+#
+#        if (AttributeType == 'ViReal64') :
+#            buffer = ctypes.c_double()
+#            self.call('GetAttributeViReal64',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute, 
+#                  ctypes.byref(buffer))
+#            return buffer.value
+#            
+#        if (AttributeType == 'ViString') :
+#            buffer = ctypes.create_string_buffer(256)
+#            self.call('GetAttributeViString',
+#                  self.visession,
+#                  RepCapIdentifier,
+#                  Attribute, 
+#                  256,
+#                  ctypes.byref(buffer))
+#            return buffer.value.decode('ascii')        
+#           
+#        return ''
 
-        if (AttributeType == 'ViReal64') :
-            self.call('SetAttributeViReal64',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute,
-                  ctypes.c_double(Value))
-            
-        if (AttributeType == 'ViString') :
-            buffer = ctypes.create_string_buffer(256)
-            self.call('SetAttributeViString',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute,
-                  ctypes.c_char_p(Value.encode('utf-8')))
-            
-    def GetDriverAttribute(self, keyword, recap = None):
-        '''Get function for atributes of the Cdriver.
-        takes in a python string keyword which needs to be a key of 
-        self.hardwareIDs. Then it uses thes stored information in there
-        to call the lower level _Get function. 
-        Note: if the variable is associated with a repeat capability identifier
-        then that needs to be handled separately. '''
-        if keyword in self.hardwareIDs.keys():
-            #known driver attribute
-            [attrNum, attrType] = self.hardwareIDs[keyword]
-            return self._GetAttribute(recap, attrNum, attrType)
-        else:
-            raise ValueError('Invalid keyword. Either a typo, or it needs to be looked up in AqMD3 and added.')
-
-    def _GetAttribute(self, RepCapIdentifier, Attribute, AttributeType) :
-        '''Raw get attribute function from Acqiris '''
-        
-        # Encode the RepCapIdentifier if needed
-        if (RepCapIdentifier != None):
-            RepCapIdentifier = ctypes.c_char_p(RepCapIdentifier.encode('utf-8'))
-                   
-        if (AttributeType == 'ViBoolean') :
-            buffer = ctypes.c_bool();
-            self.call('GetAttributeViBoolean',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute, 
-                  ctypes.byref(buffer))
-            return buffer.value      
-            
-        if (AttributeType == 'ViInt32') :
-            buffer = ctypes.c_int32()
-            self.call('GetAttributeViInt32',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute, 
-                  ctypes.byref(buffer))
-            return buffer.value
-        
-        if (AttributeType == 'ViInt64') :
-            buffer = ctypes.c_int64()
-            self.call('GetAttributeViInt64',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute, 
-                  ctypes.byref(buffer))
-            return buffer.value
-
-        if (AttributeType == 'ViReal64') :
-            buffer = ctypes.c_double()
-            self.call('GetAttributeViReal64',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute, 
-                  ctypes.byref(buffer))
-            return buffer.value
-            
-        if (AttributeType == 'ViString') :
-            buffer = ctypes.create_string_buffer(256)
-            self.call('GetAttributeViString',
-                  self.visession,
-                  RepCapIdentifier,
-                  Attribute, 
-                  256,
-                  ctypes.byref(buffer))
-            return buffer.value.decode('ascii')        
-           
-        return ''
-
-    def call(self, funcname, *args):
-        method_to_call = getattr(self._lib, self._prefix + '_' + funcname)
-        return_value = method_to_call(*args)        
-        if return_value:
-            error_message = ctypes.create_string_buffer(256)
-            self.call('error_message',
-                      self.visession,
-                      return_value, 
-                      ctypes.byref(error_message))
-            # raise IviCError(error_message.value)   
-            raise ValueError(error_message.value)      
+#    def call(self, funcname, *args):
+#        method_to_call = getattr(self._lib, self._prefix + '_' + funcname)
+#        return_value = method_to_call(*args)        
+#        if return_value:
+#            error_message = ctypes.create_string_buffer(256)
+#            self.call('error_message',
+#                      self.visession,
+#                      return_value, 
+#                      ctypes.byref(error_message))
+#            # raise IviCError(error_message.value)   
+#            raise ValueError(error_message.value)      
             
             
     def close(self):    
@@ -309,7 +310,8 @@ class Acqiris(object):
         
     def SelfCalibrate(self):
         print('Calibrating...')
-        self.call('SelfCalibrate', self.visession) 
+        self.driver.Calibration.SelfCalibrate()
+#        self.call('SelfCalibrate', self.visession) 
 
     ##################################################
     
@@ -349,48 +351,6 @@ class Acqiris(object):
         self.Arm()
         self.WaitForAcquisition()
      
-#    def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
-#        '''Configure Acquistion function that gets everything ready for data taking.
-#        Does more than the equivelent C function.
-#        I handles the averaging as well as samples, segments, and sample rate.
-#        Order of operations is important here. Averaging can't b turned on if the
-#        number of samples is too high, and vice versa.
-#        
-#        We are not currently using the C driver's CONFIGURE_ACQUISITION function
-#        because it sees to have more safety checks and make it harder to turn averaging 
-#        on and off. The price we pay is that we have to handle keeping the number of samples
-#        an integer multiple of 1024, both as a number, and as a datatype.'''
-#        
-#        self.sampleRate = sampleRate
-#
-#        self.segments = segments
-#        
-#        if self.verbose:
-#            print('Setting acquisition parameters manually.')
-#            print('Sample will autoround to a multiple of 1024 and shorten if tto long for avg mode.')
-#        ###!!!!!!!!!!!!!
-#        #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
-#        #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
-#        #or is it just that the ME is only for non-averaging mode?
-#        multiple = int(numpy.ceil(self.samples/1024))
-#        if self.averageMode:
-#            if multiple > 512:
-#                print('Data is too long for averaging mode. Setting to max length: 512*1024')
-#                multiple = 512
-#        self.samples = int(multiple*1024) #it is very important that this winds up an integer
-#
-##            self.SetAttribute(None, AQMD3_ATTR_RECORD_SIZE, int(1024*multiple), 'ViInt64')
-#        self.SetDriverAttribute('samples', int(self.samples))
-##            self.SetAttribute(None, AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE, int(self.segments), 'ViInt64')
-#        self.SetDriverAttribute('segments', int(self.segments))
-##            self.SetAttribute(None, AQMD3_ATTR_SAMPLE_RATE, self.sampleRate, 'ViReal64')
-#        self.SetDriverAttribute('sampleRate', self.sampleRate)
-#        
-#        #trying to handle the vairous acquistion types. Not quite sure how this logic will 
-#        #eventually go.
-#        self.ConfigureAveraging() #trip the flags to handle the averaging
-#        #Hopefully doing it after everything else is set will only try to flip to averager 
-#        #after the number of samples has been reduced.
         
     def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
         ''''Configure Acquistion function that gets everything ready for data taking.
@@ -463,68 +423,16 @@ class Acqiris(object):
         #Hopefully doing it after everything else is set will only try to flip to averager 
         #after the number of samples has been reduced.
 
-#    def ConfigureAcquisition(self, samples, sampleRate, segments = 1):
-#        '''First version of configure Acquisition. It works separately for
-#        Average (accumulation) mode and regular, but didn't allow switching between them'''
-#        
-#        self.samples = samples
-#        numPointsPerRecordC = ctypes.c_int64(self.samples)
-#        self.sampleRate = sampleRate
-#        sampleRateC = ctypes.c_double(self.sampleRate)
-#
-#        #trying to handle the vairous acquistion types. Not quite sure how this logic will 
-#        #eventually go.
-#        self.ConfigureAveraging() #trip the flags to handle the averaging
-#        #NOTE!!!! There may eventually be a problem here when I stop initializing every time.
-#        if self.averageMode == True:
-#            if self.verbose:
-#                print('Warning: Manual says multiseg should work with this, not sure I have the right read function though.')
-#            self.segments = segments
-#            numRecordsC = ctypes.c_int64(self.segments)
-#            
-#            if self.verbose:
-#                print('Trying to set acquisition parameters manually.')
-#            ###!!!!!!!!!!!!!
-#            #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
-#            #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
-#            #or is it just that the ME is only for non-averaging mode?
-#            multiple = numpy.ceil(self.samples/1024)
-#            if multiple > 512:
-#                print('Data is too long for averaging mode. Setting to max length: 512*1024')
-#                multiple = 512
-#                self.samples = multiple*1024
-#                numPointsPerRecordC = ctypes.c_int64(self.samples)
-#
-##            self.SetAttribute(None, AQMD3_ATTR_RECORD_SIZE, int(1024*multiple), 'ViInt64')
-#            self.SetDriverAttribute('samples', int(1024*multiple))
-##            self.SetAttribute(None, AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE, int(self.segments), 'ViInt64')
-#            self.SetDriverAttribute('segments', int(self.segments))
-##            self.SetAttribute(None, AQMD3_ATTR_SAMPLE_RATE, self.sampleRate, 'ViReal64')
-#            self.SetDriverAttribute('sampleRate', self.sampleRate)
-#
-#            # self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
-#
-#        else:
-##            if self.multiseg == False:
-##                self.segments = 1
-##                if segments > 1:
-##                    print('Single Segment Mode: Ignoring requested extra segments')
-##            else:
-##                self.segments = segments
-#
-#            numRecordsC = ctypes.c_int64(self.segments)
-#            if self.verbose:
-#                print('Using auto config function for the acquisition.')
-#            self.call('ConfigureAcquisition', self.visession, numRecordsC, numPointsPerRecordC, sampleRateC)
-#            #I think this configure funtion only works in non-averaging mode. !!!?????
 
     def ConfigureAveraging(self):
         if self.averages >1:
             self.averageMode = 1 #make sure this variable is conistent. I probably want to do away with it eventually
         else:
             self.averageMode = 0
-        self.SetDriverAttribute('averageMode', self.averageMode)
-        self.SetDriverAttribute('averages', self.averages)
+#        self.SetDriverAttribute('averageMode', self.averageMode)
+        self.driver.Acquisition.Mode = self.averageMode
+#        self.SetDriverAttribute('averages', self.averages)
+        self.driver.Acquisition.NumberOfAverages = self.averages
 
     def ConfigureChannel(self, channelNum = 1, Range = 2.5, offset = 0, enabled = True):
         if channelNum ==1:
@@ -550,15 +458,7 @@ class Acqiris(object):
         enabledC = ctypes.c_bool(enabled)
 
         self.call('ConfigureChannel', self.visession, chanNameC, rangeC, offsetC, couplingC, enabledC)
-
-    # def ConfigureEdgeTriggerSource:
-    #     #call configure edge trigger
-
-    #     #actually set the trigger source
-    #     pass
-    
-#    def _autoConfigureChannels(self):
-        
+ 
     
     def ConfigureTrigger(self, Source = 'External1', Level = 0, Slope = 'Falling', Mode = 'Edge'):
         if Mode != 'Edge':
@@ -570,94 +470,138 @@ class Acqiris(object):
             
             if Slope == 'Falling':
                 self.triggerSlope = Slope
-                triggerSlopeC = ctypes.c_int32(0)
+                triggerSlopeC = 0
             elif Slope == 'Rising':
                 self.triggerSlope = Slope
-                triggerSlopeC = ctypes.c_int32(1)
+                triggerSlopeC = 1
             else:
                 raise ValueError("Edge trigger slope must be either 'Rising' or 'Falling'")
             
-            triggerSourceC = ctypes.create_string_buffer(self.triggerSource.encode('utf-8'))
-            triggerLevelC = ctypes.c_longdouble(self.triggerLevel)
+#            triggerSourceC = ctypes.create_string_buffer(self.triggerSource.encode('utf-8'))
+#            triggerLevelC = ctypes.c_longdouble(self.triggerLevel)
             
-            self.SetDriverAttribute('triggerDelay', self.triggerDelay)
-            self.SetDriverAttribute('triggerCoupling', self.triggerCoupling, recap = self.triggerSource)
+#            self.SetDriverAttribute('triggerDelay', self.triggerDelay)
+            self.driver.Trigger.Delay = self.triggerDelay
+            
 
-            #set trigger source before and after to make sure configure hits the right hardware channel
-            self.SetDriverAttribute('triggerSource', self.triggerSource)
-            self.call('ConfigureEdgeTriggerSource', self.visession, triggerSourceC ,triggerLevelC, triggerSlopeC)
+
+
             #manually set trigger source because the configure function doesn't actually do it.
-#            self.SetAttribute(None,AQMD3_ATTR_ACTIVE_TRIGGER_SOURCE, self.triggerSource, 'ViString')
-            self.SetDriverAttribute('triggerSource', self.triggerSource)
+#            self.SetDriverAttribute('triggerSource', self.triggerSource)
+            self.driver.Trigger.ActiveSource = self.triggerSource
             
-    def _fillHardwareIDs(self):
-        ''' C driver voodoo. Do not touch. '''
-        self.driverBases ={}
-        self.hardwareIDs = {}
-        
-        
-        # Declaration of some attributes (values from AqMd3.h)
-        self.driverBases['IVI_ATTR_BASE']         = 1000000
-        self.driverBases['IVI_INHERENT_ATTR_BASE'] = self.driverBases['IVI_ATTR_BASE'] +  50000
-        self.driverBases['IVI_CLASS_ATTR_BASE']    = self.driverBases['IVI_ATTR_BASE'] +  250000
-        self.driverBases['IVI_LXISYNC_ATTR_BASE']  = self.driverBases['IVI_ATTR_BASE'] +  950000
-        self.driverBases['IVI_SPECIFIC_ATTR_BASE'] = self.driverBases['IVI_ATTR_BASE'] +  150000
-        
-        baseID = self.driverBases['IVI_ATTR_BASE']  
-        inherentID = self.driverBases['IVI_INHERENT_ATTR_BASE']
-        classID = self.driverBases['IVI_CLASS_ATTR_BASE'] 
-        lxisyncID = self.driverBases['IVI_LXISYNC_ATTR_BASE']
-        specificID = self.driverBases['IVI_SPECIFIC_ATTR_BASE']
+#            self.SetDriverAttribute('triggerCoupling', self.triggerCoupling, recap = self.triggerSource)
+            #!!!!!!!!haven't found this one
+            #self..driver.Trigger.Sources[self.triggerSource].Coupling, but I think this always has to be 1
+            self.driver.Trigger.Sources[self.triggerSource].Coupling = self.triggerCoupling
             
-        #firmware
-#        AQMD3_ATTR_SPECIFIC_DRIVER_DESCRIPTION          = IVI_INHERENT_ATTR_BASE + 514  # ViString, read-only 
-        self.hardwareIDs['driverDescription'] = [inherentID + 514, 'ViString']
-#        AQMD3_ATTR_SPECIFIC_DRIVER_REVISION             = IVI_INHERENT_ATTR_BASE + 551  # ViString, read-only  
-        self.hardwareIDs['driverRevision'] = [inherentID + 551, 'ViString']
-#        AQMD3_ATTR_INSTRUMENT_FIRMWARE_REVISION         = IVI_INHERENT_ATTR_BASE + 510  # ViString, read-only
-        self.hardwareIDs['firmwareRevision'] = [inherentID + 510, 'ViString']
-#        AQMD3_ATTR_INSTRUMENT_MANUFACTURER              = IVI_INHERENT_ATTR_BASE + 511  # ViString, read-only
-        self.hardwareIDs['manufacturer'] = [inherentID+511, 'ViString']
-#        AQMD3_ATTR_INSTRUMENT_MODEL                     = IVI_INHERENT_ATTR_BASE + 512  # ViString, read-only
-        self.hardwareIDs['instrumentModel'] = [inherentID + 512, 'ViString']
-#        AQMD3_ATTR_INSTRUMENT_INFO_SERIAL_NUMBER_STRING = IVI_SPECIFIC_ATTR_BASE + 8    # ViString, read-only 
-        self.hardwareIDs['serialNumber'] = [specificID +8, 'ViString']
+            #set trigger source before and after to make sure configure hits the right hardware channel
+#            self.call('ConfigureEdgeTriggerSource', self.visession, triggerSourceC ,triggerLevelC, triggerSlopeC)
+            activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
+            activeTrigger.Level = self.triggerLevel
+            activeTrigger.Edge.Slope = triggerSlopeC 
+            
+            
+            
+    def _fillHardwareKeys(self):
+        ''' Storing the names of the harware level vairables. '''
         
-        #channel
-#        AQMD3_ATTR_VERTICAL_OFFSET                      = IVI_CLASS_ATTR_BASE + 25      # ViReal64, read-write 
-#        self.hardwareIDs['verticalOffset'] = [classID + 25, 'ViReal64']
-        self.hardwareIDs['channelOffset'] = [classID + 25, 'ViReal64']
-        self.hardwareIDs['channelRange'] = [classID + 26, 'ViReal64']
-        self.hardwareIDs['channelEnabled'] = [classID + 2, 'ViBoolean']
+        self.driverKeys = []
+        self.driverKeys.append('driverDescription')
+        self.driverKeys.append('driverRevision')
+        self.driverKeys.append('firmwareRevision')
+        self.driverKeys.append('manufacturer')
+        self.driverKeys.append('instrumentModel')
+        self.driverKeys.append('serialNumber')
         
-        #trigger
-#        AQMD3_ATTR_ACTIVE_TRIGGER_SOURCE                = IVI_CLASS_ATTR_BASE + 1       # ViString, read-write
-        self.hardwareIDs['triggerSource'] = [classID+1, 'ViString']
-        self.hardwareIDs['triggerLevel'] = [classID+19, 'ViReal64']
-        self.hardwareIDs['triggerSlope'] = [classID+21, 'ViInt32']
-        self.hardwareIDs['triggerMode'] = [classID+23, 'ViInt32']
-        self.hardwareIDs['triggerDelay'] = [classID+17, 'ViReal64']
-        self.hardwareIDs['triggerCoupling'] = [classID+16, 'ViInt32']
-    
-        #averaging
-#        AQMD3_ATTR_ACQUISITION_MODE                     = IVI_SPECIFIC_ATTR_BASE + 11   # ViInt32, read-write 
-        self.hardwareIDs['averageMode'] = [specificID + 11, 'ViInt32']
-#        AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES       = IVI_SPECIFIC_ATTR_BASE + 69   # ViInt32, read-write 
-        self.hardwareIDs['averages'] = [specificID+69, 'ViInt32']
-    
-        #acquistion parameters
-#        AQMD3_ATTR_RECORD_SIZE                          = IVI_CLASS_ATTR_BASE + 14      # ViTnt64, read-write
-        self.hardwareIDs['samples'] = [classID+14, 'ViInt64']
-#        AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE               = IVI_CLASS_ATTR_BASE + 13      # ViInt64, read-write
-        self.hardwareIDs['segments'] = [classID+13, 'ViInt64']
-    
-        #sampling and clocking
-#        AQMD3_ATTR_SAMPLE_RATE                          = IVI_CLASS_ATTR_BASE + 15       # ViReal64, read-write  
-        self.hardwareIDs['sampleRate'] = [classID+15, 'ViReal64']
-       
-        #simulation mode
-#        AQMD3_ATTR_SIMULATE                             = IVI_INHERENT_ATTR_BASE + 5       # ViBoolean, read-write  
-        self.hardwareIDs['simulateMode'] = [inherentID + 5, 'ViBoolean']
+        
+        
+        
+#        # Declaration of some attributes (values from AqMd3.h)
+#        self.driverBases['IVI_ATTR_BASE']         = 1000000
+#        self.driverBases['IVI_INHERENT_ATTR_BASE'] = self.driverBases['IVI_ATTR_BASE'] +  50000
+#        self.driverBases['IVI_CLASS_ATTR_BASE']    = self.driverBases['IVI_ATTR_BASE'] +  250000
+#        self.driverBases['IVI_LXISYNC_ATTR_BASE']  = self.driverBases['IVI_ATTR_BASE'] +  950000
+#        self.driverBases['IVI_SPECIFIC_ATTR_BASE'] = self.driverBases['IVI_ATTR_BASE'] +  150000
+#        
+#        baseID = self.driverBases['IVI_ATTR_BASE']  
+#        inherentID = self.driverBases['IVI_INHERENT_ATTR_BASE']
+#        classID = self.driverBases['IVI_CLASS_ATTR_BASE'] 
+#        lxisyncID = self.driverBases['IVI_LXISYNC_ATTR_BASE']
+#        specificID = self.driverBases['IVI_SPECIFIC_ATTR_BASE']
+            
+#        #firmware
+##        AQMD3_ATTR_SPECIFIC_DRIVER_DESCRIPTION          = IVI_INHERENT_ATTR_BASE + 514  # ViString, read-only 
+#        self.hardwareIDs['driverDescription'] = [inherentID + 514, 'ViString']
+##        AQMD3_ATTR_SPECIFIC_DRIVER_REVISION             = IVI_INHERENT_ATTR_BASE + 551  # ViString, read-only  
+#        self.hardwareIDs['driverRevision'] = [inherentID + 551, 'ViString']
+##        AQMD3_ATTR_INSTRUMENT_FIRMWARE_REVISION         = IVI_INHERENT_ATTR_BASE + 510  # ViString, read-only
+#        self.hardwareIDs['firmwareRevision'] = [inherentID + 510, 'ViString']
+##        AQMD3_ATTR_INSTRUMENT_MANUFACTURER              = IVI_INHERENT_ATTR_BASE + 511  # ViString, read-only
+#        self.hardwareIDs['manufacturer'] = [inherentID+511, 'ViString']
+##        AQMD3_ATTR_INSTRUMENT_MODEL                     = IVI_INHERENT_ATTR_BASE + 512  # ViString, read-only
+#        self.hardwareIDs['instrumentModel'] = [inherentID + 512, 'ViString']
+##        AQMD3_ATTR_INSTRUMENT_INFO_SERIAL_NUMBER_STRING = IVI_SPECIFIC_ATTR_BASE + 8    # ViString, read-only 
+#        self.hardwareIDs['serialNumber'] = [specificID +8, 'ViString']
+        
+        
+        self.hardwareKeys = []
+        self.hardwareKeys.append('channelOffset')
+        self.hardwareKeys.append('channelRange')
+        self.hardwareKeys.append('channelEnabled')
+        
+        self.hardwareKeys.append('triggerSource')
+        self.hardwareKeys.append('triggerLevel')
+        self.hardwareKeys.append('triggerMode')
+        self.hardwareKeys.append('triggerDelay')
+        self.hardwareKeys.append('triggerCoupling')
+        
+        self.hardwareKeys.append('averageMode')
+        self.hardwareKeys.append('averages')
+        
+        self.hardwareKeys.append('samples')
+        self.hardwareKeys.append('segments')
+        
+        self.hardwareKeys.append('sampleRate')
+        
+        self.hardwareKeys.append('simulateMode')
+        
+        
+#        #channel
+##        AQMD3_ATTR_VERTICAL_OFFSET                      = IVI_CLASS_ATTR_BASE + 25      # ViReal64, read-write 
+##        self.hardwareIDs['verticalOffset'] = [classID + 25, 'ViReal64']
+#        self.hardwareIDs['channelOffset'] = [classID + 25, 'ViReal64']
+#        self.hardwareIDs['channelRange'] = [classID + 26, 'ViReal64']
+#        self.hardwareIDs['channelEnabled'] = [classID + 2, 'ViBoolean']
+#        
+#        #trigger
+##        AQMD3_ATTR_ACTIVE_TRIGGER_SOURCE                = IVI_CLASS_ATTR_BASE + 1       # ViString, read-write
+#        self.hardwareIDs['triggerSource'] = [classID+1, 'ViString']
+##        self.hardwareIDs['triggerLevel'] = [classID+19, 'ViReal64']
+#        self.hardwareIDs['triggerLevel'] = [classID+21, 'ViInt32']
+#        self.hardwareIDs['triggerMode'] = [classID+23, 'ViInt32']
+#        self.hardwareIDs['triggerDelay'] = [classID+17, 'ViReal64']
+#        self.hardwareIDs['triggerCoupling'] = [classID+16, 'ViInt32']
+#    
+#        #averaging
+##        AQMD3_ATTR_ACQUISITION_MODE                     = IVI_SPECIFIC_ATTR_BASE + 11   # ViInt32, read-write 
+#        self.hardwareIDs['averageMode'] = [specificID + 11, 'ViInt32']
+##        AQMD3_ATTR_ACQUISITION_NUMBER_OF_AVERAGES       = IVI_SPECIFIC_ATTR_BASE + 69   # ViInt32, read-write 
+#        self.hardwareIDs['averages'] = [specificID+69, 'ViInt32']
+#    
+#        #acquistion parameters
+##        AQMD3_ATTR_RECORD_SIZE                          = IVI_CLASS_ATTR_BASE + 14      # ViTnt64, read-write
+#        self.hardwareIDs['samples'] = [classID+14, 'ViInt64']
+##        AQMD3_ATTR_NUM_RECORDS_TO_ACQUIRE               = IVI_CLASS_ATTR_BASE + 13      # ViInt64, read-write
+#        self.hardwareIDs['segments'] = [classID+13, 'ViInt64']
+#    
+#        #sampling and clocking
+##        AQMD3_ATTR_SAMPLE_RATE                          = IVI_CLASS_ATTR_BASE + 15       # ViReal64, read-write  
+#        self.hardwareIDs['sampleRate'] = [classID+15, 'ViReal64']
+#       
+#        #simulation mode
+##        AQMD3_ATTR_SIMULATE                             = IVI_INHERENT_ATTR_BASE + 5       # ViBoolean, read-write  
+#        self.hardwareIDs['simulateMode'] = [inherentID + 5, 'ViBoolean']
         
 
     def InitiateAcquisition(self):
@@ -1029,20 +973,24 @@ class Acqiris(object):
         Will push the currently stored settings to the card and calibrate'''
         print('Initializing...')
         if self.simulate == True:
-            strInitOptionsC = ctypes.c_char_p(b'Simulate=True,  DriverSetup= model = SA220P')
+            strInitOptions =  'Simulate=True,  DriverSetup= model = SA220P'
         else:
-            strInitOptionsC = ctypes.c_char_p(b'Simulate=False,  DriverSetup= model = SA220P')
-            
-        self.call('InitWithOptions',
-            ctypes.create_string_buffer(self.hardwareAddress.encode('utf-8')),
-            False,
-            False, 
-            strInitOptionsC,
-            ctypes.byref(self.visession))
+            strInitOptions = 'Simulate=False,  DriverSetup= model = SA220P'
         
+        self.driver =  AqMD3( self.hardwareAddress , False, False, strInitOptions)
+        
+##        with AqMD3( resourceString, False, False, initOptions ) as driver:
+#        self.call('InitWithOptions',
+#            ctypes.create_string_buffer(self.hardwareAddress.encode('utf-8')),
+#            False,
+#            False, 
+#            strInitOptionsC,
+#            ctypes.byref(self.visession))
+        
+       
         #push the currently stored settings to the card and calibrate. Hopefully ths will actually save hassle.
         #if this is running at _init_ then it will push the defaults
-        self.SetParams()
+#        self.SetParams()  #!!!!!!!!!!!!!!!
         self.SelfCalibrate()
 
     def SetAverageMode(self, averages):
@@ -1117,121 +1065,121 @@ if __name__ == '__main__':
             card = Acqiris(hardwareAddress)
     
 
-    #####################
-    #schose acquisition type
-    #####################
-
-    averageMode = True
-#    averageMode = False
-
-#    multisegMode = True
-    multisegMode = False
-    
-    
-    
-    ##########
-    #set settings to the card object
-    ### samples = 1*10**7
-    card.samples = 513*1024
-    card.sampleRate = 1*10**9
-    
-    
-    #swtich between test cases
-    if averageMode:
-        card.averageMode = 1
-        if multisegMode:
-            card.averages = 100
-            card.segments = 2
-        else:
-            card.averages = 100
-            card.segments = 1
-    else:
-        card.averageMode = 0
-        if multisegMode:
-            card.averages = 1
-            card.segments = 2
-        else:
-            card.averages = 1
-            card.segments = 1
-            
-    card.triggerSource = 'External1'
-    card.triggerLevel = 0
-    card.triggerSlope = 'Falling'
-    
-    card.activeChannels = [1,2]
-#    card.activeChannels = [1] #it looks like single channel has to be channel 1
-    
-    card.timeOut = 2
-    
-    card.verbose = True #get lots of diagnostic print statements
-    
-    ##########
-    #push settings to hardware
-    card.SetParams()
-#    card.ConfigureChannel(channelNum = 1, Range = 2.5, offset = 0, enabled = True)
-#    card.ConfigureChannel(channelNum = 2, Range = 2.5, offset = 0, enabled = True)
-#    card.ConfigureTrigger('External1', 0, 'Falling')
-#    card.ConfigureAcquisition(samples, sampleRate, segments)
-
-    card.GetParams()
-    
-    ##########
-    #initiate acquisition and wait for it to finish
-    card.ArmAndWait()
-#    card.Arm()
-#    card.WaitForAcquisition()
-#    card.WaitForAcquisition(timeOut)
-
-    print('Data Acquired (In Theory)')
-
-    
-#    data = card.ReadData(1, returnRaw = False) #read channel 1
-    data = card.ReadData(2, returnRaw = False) #read channel 1
-#    data, data2 = card.ReadAllData()
-    
-
-    ####
-    #plot data
-
-    numSamples = card.samples
-#    sampleRate = card.GetDriverAttribute('sampleRate')
-    sampleRate = card.sampleRate
-    dt = 1/sampleRate
-    xaxis = scipy.arange(0, numSamples,1)*dt
-
-    if multisegMode:
-        dataSegments = data.shape[0]
-
-    print('Plotting.')
-
-    fig1 = pylab.figure(1)
-    pylab.clf()
-    ax = pylab.subplot(1,1,1)
-    if multisegMode:
-        pylab.title('Multiseg: Active Channel')
-        for segind in  range(0,dataSegments ):
-            labelstr = 'seg: ' + str(segind)
-            pylab.plot(xaxis*1000, data[segind,:] + segind*0.125, label = labelstr)
-    else:
-        if averageMode:
-            pylab.title('Averager: Active Channel')
-        else:
-            pylab.title('Singleseg: Active Channel')
-        labelstr = 'seg: 0' 
-        pylab.plot(xaxis*1000, data[:], label = labelstr)
-    ax.legend(loc = 'upper right')
-    pylab.ylabel('Voltage (waterfall)')
-    pylab.xlabel('Time (ms)')
-
-    pylab.show()
-
-
-    print('Done plotting.')
-    
-#    # Close the instrument
-#    print("\nClose the instrument")    
-#    card.close()
-    
+#    #####################
+#    #schose acquisition type
+#    #####################
+#
+#    averageMode = True
+##    averageMode = False
+#
+##    multisegMode = True
+#    multisegMode = False
+#    
+#    
+#    
+#    ##########
+#    #set settings to the card object
+#    ### samples = 1*10**7
+#    card.samples = 513*1024
+#    card.sampleRate = 1*10**9
+#    
+#    
+#    #swtich between test cases
+#    if averageMode:
+#        card.averageMode = 1
+#        if multisegMode:
+#            card.averages = 100
+#            card.segments = 2
+#        else:
+#            card.averages = 100
+#            card.segments = 1
+#    else:
+#        card.averageMode = 0
+#        if multisegMode:
+#            card.averages = 1
+#            card.segments = 2
+#        else:
+#            card.averages = 1
+#            card.segments = 1
+#            
+#    card.triggerSource = 'External1'
+#    card.triggerLevel = 0
+#    card.triggerSlope = 'Falling'
+#    
+#    card.activeChannels = [1,2]
+##    card.activeChannels = [1] #it looks like single channel has to be channel 1
+#    
+#    card.timeOut = 2
+#    
+#    card.verbose = True #get lots of diagnostic print statements
+#    
+#    ##########
+#    #push settings to hardware
+#    card.SetParams()
+##    card.ConfigureChannel(channelNum = 1, Range = 2.5, offset = 0, enabled = True)
+##    card.ConfigureChannel(channelNum = 2, Range = 2.5, offset = 0, enabled = True)
+##    card.ConfigureTrigger('External1', 0, 'Falling')
+##    card.ConfigureAcquisition(samples, sampleRate, segments)
+#
+#    card.GetParams()
+#    
+#    ##########
+#    #initiate acquisition and wait for it to finish
+#    card.ArmAndWait()
+##    card.Arm()
+##    card.WaitForAcquisition()
+##    card.WaitForAcquisition(timeOut)
+#
+#    print('Data Acquired (In Theory)')
+#
+#    
+##    data = card.ReadData(1, returnRaw = False) #read channel 1
+#    data = card.ReadData(2, returnRaw = False) #read channel 1
+##    data, data2 = card.ReadAllData()
+#    
+#
+#    ####
+#    #plot data
+#
+#    numSamples = card.samples
+##    sampleRate = card.GetDriverAttribute('sampleRate')
+#    sampleRate = card.sampleRate
+#    dt = 1/sampleRate
+#    xaxis = scipy.arange(0, numSamples,1)*dt
+#
+#    if multisegMode:
+#        dataSegments = data.shape[0]
+#
+#    print('Plotting.')
+#
+#    fig1 = pylab.figure(1)
+#    pylab.clf()
+#    ax = pylab.subplot(1,1,1)
+#    if multisegMode:
+#        pylab.title('Multiseg: Active Channel')
+#        for segind in  range(0,dataSegments ):
+#            labelstr = 'seg: ' + str(segind)
+#            pylab.plot(xaxis*1000, data[segind,:] + segind*0.125, label = labelstr)
+#    else:
+#        if averageMode:
+#            pylab.title('Averager: Active Channel')
+#        else:
+#            pylab.title('Singleseg: Active Channel')
+#        labelstr = 'seg: 0' 
+#        pylab.plot(xaxis*1000, data[:], label = labelstr)
+#    ax.legend(loc = 'upper right')
+#    pylab.ylabel('Voltage (waterfall)')
+#    pylab.xlabel('Time (ms)')
+#
+#    pylab.show()
+#
+#
+#    print('Done plotting.')
+#    
+##    # Close the instrument
+##    print("\nClose the instrument")    
+##    card.close()
+#    
     
 
     
