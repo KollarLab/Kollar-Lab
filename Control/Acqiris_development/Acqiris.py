@@ -55,6 +55,11 @@ class Acqiris(object):
         self.hardwareAddress = ResourceName
         self.ReInitialize()
         
+        
+        #some flags for controlling the read
+        self.armed = False
+        self.acquisitionFinished = False
+        
 #    ##############################
 #    #hardwae properties
 #    
@@ -309,7 +314,19 @@ class Acqiris(object):
     ##################################################
     
     def Arm(self):
-        '''Initialize the acquisition and get ready to take and read data '''
+        '''Initialize the acquisition and get ready to take and read data.
+        Tells the card to get ready and wait for triggers.
+        
+        Unlike it big brother ArmAndWait, this function will allow python to 
+        do stuff while the card is waiting for a trigger. E.g. start up the
+        AWG so that it actually delivers said triggers.
+        
+        Note: If this is used instead of ArmAndWait, then WaitForAcquisition will
+        need to be called at some point so that the card realizes that it is done.
+        ReadData has been modified so that it should take care of this automatically,
+        but FYI.
+        
+        '''
         try:
             self.InitiateAcquisition()
         except:
@@ -320,7 +337,15 @@ class Acqiris(object):
     
     def ArmAndWait(self):
         '''Initialize the acquisition and get ready to take and read data.
-        Then wait for it to finish'''
+        Tells the card to get ready and wait for triggers, and then waits 
+        for it to finish.
+        
+        This version works fine if the AWG is already setup and running, but it will
+        cause python to hang until the acqusition is finished. So, you will not be able
+        to do anything, and that includes starting up the AWG to have it give the 
+        card triggers. So, this function should only be used if the card is triggered
+        off an external generator, not the AWG.
+        '''
         self.Arm()
         self.WaitForAcquisition()
      
@@ -637,6 +662,8 @@ class Acqiris(object):
 
     def InitiateAcquisition(self):
         self.call('InitiateAcquisition', self.visession)
+        self.armed = True #throw flag so that python knows acquisition has been itiated
+        #and system is waiting for trigger.
         
     def _loadDefaultConfig(self):
         #sampling
@@ -671,21 +698,66 @@ class Acqiris(object):
         self.timeout = 5  #seconds
         
     def ReadAllData(self, returnRaw = False):
-        ''' Highest level read function. Will automatically  '''
+        ''' Highest level read function. Will automatically read all active
+        channels.
+        
+        Will trip flags when it is done that the data acquisition and read are complete
+        '''
+        #check if the card is done. 
+        #NOTE: Card needs to be asked if its done, or it will get mad, even if it is actually done
+        if self.armed:
+            #there was an active acquisition
+            if not self.acquisitionFinished:
+                #need to confirm with the card that it is done.
+                #(this will already have happened if you used ArmAndWait, but not if you use Arm)
+                self.WaitForAcquisition()
+        else:
+            raise ValueError("Cannot read data. Card acquisition hasn't happened.")
+        
+        
         data1 = []
         data2 = []
         if len(self.activeChannels) > 1:
             data1 = self.ReadData(1, returnRaw = returnRaw)
             data2 = self.ReadData(2, returnRaw = returnRaw)
+            #notify the python that this acquisition is done
+            self.armed = False
+            self.acquisitionFinished = False
             return data1, data2
         else:
             data =  self.ReadData(self.activeChannels[0], returnRaw = returnRaw)
+            #notify the python that this acquisition and read are done
+            self.armed = False
+            self.acquisitionFinished = False
             return data
 
     def ReadData(self, chanNum, returnRaw = False):
         '''Single channel data read function.
         Will automatically call lowerlevel read functions of the driver,
-        depending on how the card is set up.'''
+        depending on how the card is set up.
+
+        Somewhat intended as a hidden internal function of ReadAllData, so
+        it may not do the safety checks as well as it's parent because they are 
+        harder to manage when each channel is called separately.
+        
+        This single channel read function is not protected against reading the same dat twice,
+        as least not at the Kollar-lab python level.
+        
+        '''
+        #check if the card is done. (Ideally this happens in ReadAllData, but it channels are
+        #being called individually, then it may need to happen here.)
+        #NOTE: Card needs to be asked if its done, or it will get mad, even if it is actually done
+        #WaitForAcquisition MUST happen before the hardware-level reads.
+        if self.armed:
+            #there was an active acquisition
+            if not self.acquisitionFinished:
+                #need to confirm with the card that it is done.
+                #(this will already have happened if you used ArmAndWait, but not if you use Arm)
+                self.WaitForAcquisition()
+        else:
+            raise ValueError("Cannot read data. Card acquisition hasn't happened.")
+        
+        
         if chanNum ==1:
             chanName = b'Channel1'
         elif chanNum ==2:
@@ -721,6 +793,8 @@ class Acqiris(object):
                 out = self._ReadMultiSegData(chanName, returnRaw = returnRaw)
             else:
                 out = self._ReadSingleSegData(chanName, returnRaw = returnRaw)
+                
+
         return out
 
     def _ReadAveragerData(self,chanName, returnRaw = False):
@@ -1011,9 +1085,12 @@ class Acqiris(object):
 
     def WaitForAcquisition(self):
         '''Timeout in seconds '''
+        if self.verbose:
+            print('Waiting until the acquisition is done (or checking that it is) and getting confirmation')
 #        self.timeout = timeout
         timeoutC = ctypes.c_int32(self.timeout*1000)
         self.call('WaitForAcquisitionComplete', self.visession, timeoutC)
+        self.acquisitionFinished = True #throw the internal flag to show that the card is done.
 
 
 
