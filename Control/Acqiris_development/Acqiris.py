@@ -255,6 +255,44 @@ class Acqiris(object):
         self.driver.DriverOperation.Simulate = val 
         
 
+    @property
+    def clockSource(self):
+        temp = self.driver.ReferenceOscillator.Source
+        if temp == 0:
+            val = 'Internal'
+        elif temp == 1:
+            val = 'External'
+        else:
+            raise ValueError("Unkown clock source returned")
+        return val
+    @clockSource.setter
+    def clockSource(self,val):
+        if val == 'Internal':
+            sourceC = 0
+        elif val == 'Rising':
+            sourceC = 1
+        else:
+            raise ValueError("Edge clock source. Must be either 'Internal' or 'External'")
+        self.driver.ReferenceOscillator.Source = sourceC
+        
+    @property
+    def clockFrequency(self):
+        val = self.driver.ReferenceOscillator.ExternalFrequency
+        if self.verbose:
+            if self.clockSource == 'Internal':
+                print('Internal Clock. Frequency Setting Ignored (I think).')
+            if not val == 10**7:
+                print('Warning: Clock frequency is not set to 10 MHz.')
+        return val
+    @clockFrequency.setter
+    def clockFrequency(self,val):  #be very wary just trrying to set this blindly.
+        if self.verbose:
+            if self.clockSource == 'Internal':
+                print('Internal Clock. Frequency Setting Ignored (I think).')
+        if not val == 10**7:
+            raise ValueError('Clock frequency must be 10 MHz?')
+        self.driver.ReferenceOscillator.ExternalFrequency = val 
+
 
     
 #    
@@ -554,6 +592,9 @@ class Acqiris(object):
         
         self.hardwareKeys.append('simulateMode')
         
+        self.hardwareKeys.append('clockFrequency')
+        self.hardwareKeys.append('clockSource')
+        
 #        self.hardwareKeys.append('timeout') #i don't know how to get this from the hardware, so it's a software setting
         
     def InitializeDriver(self):
@@ -573,6 +614,9 @@ class Acqiris(object):
         #and system is waiting for trigger.
         
     def _loadDefaultConfig(self):
+        #diagnostic prints
+        self.verbose = False   #this needs to be first because it effects how properties below it act
+        
         #sampling
         self.samples = 1024
         self.sampleRate = 1*10**9
@@ -597,9 +641,9 @@ class Acqiris(object):
         self.triggerDelay = 0
 #        self.triggerCoupling = 1 #1 for DC, 0 for AC. I think it must always be DC, at least on external
         
-
-        #diagnostic prints
-        self.verbose = False
+        #clock settings
+        self.clockSource = 'Internal'
+        self.clockFrequency = 10**7
         
         #timeout of failed acquisitions
         self.timeout = 5  #seconds
@@ -937,16 +981,15 @@ if __name__ == '__main__':
 
     
     
-    data = card.ReadData(1, returnRaw = False) #read channel 1
+#    data = card.ReadData(1, returnRaw = False) #read channel 1
 #    data = card.ReadData(2, returnRaw = False) #read channel 1
-#    data, data2 = card.ReadAllData()
+    data, data2 = card.ReadAllData()
     
 
     ####
     #plot data
 
     numSamples = card.samples
-#    sampleRate = card.GetDriverAttribute('sampleRate')
     sampleRate = card.sampleRate
     dt = 1/sampleRate
     xaxis = scipy.arange(0, numSamples,1)*dt
