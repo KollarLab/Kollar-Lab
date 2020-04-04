@@ -49,6 +49,14 @@ class Acqiris(object):
         self.hardwareAddress = ResourceName
 #        self.ReInitialize()
         
+        #in the python version, there seems to be an issue with reinitializing an already
+        #existing instnace of the driver. It causes an error that the sample clocks are unstable
+        #or something about mising TDC curves. Running close before reinitializing it seems to allow
+        #things to work. So, putting this try in here in case the object card already exists.
+        try:
+            self.close()
+        except:
+            pass
         self.InitializeDriver()
         
         #set default values. Eventrually this should probable load from some default config file
@@ -123,22 +131,23 @@ class Acqiris(object):
             self.averageMode = 0
             
             
-#    #not yet finished. Have to add the underscores everywhere down below.
-#    @property
-#    def activeChannels(self):
-#        #have to check what it enabled and convert
-#        val = self.driver.Channels[0].Enabled
-#        val2 = self.driver.Channels[1].Enabled
-#        flags = numpy.asarray([val,val2])
-#        inds = numpy.where(flags == True)[0]
-#        full = numpy.asarray([1,2])
-#        actives = full[inds]
-#        self._activeChannels = actives
-#        return val
-#    @activeChannels.setter
-#    def activeChannels(self,val):
-#        self.settingsCurrent = False
-#        self._activeChannels = val
+    #I hope that this one can be a regular property, but I'm not sure
+    #might run into trouble with limits in avergaing mode
+    @property
+    def activeChannels(self):
+        #have to check what it enabled and convert
+        val = self.driver.Channels[0].Enabled
+        val2 = self.driver.Channels[1].Enabled
+        flags = numpy.asarray([val,val2])
+        inds = numpy.where(flags == True)[0]
+        full = numpy.asarray([1,2])
+        actives = full[inds]
+        self._activeChannels = actives
+        return actives
+    @activeChannels.setter
+    def activeChannels(self,val):
+        self.settingsCurrent = False
+        self._activeChannels = val
 
 
     
@@ -197,12 +206,12 @@ class Acqiris(object):
     @property
     def triggerCoupling(self):
         activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
-        val = activeTrigger.coupling
+        val = activeTrigger.Coupling
         return val
     @triggerCoupling.setter
     def triggerCoupling(self,val):
          activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
-         activeTrigger.coupling = val
+         activeTrigger.Coupling = val
          
          
     
@@ -265,7 +274,7 @@ class Acqiris(object):
         
         #configure the channels:
         for chind in [1,2]:
-            if chind in self.activeChannels:
+            if chind in self._activeChannels: #need the underscore here so it takes the python value and then sets up hardware to match
                 enabled = True
             else:
                 enabled= False
@@ -277,7 +286,7 @@ class Acqiris(object):
         
         self.settingsCurrent = True
         
-    def GetParams(self, driverInfo = False):
+    def GetParams(self):
         '''Autoget function for params. Will querry the hardware and package all the settings, as well as 
         update the fields of the python software object.'''
         
@@ -290,16 +299,15 @@ class Acqiris(object):
         if self.verbose:
             print('    ')
         
-        hardwareSettings = {}
-        for key in self.hardwareKeys():
-            print(key)
+#        hardwareSettings = {}
+        for key in self.hardwareKeys:
             
             #If these are all properties, then I can do this like this
             val = getattr(self,key)
             
-            #print all the results    
-            if self.verbose:
-                print(key + ' : ' + str(val))
+            #store everything away
+            setattr(self, key, val)
+#            hardwareSettings[key] = val
             
             #print all the results    
             if self.verbose:
@@ -309,7 +317,8 @@ class Acqiris(object):
         if self.verbose:
             print('    ')
             
-        return hardwareSettings
+        return
+#        return hardwareSettings
             
             
     def close(self):    
@@ -320,6 +329,10 @@ class Acqiris(object):
         self.driver.Calibration.SelfCalibrate()
 
     ##################################################
+    
+    def Abort(self):
+        '''Abort a hung acquisition '''
+        self.driver.Acquisition.Abort()
     
     def Arm(self):
         '''Initialize the acquisition and get ready to take and read data.
@@ -407,7 +420,7 @@ class Acqiris(object):
         multiple = int(numpy.ceil(self._samples/1024))
         if self._averages > 1:
             #check the number of channels
-            numChans = len(self.activeChannels)
+            numChans = len(self._activeChannels)
             if numChans == 1:
                 maxSamples = 1024*1024
             else:
@@ -611,7 +624,7 @@ class Acqiris(object):
         
         data1 = []
         data2 = []
-        if len(self.activeChannels) > 1:
+        if len(self._activeChannels) > 1:
             data1 = self.ReadData(1, returnRaw = returnRaw)
             data2 = self.ReadData(2, returnRaw = returnRaw)
             #notify the python that this acquisition is done
@@ -619,7 +632,7 @@ class Acqiris(object):
             self.acquisitionFinished = False
             return data1, data2
         else:
-            data =  self.ReadData(self.activeChannels[0], returnRaw = returnRaw)
+            data =  self.ReadData(self._activeChannels[0], returnRaw = returnRaw)
             #notify the python that this acquisition and read are done
             self.armed = False
             self.acquisitionFinished = False
@@ -785,13 +798,15 @@ class Acqiris(object):
     def ReInitialize(self):
         '''Basic init function. Can also be used to wipe he settings if the card is very confused. 
         Will push the currently stored settings to the card and calibrate'''
-#        print('Initializing...')
-#        if self.simulate == True:
-#            strInitOptions =  'Simulate=True,  DriverSetup= model = SA220P'
-#        else:
-#            strInitOptions = 'Simulate=False,  DriverSetup= model = SA220P'
-#        
-#        self.driver =  AqMD3.AqMD3( self.hardwareAddress , False, False, strInitOptions)
+
+        #in the python version, there seems to be an issue with reinitializing an already
+        #existing instnace of the driver. It causes an error that the sample clocks are unstable
+        #or something about mising TDC curves. Running close before reinitializing it seems to allow
+        #things to work. So, putting this try in here to try to catch things
+        try:
+            self.close()
+        except:
+            pass
         
         self.InitializeDriver()
        
@@ -805,8 +820,18 @@ class Acqiris(object):
         if self.verbose:
             print('Waiting until the acquisition is done (or checking that it is) and getting confirmation')
         timeoutC = self.timeout*1000 #convert to ms
-        self.driver.Acquisition.WaitForAcquisitionComplete(timeoutC)
-        self.acquisitionFinished = True #throw the internal flag to show that the card is done.
+#        self.driver.Acquisition.WaitForAcquisitionComplete(timeoutC)
+#        self.acquisitionFinished = True #throw the internal flag to show that the card is done.
+        try:
+            self.driver.Acquisition.WaitForAcquisitionComplete(timeoutC)
+            self.acquisitionFinished = True #throw the internal flag to show that the card is done.
+        except (RuntimeError):
+            print('Acquisition probably timed out.')
+            if self.verbose:
+                print('Aborting to clear hung acquisition.')
+            self.Abort()
+            self.acquisitionFinished = False #throw the internal flag to indicate failure
+        
 
 
 
