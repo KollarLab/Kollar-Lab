@@ -450,7 +450,8 @@ class Acqiris(object):
         
         if self.verbose:
             print('Setting acquisition parameters manually.')
-            print('Sample will autoround to a multiple of 1024 and shorten if tto long for avg mode.')
+            print('Samples will shorten if too long for avg mode.')
+#            print('Sample will autoround to a multiple of 1024 and shorten if to long for avg mode.')
         ###!!!!!!!!!!!!!
         #!!!!!!!!!empircally, record size must be 1024*n, and the largest that it can be is 513*1024
         #roughly 500 kS. Which is what the mnual says, but this sucks. Did the old Acqiris do this?
@@ -464,13 +465,17 @@ class Acqiris(object):
             else:
                 maxSamples = 1024*512
                 
-            if multiple*1024 > maxSamples:
+            if self._samples > maxSamples:
                 print('Data is too long for averaging mode. Setting to max length: 512*1024')
                 self.samples = int(maxSamples)
-            else:
-                #auto round to next multiple of 1024 up, regardless
-                self.samples = int(multiple*1024) 
-                #it is very important that this winds up an integer, or it least it was at some point
+                
+#            if multiple*1024 > maxSamples:
+#                print('Data is too long for averaging mode. Setting to max length: 512*1024')
+#                self.samples = int(maxSamples)
+#            else:
+#                #auto round to next multiple of 1024 up, regardless
+#                self.samples = int(multiple*1024) 
+#                #it is very important that this winds up an integer, or it least it was at some point
                 
         #it looks like now that we have the order of operations right between configuring
         #the acquisition and turning averaging on and off, so that we can use the
@@ -708,7 +713,6 @@ class Acqiris(object):
         else:
             raise ValueError("Cannot read data. Card acquisition hasn't happened.")
         
-        
         if chanNum in [1,2]:
             pass
         else:
@@ -720,8 +724,6 @@ class Acqiris(object):
         if self.verbose:
             print('Memeory Allocation Determined')
             
-       
-
         self.totalSamples = numSamples
 
         if self.verbose:
