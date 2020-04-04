@@ -348,11 +348,11 @@ class Acqiris(object):
         but FYI.
         
         '''
-#        #check if the settings are up to date
-#        if not self.settingsCurrent: 
-#            print('Warning: Python contains stale settings.')
-#            print('Pushing current settings.')
-#            self.SetParams()
+        #check if the settings are up to date
+        if not self.settingsCurrent: 
+            print('Warning: Python contains stale settings.')
+            print('Pushing current settings.')
+            self.SetParams()
         
         if self.driver.Calibration.IsRequired:
              if self.verbose:
