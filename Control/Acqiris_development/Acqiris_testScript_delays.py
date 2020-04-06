@@ -40,7 +40,7 @@ IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
 sys.path.append(IVIbinPath)
 
 
-#card = Acqiris(hardwareAddress)
+card = Acqiris(hardwareAddress)
 
 
 ##########

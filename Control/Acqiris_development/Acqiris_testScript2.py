@@ -41,7 +41,7 @@ sys.path.append(IVIbinPath)
 #minimum acquisition
 ###############
 
-#card = Acqiris(hardwareAddress)
+card = Acqiris(hardwareAddress)
 
 #card.activeChannels = [1]
 card.activeChannels = [1,2]
