@@ -4,6 +4,7 @@ import numpy as np
 
 import zhinst.ziPython as ziPython
 import zhinst.utils as ziUtils
+import settingTools as sT
 
 class HDAWG():
     apilevel = 6 # Sets the 'modernity' of the api used (bigger is more modern, 6 is current max version)
