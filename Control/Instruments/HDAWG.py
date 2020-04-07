@@ -5,6 +5,7 @@ import numpy as np
 import zhinst.ziPython as ziPython
 import zhinst.utils as ziUtils
 import settingTools as sT
+from enum import Enum
 
 class HDAWG():
     apilevel = 6 # Sets the 'modernity' of the api used (bigger is more modern, 6 is current max version)
@@ -17,9 +18,12 @@ class HDAWG():
         (self.daq,self.device,self.props) = ziUtils.create_api_session(device, self.apilevel) #connect to device specified by string
         ziUtils.disable_everything(self.daq,self.device) #disable all outputs of device
         self.load_default()
+        self.daq.setInt('/dev8163/system/awg/channelgrouping', 1)
         self.Channels = []
-        for i in range(4):
+        self.Triggers = []
+        for i in range(2):
             self.Channels.append(HDAWGchannel(self.daq,i))
+            self.Triggers.append(HDAWGtrigger(self.daq,i))
         self.Active_Channels = set()
 
     #want method to load default settings (known state) to device
@@ -156,19 +160,95 @@ class HDAWG():
     #         for marker in range(4):
     #             self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker)
 
+class HDAWGtrigger():
+    def __init__(self, daq, triggerID, device='dev8163', AWGcore=0, slope='rising', channel='Tin1'):
+        self.device  = device
+        self.daq     = daq
+        self.ID      = triggerID
+        self.AWGcore = AWGcore
+        self.nodepaths = self.fill_paths(device, AWGcore, triggerID)
+        self.slope   = slope
+        self.channel = channel
+    
+    def fill_paths(self, device, AWGcore, triggerID):
+        nodes = {}
+        nodes['slope']='/{}/awgs/{}/auxtriggers/{}/slope'.format(device, AWGcore, triggerID)
+        nodes['channel']='/{}/awgs/{}/auxtriggers/{}/channel'.format(device, AWGcore, triggerID)
+        return nodes
+
+    def configureTrigger(self,slope, channel):
+        self.slope=slope
+        self.channel=channel
+
+    def getSettings(self):
+        settings={}
+        for key in self.nodepaths.keys():
+            settings[key]=getattr(self,key)
+        return settings
+
+    def setSettings(self,settings):
+        for key in settings.keys():
+            setattr(self,key,settings[key])
+    
+    class slopeInt(Enum):
+        level=0
+        rising=1
+        falling=2
+        both=3
+    
+    class channelInt(Enum):
+        Tin1=0
+        Tin2=1
+        Tin3=2
+        Tin4=3
+        Tout1=4
+        Tout2=5
+        Tout3=6
+        Tout4=7
+
+    @property
+    def slope(self):
+        node = self.nodepaths['slope']
+        val = self.daq.getInt(node)
+        return self.slopeInt(val).name
+    @slope.setter
+    def slope(self, val):
+        node = self.nodepaths['slope']
+        slopeTypes = [e.name for e in self.slopeInt]
+        if val not in slopeTypes:
+            print('Trigger{}, slope {}'.format(self.ID, val))
+            print('Invalid trigger slope, acceptable values are: {}'.format(slopeTypes))
+        else:
+            self.daq.setInt(node,self.slopeInt[val].value)
+
+    @property
+    def channel(self):
+        node = self.nodepaths['channel']
+        val = self.daq.getInt(node)
+        return self.channelInt(val).name
+    @channel.setter
+    def channel(self, val):
+        node = self.nodepaths['channel']
+        channelopts = [e.name for e in self.channelInt]
+        if val not in channelopts:
+            print('Trigger{}, value {}'.format(self.ID,val))
+            print('Invalid trigger channel, acceptable values are: {}'.format(channelopts))
+        else:
+            self.daq.setInt(node,self.channelInt[val].value)
+
 class HDAWGchannel():
-    def __init__(self, daq, channelID, device='dev8163', AWGcore=0, amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, markers_present = False):
+    def __init__(self, daq, channelID, device='dev8163', AWGcore=0, amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, markers = 'On'):
         self.device    = device
         self.daq       = daq
         self.ID        = channelID
         self.nodepaths = self.fill_paths(device, channelID, AWGcore)
-        self.status    = 'off'
+        self.status    = 'Off'
         self.fullscale = fullscale
         self.AWGamp    = AWGamp
         self.amp       = amp
         self.offset    = offset
         self.delay     = delay
-        self.markers   = markers_present
+        self.markers   = markers
 
     def fill_paths(self, device, channelID, AWGcore):
         nodes = {}
@@ -177,13 +257,12 @@ class HDAWGchannel():
         nodes['delay'] = '/{}/sigouts/{}/delay'.format(device,channelID)
         nodes['AWGamp'] = '/{}/awgs/{}/outputs/{}/amplitude'.format(device, AWGcore, channelID)
         nodes['markers'] = '/{}/triggers/out/{}/source'.format(device, channelID)
-        nodes['enable'] = '/{}/sigouts/{}/on'.format(device, channelID)
+        nodes['status'] = '/{}/sigouts/{}/on'.format(device, channelID)
         return nodes
 
     def configureChannel(self, amp=1.0, fullscale=1.0, AWGamp=1.0, delay=0.0, offset=0.0, markers_present=False):
         if amp < 1.0 or amp > 1.0:
             self.amp = amp
-            print('Using automatic range and AWG amp settings, ignoring given settings for those parameters')
         else:
             self.fullscale = fullscale
             self.AWGamp    = AWGamp
@@ -206,19 +285,19 @@ class HDAWGchannel():
 
     @property
     def status(self):
-        node = self.nodepaths['enable']
-        val = self.daq.getDouble(node)
+        node = self.nodepaths['status']
+        val = self.daq.getInt(node)
         if val == 0:
             return 'Off'
         else:
             return 'On'
     @status.setter
     def status(self,val):
-        node = self.nodepaths['enable']
+        node = self.nodepaths['status']
         if val == 'On':
-            self.daq.setDouble(node,1)
-        if val == 'Off':
-            self.daq.setDouble(node,0)
+            self.daq.setInt(node,1)
+        elif val == 'Off':
+            self.daq.setInt(node,0)
         else:
             raise ValueError('Status must be "On" or "Off"')
 
@@ -231,10 +310,12 @@ class HDAWGchannel():
         ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
         for x in ranges:
             if val > x:
+                #print('{} is greater than {}'.format(val,x))
                 continue
             else:
                 self.fullscale = x
                 self.AWGamp    = val/x
+                break
 
     @property
     def markers(self):
@@ -242,16 +323,19 @@ class HDAWGchannel():
         markindex = self.ID+4
         status    = self.daq.getDouble(node)
         if status == markindex:
-            print('Markers enabled')
+            return 'On'
+        else:
+            return 'Off'
     @markers.setter
     def markers(self,val):
         node      = self.nodepaths['markers']
         markindex = self.ID+4
-        if val == True:
+        if val == 'On':
             print('Enabling markers')
             self.daq.setDouble(node,markindex)
         else:
-            print('Leaving default value')
+            print('Disabling markers')
+            self.daq.setDouble(node,self.ID)
      
     @property
     def fullscale(self):
