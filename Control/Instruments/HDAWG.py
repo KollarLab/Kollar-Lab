@@ -17,6 +17,10 @@ class HDAWG():
         (self.daq,self.device,self.props) = ziUtils.create_api_session(device, self.apilevel) #connect to device specified by string
         ziUtils.disable_everything(self.daq,self.device) #disable all outputs of device
         self.load_default()
+        self.Channels = []
+        for i in range(4):
+            self.Channels.append(HDAWGchannel(self.daq,i))
+        self.Active_Channels = set()
 
     #want method to load default settings (known state) to device
     def load_default(self):
@@ -88,58 +92,6 @@ class HDAWG():
         if awgModule.getInt('elf/status') == 1:
             raise Exception("Upload to the instrument failed.")
 
-    #Set amplitude of AWG
-    def set_AWGamp(self,amps, channels):
-        ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
-        for amp, channel in zip(amps, channels):
-            for maxval in ranges:
-                if amp <= maxval:
-                    print('Channel: {}, range: {}'.format(channel, maxval))
-                    self.daq.setDouble('/{}/sigouts/{}/range'.format(self.device, channel), maxval) #set the max range of output channel
-                    scaled_amp = amp/maxval
-                    AWGmod = int(np.floor(channel/2)) #get the AWG module number (for 8163, there are two built in modules)
-                    AWGchannel = np.mod(channel, 2) #get channel number within module
-                    self.daq.setDouble('/{}/awgs/{}/outputs/{}/amplitude'.format(self.device, AWGmod, AWGchannel), scaled_amp) #scale amplitude of AWG data to match desired voltage
-                    while(self.daq.getInt('/{}/sigouts/{}/busy'.format(self.device, channel))>0): #wait until channel settings are completed 
-                        time.sleep(0.1)
-                    break
-                else:
-                    if amp > max(ranges):
-                        raise Exception("Amplitude is too large, max amplitude is {}".format(max(ranges)))
-                    continue
-
-    #Functions to do settings stuff, there's got to be a better way but this is a start
-    def enable_channels(self, channels):
-        for channel in channels:
-            self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),1)
-            while(self.daq.getInt('/{}/sigouts/{}/busy'.format(self.device, channel))>0): #wait until channel settings are completed 
-                time.sleep(0.1)
-
-    #Disable/ turn off channels 
-    def disable_channels(self, channels={}):
-        for channel in channels:
-            self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),0)
-        if not channels:
-            for channel in range(4): 
-                self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),0)
-        
-    #Enable Marker channels (by default AWG will use Triggers sequencer commands but they are less precise)
-    def enable_markers(self,markers={}):
-        for marker in markers:
-            self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker+4)
-        if not markers:
-            for marker in range(4):
-                self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker+4)
-
-    #Use Triggers instead of markers for waveforms
-    #TRIGGERS don't seem to work at the moment (can't get them in GUI...)
-    def enable_triggers(self,markers={}):
-        for marker in markers:
-            self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker)
-        if not markers:
-            for marker in range(4):
-                self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker)
-
     #Turn on AWG and run through program once
     def run(self,AWGcore=0):
         self.daq.setInt('/{}/awgs/{}/single'.format(self.device,AWGcore),1)
@@ -151,3 +103,200 @@ class HDAWG():
     #disconnect device
     def done(self):
         self.daq.disconnectDevice(self.device)
+
+    #Set amplitude of AWG
+    # def set_AWGamp(self,amps, channels):
+    #     ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
+    #     for amp, channel in zip(amps, channels):
+    #         for maxval in ranges:
+    #             if amp <= maxval:
+    #                 print('Channel: {}, range: {}'.format(channel, maxval))
+    #                 self.daq.setDouble('/{}/sigouts/{}/range'.format(self.device, channel), maxval) #set the max range of output channel
+    #                 scaled_amp = amp/maxval
+    #                 AWGmod = int(np.floor(channel/2)) #get the AWG module number (for 8163, there are two built in modules)
+    #                 AWGchannel = np.mod(channel, 2) #get channel number within module
+    #                 self.daq.setDouble('/{}/awgs/{}/outputs/{}/amplitude'.format(self.device, AWGmod, AWGchannel), scaled_amp) #scale amplitude of AWG data to match desired voltage
+    #                 while(self.daq.getInt('/{}/sigouts/{}/busy'.format(self.device, channel))>0): #wait until channel settings are completed 
+    #                     time.sleep(0.1)
+    #                 break
+    #             else:
+    #                 if amp > max(ranges):
+    #                     raise Exception("Amplitude is too large, max amplitude is {}".format(max(ranges)))
+    #                 continue
+
+    # #Functions to do settings stuff, there's got to be a better way but this is a start
+    # def enable_channels(self, channels):
+    #     for channel in channels:
+    #         self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),1)
+    #         while(self.daq.getInt('/{}/sigouts/{}/busy'.format(self.device, channel))>0): #wait until channel settings are completed 
+    #             time.sleep(0.1)
+
+    # #Disable/ turn off channels 
+    # def disable_channels(self, channels={}):
+    #     for channel in channels:
+    #         self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),0)
+    #     if not channels:
+    #         for channel in range(4): 
+    #             self.daq.setDouble('/{}/sigouts/{}/on'.format(self.device,channel),0)
+        
+    # #Enable Marker channels (by default AWG will use Triggers sequencer commands but they are less precise)
+    # def enable_markers(self,markers={}):
+    #     for marker in markers:
+    #         self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker+4)
+    #     if not markers:
+    #         for marker in range(4):
+    #             self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker+4)
+
+    # #Use Triggers instead of markers for waveforms
+    # #TRIGGERS don't seem to work at the moment (can't get them in GUI...)
+    # def enable_triggers(self,markers={}):
+    #     for marker in markers:
+    #         self.daq.setdouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker)
+    #     if not markers:
+    #         for marker in range(4):
+    #             self.daq.setDouble('/{}/triggers/out/{}/source'.format(self.device,marker),marker)
+
+class HDAWGchannel():
+    def __init__(self, daq, channelID, device='dev8163', AWGcore=0, amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, markers_present = False):
+        self.device    = device
+        self.daq       = daq
+        self.ID        = channelID
+        self.nodepaths = self.fill_paths(device, channelID, AWGcore)
+        self.status    = 'off'
+        self.fullscale = fullscale
+        self.AWGamp    = AWGamp
+        self.amp       = amp
+        self.offset    = offset
+        self.delay     = delay
+        self.markers   = markers_present
+
+    def fill_paths(self, device, channelID, AWGcore):
+        nodes = {}
+        nodes['fullscale'] = '/{}/sigouts/{}/range'.format(device,channelID)
+        nodes['offset'] = '/{}/sigouts/{}/offset'.format(device,channelID)
+        nodes['delay'] = '/{}/sigouts/{}/delay'.format(device,channelID)
+        nodes['AWGamp'] = '/{}/awgs/{}/outputs/{}/amplitude'.format(device, AWGcore, channelID)
+        nodes['markers'] = '/{}/triggers/out/{}/source'.format(device, channelID)
+        nodes['enable'] = '/{}/sigouts/{}/on'.format(device, channelID)
+        return nodes
+
+    def configureChannel(self, amp=1.0, fullscale=1.0, AWGamp=1.0, delay=0.0, offset=0.0, markers_present=False):
+        if amp < 1.0 or amp > 1.0:
+            self.amp = amp
+            print('Using automatic range and AWG amp settings, ignoring given settings for those parameters')
+        else:
+            self.fullscale = fullscale
+            self.AWGamp    = AWGamp
+            print('Manual range configuration')
+
+        self.delay   = delay
+        self.offset  = offset
+        self.markers = markers_present
+        self.status  = 'On'
+
+    def getSettings(self):
+        settings={}
+        for key in self.nodepaths.keys():
+            settings[key] = getattr(self,key)
+        return settings
+
+    def setSettings(self, settings):
+        for key in settings:
+            setattr(self,key,settings[key])
+
+    @property
+    def status(self):
+        node = self.nodepaths['enable']
+        val = self.daq.getDouble(node)
+        if val == 0:
+            return 'Off'
+        else:
+            return 'On'
+    @status.setter
+    def status(self,val):
+        node = self.nodepaths['enable']
+        if val == 'On':
+            self.daq.setDouble(node,1)
+        if val == 'Off':
+            self.daq.setDouble(node,0)
+        else:
+            raise ValueError('Status must be "On" or "Off"')
+
+    @property
+    def amp(self):
+        return self.fullscale*self.AWGamp
+    @amp.setter
+    def amp(self,val):
+        print('Automatically adjusting fullscale and AWGamp values')
+        ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
+        for x in ranges:
+            if val > x:
+                continue
+            else:
+                self.fullscale = x
+                self.AWGamp    = val/x
+
+    @property
+    def markers(self):
+        node      = self.nodepaths['markers']
+        markindex = self.ID+4
+        status    = self.daq.getDouble(node)
+        if status == markindex:
+            print('Markers enabled')
+    @markers.setter
+    def markers(self,val):
+        node      = self.nodepaths['markers']
+        markindex = self.ID+4
+        if val == True:
+            print('Enabling markers')
+            self.daq.setDouble(node,markindex)
+        else:
+            print('Leaving default value')
+     
+    @property
+    def fullscale(self):
+        node = self.nodepaths['fullscale']
+        val  = self.daq.getDouble(node)
+        return val
+    @fullscale.setter
+    def fullscale(self,val):
+        ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
+        node   = self.nodepaths['fullscale']
+        if val not in ranges:
+            raise ValueError('Fullscale values must one of {}'.format(ranges))
+        else:
+            self.daq.setDouble(node,val)
+    
+    @property
+    def AWGamp(self):
+        node = self.nodepaths['AWGamp']
+        val  = self.daq.getDouble(node)
+        return val
+    @AWGamp.setter
+    def AWGamp(self,val):
+        node = self.nodepaths['AWGamp']
+        if(val<=0.0 or val>1.0):
+            raise ValueError('AWG amp out of range (0.,1]')
+        else:
+            self.daq.setDouble(node, val)
+
+    @property
+    def offset(self):
+        node = self.nodepaths['offset']
+        val  = self.daq.getDouble(node)
+        return val
+    @offset.setter
+    def offset(self,val):
+        node = self.nodepaths['offset']
+        self.daq.setDouble(node,val)
+
+    @property
+    def delay(self):
+        node = self.nodepaths['delay']
+        val  = self.daq.getDouble(node)
+        return val
+    @delay.setter
+    def delay(self,val):
+        node = self.nodepaths['delay']
+        self.daq.setDouble(node,val)
+    
