@@ -5,7 +5,6 @@ import numpy as np
 import zhinst.ziPython as ziPython
 import zhinst.utils as ziUtils
 import settingTools as sT
-from enum import Enum
 from bidict import bidict
 
 class HDAWG():
@@ -13,7 +12,7 @@ class HDAWG():
     #defaults_path='C:\\Users\\kollarlab\\AppData\\Roaming\\Zurich Instruments\\LabOne\\WebServer\\setting'
     #defaults_path=os.getcwd()
     defaults_path  = os.path.dirname(os.path.realpath(__file__))
-    defaults_filename='default_settings.xml'
+    defaults_filename='defaults.xml'
 
     def __init__(self, device):
         (self.daq,self.device,self.props) = ziUtils.create_api_session(device, self.apilevel) #connect to device specified by string
@@ -21,20 +20,55 @@ class HDAWG():
         self.load_default()
         self.nodepaths = self.fill_paths(self.device)
         self.Channels = []
-        self.Triggers = []
         self.AWGs     = []
         for i in range(4):
             self.Channels.append(HDAWGchannel(self.daq,i))
         for i in range(2):
-            self.Triggers.append(HDAWGtrigger(self.daq,i))
             self.AWGs.append(HDAWGawg(self.daq,i))
 
     def fill_paths(self,device):
         nodes={}
         nodes['channelgrouping']='/{}/system/awg/channelgrouping'.format(device)
-        nodes['samplerate']='/{}/awgs/0/time'.format(device)
         nodes['referenceClock']='/{}/system/clocks/referenceclock/source'.format(device)
         return nodes
+    
+    def getSettings(self):
+        settings = {}
+        settings['System']={}
+        for key in self.nodepaths.keys():
+            settings['System'][key] = getattr(self,key)
+        settings['AWGS']={}
+        if self.channelgrouping == '1x4':
+            settings['AWGS']['AWG0'] = self.AWGs[0].getSettings()
+        else:
+            for i in range(2):
+                settings['AWGS']['AWG{}'.format(i)] = self.AWGs[i].getSettings()
+        settings['Channels']={}
+        for i in range(4):
+            if self.Channels[i].configured:
+                settings['Channels']['Channel{}'.format(i)] = self.Channels[i].getSettings()
+        return settings
+
+    def setSettings(self, settings):
+        for key in settings.keys():
+            if key == 'AWGs':
+                for i in range(2):
+                    AWGname = 'AWG{}'.format(i)
+                    if AWGname in settings['AWGs'].keys():
+                        self.AWGs[i].setSettings(settings['AWGS'][AWGname])
+            elif key == 'Channels':
+                for i in range(4):
+                    Channelname = 'Channel{}'.format(i)
+                    if Channelname in settings['Channels'].keys():
+                        self.Channels[i].setSettings(settings['Channels'][Channelname])
+            else:
+                setattr(self,key,settings['System'][key])
+
+    def save_settings(self, filename):
+        sT.save_settings(self.getSettings(),filename)
+    
+    def show_keysettings(self):
+        sT.print_settings(self.getSettings())
 
     _groupInt=bidict({
         '2x2':0,
@@ -57,6 +91,9 @@ class HDAWG():
             print('Invalid channel grouping, must be {}'.format(list(self._groupInt)))
         else:
             self.daq.setInt(node,self._groupInt[val])
+            if val == '1x4':
+                print('AWG settings and programs will be loaded from AWG0 (settings for AWG1 have not been overwriting but will not apply)')
+
     @property
     def referenceClock(self):
         node = self.nodepaths['referenceClock']
@@ -90,7 +127,7 @@ class HDAWG():
         self.daq.disconnectDevice(self.device)
 
 class HDAWGawg:
-    def __init__(self, daq, AWGcore, samplerate='2.4Ghz',device='dev8163', channelgrouping='1x4'):
+    def __init__(self, daq, AWGcore, samplerate='2.4GHz',device='dev8163', channelgrouping='1x4'):
         self.device          = device
         self.daq             = daq
         self.index           = AWGcore
@@ -98,7 +135,7 @@ class HDAWGawg:
         self.channelgrouping = channelgrouping
         self.Triggers        = []
         for i in range (2):
-            self.Triggers.append(HDAWGtrigger(self.daq,i,AWGcore=self.index))
+            self.Triggers.append(HDAWGtrigger(self.daq,i,AWGcore=self.index, device = self.device))
         self.samplerate      = samplerate
 
     def fill_paths(self):
@@ -106,6 +143,7 @@ class HDAWGawg:
         nodes['waves']='/{}/awgs/{}/waveform/waves/index'.format(self.device, self.index)
         nodes['single']='/{}/awgs/{}/single'.format(self.device,self.index)
         nodes['enable']='/{}/awgs/{}/enable'.format(self.device,self.index)
+        nodes['samplerate']='/{}/awgs/{}/time'.format(self.device,self.index)
         return nodes
     
     def getSettings(self):
@@ -113,16 +151,20 @@ class HDAWGawg:
         settings['samplerate'] = self.samplerate
         settings['Triggers'] = {}
         for i in range(2):
-            temp = 'Trigger{}'.format(i)
-            settings['Triggers'][temp]=self.Triggers[i].getSettings
+            trigger = 'Trigger{}'.format(i)
+            if self.Triggers[i].configured:
+                settings['Triggers'][trigger]=self.Triggers[i].getSettings()
         return settings
     
     def setSettings(self, settings):
         self.samplerate = settings['samplerate']
         if 'Triggers' in settings.keys():
-            for i in range(len(settings['Triggers']))
-
-
+            for i in range(2):
+                trigger = 'Trigger{}'.format(i)
+                if trigger in settings['Triggers'].keys():
+                    self.Triggers[i].setSettings(settings['Triggers'][trigger])
+                else:
+                    continue
     
     _sampleInt=bidict({
         '2.4GHz'   : 0,
@@ -226,14 +268,15 @@ class HDAWGawg:
         self.daq.setInt(node,1)
 
 class HDAWGtrigger():
-    def __init__(self, daq, triggerID, device='dev8163', AWGcore=0, slope='rising', channel='Tin1'):
-        self.device  = device
-        self.daq     = daq
-        self.ID      = triggerID
-        self.AWGcore = AWGcore
-        self.nodepaths = self.fill_paths(device, AWGcore, triggerID)
-        self.slope   = slope
-        self.channel = channel
+    def __init__(self, daq, triggerID, device, AWGcore, slope='rising', channel='Trigger in 1'):
+        self.device     = device
+        self.daq        = daq
+        self.ID         = triggerID
+        self.AWGcore    = AWGcore
+        self.nodepaths  = self.fill_paths(device, AWGcore, triggerID)
+        self.slope      = slope
+        self.channel    = channel
+        self.configured = False
     
     def fill_paths(self, device, AWGcore, triggerID):
         nodes = {}
@@ -242,8 +285,9 @@ class HDAWGtrigger():
         return nodes
 
     def configureTrigger(self,slope, channel):
-        self.slope=slope
-        self.channel=channel
+        self.slope      = slope
+        self.channel    = channel
+        self.configured = True
 
     def getSettings(self):
         settings={}
@@ -254,6 +298,7 @@ class HDAWGtrigger():
     def setSettings(self,settings):
         for key in settings.keys():
             setattr(self,key,settings[key])
+        self.configured = True
 
     _slopeInt = bidict({
         'level':0,
@@ -284,6 +329,7 @@ class HDAWGtrigger():
             print('Invalid trigger slope, acceptable values are: {}'.format(list(self._slopeInt)))
         else:
             self.daq.setInt(node,self._slopeInt[val])
+            self.configured = True
 
     @property
     def channel(self):
@@ -297,30 +343,35 @@ class HDAWGtrigger():
             print('Invalid trigger channel, acceptable values are: {}'.format(list(self._channelInt)))
         else:
             self.daq.setInt(node,self._channelInt[val])
+            self.configured = True
 
 class HDAWGchannel():
     def __init__(self, daq, channelID, device='dev8163', amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, markers = 'On'):
-        self.device    = device
-        self.daq       = daq
-        self.ID        = channelID
-        self.AWGcore   = np.floor(channelID/2)
-        self.nodepaths = self.fill_paths(device, channelID)
-        self.status    = 'Off'
-        self.fullscale = fullscale
-        self.AWGamp    = AWGamp
-        self.amp       = amp
-        self.offset    = offset
-        self.delay     = delay
-        self.markers   = markers
+        self.device     = device
+        self.daq        = daq
+        self.ID         = channelID
+        self.AWGcore    = int(np.floor(channelID/2))
+        self.AWGout     = channelID%2
+        self.nodepaths  = self.fill_paths()
+        self.status     = 'Off'
+        self.notinit    = False
+        self.fullscale  = fullscale
+        self.AWGamp     = AWGamp
+        self.amp        = amp
+        self.offset     = offset
+        self.delay      = delay
+        self.markers    = markers
+        self._notinit   = True
+        self.configured = False
 
-    def fill_paths(self, device, channelID):
+    def fill_paths(self):
         nodes = {}
-        nodes['fullscale'] = '/{}/sigouts/{}/range'.format(device,channelID)
-        nodes['offset'] = '/{}/sigouts/{}/offset'.format(device,channelID)
-        nodes['delay'] = '/{}/sigouts/{}/delay'.format(device,channelID)
-        nodes['AWGamp'] = '/{}/awgs/{}/outputs/{}/amplitude'.format(device, self.AWGcore, channelID)
-        nodes['markers'] = '/{}/triggers/out/{}/source'.format(device, channelID)
-        nodes['status'] = '/{}/sigouts/{}/on'.format(device, channelID)
+        nodes['fullscale'] = '/{}/sigouts/{}/range'.format(self.device,self.ID)
+        nodes['offset'] = '/{}/sigouts/{}/offset'.format(self.device,self.ID)
+        nodes['delay'] = '/{}/sigouts/{}/delay'.format(self.device,self.ID)
+        nodes['AWGamp'] = '/{}/awgs/{}/outputs/{}/amplitude'.format(self.device, self.AWGcore, self.AWGout)
+        nodes['markers'] = '/{}/triggers/out/{}/source'.format(self.device,self.ID)
+        nodes['status'] = '/{}/sigouts/{}/on'.format(self.device,self.ID)
         return nodes
 
     def configureChannel(self, amp=1.0, fullscale=1.0, AWGamp=1.0, delay=0.0, offset=0.0, markers = 'Off'):
@@ -331,13 +382,15 @@ class HDAWGchannel():
             self.AWGamp    = AWGamp
             print('Manual range configuration')
 
-        self.delay   = delay
-        self.offset  = offset
-        self.markers = markers
-        self.status  = 'On'
+        self.delay      = delay
+        self.offset     = offset
+        self.markers    = markers
+        self.configured = True
+        self.status     = 'On'
 
     def getSettings(self):
         settings={}
+        settings['amp'] = getattr(self,'amp')
         for key in self.nodepaths.keys():
             settings[key] = getattr(self,key)
         return settings
@@ -345,6 +398,7 @@ class HDAWGchannel():
     def setSettings(self, settings):
         for key in settings:
             setattr(self,key,settings[key])
+        self.configured = True
 
     @property
     def status(self):
@@ -369,7 +423,8 @@ class HDAWGchannel():
         return self.fullscale*self.AWGamp
     @amp.setter
     def amp(self,val):
-        print('Automatically adjusting fullscale and AWGamp values')
+        if self.notinit:
+            print('Automatically adjusting fullscale and AWGamp values')
         ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
         for x in ranges:
             if val > x:
@@ -379,6 +434,7 @@ class HDAWGchannel():
                 self.fullscale = x
                 self.AWGamp    = val/x
                 break
+        self.configured = True
 
     @property
     def markers(self):
@@ -394,12 +450,15 @@ class HDAWGchannel():
         node      = self.nodepaths['markers']
         markindex = self.ID+4
         if val == 'On':
-            print('Enabling markers')
-            self.daq.setDouble(node,markindex)
+            if self.notinit:
+                print('Enabling markers')
+            self.daq.setInt(node,markindex)
         else:
-            print('Disabling markers')
-            self.daq.setDouble(node,self.ID)
-     
+            if self.notinit:
+                print('Disabling markers')
+            self.daq.setInt(node,self.ID)
+        self.configured = True
+        
     @property
     def fullscale(self):
         node = self.nodepaths['fullscale']
@@ -413,6 +472,7 @@ class HDAWGchannel():
             raise ValueError('Fullscale values must one of {}'.format(ranges))
         else:
             self.daq.setDouble(node,val)
+        self.configured = True
     
     @property
     def AWGamp(self):
@@ -426,6 +486,7 @@ class HDAWGchannel():
             raise ValueError('AWG amp out of range (0.,1]')
         else:
             self.daq.setDouble(node, val)
+        self.configured = True
 
     @property
     def offset(self):
@@ -436,6 +497,7 @@ class HDAWGchannel():
     def offset(self,val):
         node = self.nodepaths['offset']
         self.daq.setDouble(node,val)
+        self.configured = True
 
     @property
     def delay(self):
@@ -446,6 +508,7 @@ class HDAWGchannel():
     def delay(self,val):
         node = self.nodepaths['delay']
         self.daq.setDouble(node,val)
+        self.configured = True
     
     #Set amplitude of AWG
     # def set_AWGamp(self,amps, channels):
