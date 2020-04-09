@@ -64,7 +64,17 @@ params['clockFrequency'] = 10**7
 
 
 
+#set the parameters to your dictionary.
+#if your dictionary is missing fields, it will use the old values
 card.SetParams(params)
+
+
+#get ALL of the settings that matter
+params2 = card._generateConfig()
+#higher level set (will call LoadConfig and push all settings to hardware)
+card.SetParams(params2)
+#lower level set (mostly loads the settings into python)
+card.LoadConfig(params2)
 
 
 

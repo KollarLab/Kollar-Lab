@@ -672,6 +672,8 @@ class Acqiris(object):
         
         As it currently stands it will try to get the settings from the hardware
         and ignore the python shadow copies.
+        
+        This will hopefully be the basis for saving and loading.
         '''
         params = {}
         for key in self.hardwareKeys:
@@ -697,11 +699,20 @@ class Acqiris(object):
         
 
     def InitiateAcquisition(self):
+        ''' Tells the hardware to start looking for data.
+        This is a relatively low-level hardware function.
+        User-friendly version with more checks and balances
+        is the wrappers Arm and ArmAndWait.'''
         self.driver.Acquisition.Initiate()
         self.armed = True #throw flag so that python knows acquisition has been itiated
         #and system is waiting for trigger.
         
     def LoadConfig(self, params):
+        ''' Takes in a dictionary of settings and loads them into this python
+        class. Those that are normal properties will get set to hardware.
+        The icky properties will not get set until a call to SetParams is made,
+        either by the user, or when the flag is tripped in Arm
+        '''
         for key in params.keys():
             bool1 = key in self.__dict__.keys()
             bool2 = ('_' + key) in self.__dict__.keys()
@@ -745,6 +756,15 @@ class Acqiris(object):
         
         #timeout of failed acquisitions
         self.timeout = 5  #seconds
+        
+    def Print(self):
+        '''Print the most important settings. 
+        Will not show the run time flags and stuff like this.'''
+        params = self._generateConfig()
+        print()
+        for key in params.keys():
+            print(key + ' : ' + str(params[key]))
+        print()
         
     def ReadAllData(self, returnRaw = False):
         ''' Highest level read function. Will automatically read all active
