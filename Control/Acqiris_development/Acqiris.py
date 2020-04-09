@@ -215,22 +215,68 @@ class Acqiris(object):
          
          
     
+#    @property
+#    def channelRange(self):
+#        #have to check what it enabled and convert
+#        val = self.driver.Channels[0].Range
+#        val2 = self.driver.Channels[1].Range
+#        if not val == val2:
+#            print('Warning: Range set differently on the two channels')
+#        return val
+#    @channelRange.setter
+#    def channelRange(self,val):
+#        if val in [0.5, 2.5]:
+#            self.driver.Channels[0].Range = val
+#            self.driver.Channels[1].Range = val
+#        else:
+#            raise ValueError('Range must be 0.5 or 2.5')
+    
+#    @property
+#    def channelOffset(self):
+#        #have to check what it enabled and convert
+#        val = self.driver.Channels[0].Offset
+#        val2 = self.driver.Channels[1].Offset
+#        if not val == val2:
+#            print('Warning: Offset set differently on the two channels')
+#        return val
+#    @channelOffset.setter
+#    def channelOffset(self,val):
+#        self.driver.Channels[0].Offset = val
+#        self.driver.Channels[1].Offset = val
+         
     @property
     def channelRange(self):
         #have to check what it enabled and convert
         val = self.driver.Channels[0].Range
         val2 = self.driver.Channels[1].Range
-        if not val == val2:
-            print('Warning: Range set differently on the two channels')
-        return val
+        self._channelRange = numpy.asarray([val, val2]) #store the basic range
+        #for both channels under the hood
+        if val == val2:
+            #two channels set the same, use one only
+            return val
+        else:
+            return numpy.asarray([val, val2])
     @channelRange.setter
     def channelRange(self,val):
-        if val in [0.5, 2.5]:
-            self.driver.Channels[0].Range = val
-            self.driver.Channels[1].Range = val
-        else:
-            raise ValueError('Range must be 0.5 or 2.5')
-            
+        if type(val) == float:
+            #only single value specified
+            self._channelRange = numpy.asarray([val, val])
+            if val in [0.5, 2.5]:
+                self.driver.Channels[0].Range = val
+                self.driver.Channels[1].Range = val
+            else:
+                raise ValueError('Range must be 0.5 or 2.5')   
+        elif (type(val) == float) or (type(val) == numpy.ndarray) :
+            #given an array or list of values
+            if len(val) == 2:
+                if (val[0] in [0.5, 2.5]) and (val[1] in [0.5, 2.5]):
+                    self.driver.Channels[0].Range = val[0]
+                    self.driver.Channels[1].Range = val[1]
+                else:
+                    raise ValueError('Range must be 0.5 or 2.5')  
+            else:
+                raise ValueError('Array too long. Only two channels.') 
+
     @property
     def channelOffset(self):
         #have to check what it enabled and convert
@@ -316,7 +362,7 @@ class Acqiris(object):
                 enabled = True
             else:
                 enabled= False
-            self.ConfigureChannel(channelNum = chind, Range = self.channelRange, offset = self.channelOffset, enabled = enabled)
+            self.ConfigureChannel(channelNum = chind, Range = self._channelRange, offset = self.channelOffset, enabled = enabled)
             
         #configure the acquisition
 #        self.ConfigureAcquisition(self.samples, self.sampleRate, self.segments)
@@ -514,17 +560,18 @@ class Acqiris(object):
         else:
             raise ValueError('Invalid channel. Should be 1 or 2')
         
-        if Range in [0.5, 2.5]:
-            self.channelRange = Range
-        else:
-            raise ValueError('Range must be 0.5 or 2.5')
+#        if Range in [0.5, 2.5]: #changed to a property, so this is checked elsewhere
+#            self.channelRange = Range
+#        else:
+#            raise ValueError('Range must be 0.5 or 2.5')
             
+        self.channelRange = Range
         self.channelOffset = offset
 
         couplingC = 1 # 1 = DC coupling. Always. Card can't do AC.
 
         chan = self.driver.Channels[int(channelNum-1)] #python channels are index from 0
-        chan.Configure(self.channelRange, self.channelOffset, couplingC, enabled)
+        chan.Configure(self._channelRange[int(channelNum-1)], self.channelOffset, couplingC, enabled)
     
     def ConfigureTrigger(self, Source = 'External1', Level = 0, Slope = 'Falling', Mode = 'Edge'):
         if Mode != 'Edge':
@@ -854,7 +901,13 @@ class Acqiris(object):
         except:
             pass
         
-        self.InitializeDriver()
+        self.InitializeDriver() #this puts the driver back in a default
+        #and then some of the properties act funny, because they are only stored in hardware
+        #so they revert to the driver default. Going to patch this by loading out default
+        self._loadDefaultConfig()
+        #however, what I wold like to do is reinitialize to what the python had previously.
+        #That's gonna be tricky though without having shadow python copies of everything.
+        #It might work if I call self.save(). self.InitializeDriver(), self.load()
        
         #push the currently stored settings to the card and calibrate. Hopefully ths will actually save hassle.
         #if this is running at _init_ then it will push the defaults
@@ -960,6 +1013,12 @@ if __name__ == '__main__':
     card.timeOut = 2
     
     card.verbose = True #get lots of diagnostic print statements
+    
+#    card.channelRange = 0.5
+#    card.channelRange = [0.5, 2.5]
+    card.channelRange = numpy.asarray([0.5, 2.5])
+    
+    card.channelOffset = 0.1
     
     ##########
     #push settings to hardware
