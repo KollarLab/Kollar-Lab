@@ -54,7 +54,7 @@ class Acqiris(object):
         #or something about mising TDC curves. Running close before reinitializing it seems to allow
         #things to work. So, putting this try in here in case the object card already exists.
         try:
-            self.close()
+            self.Close()
         except:
             pass
         self.InitializeDriver()
@@ -179,13 +179,14 @@ class Acqiris(object):
     def triggerSlope(self):
         activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
         temp = activeTrigger.Edge.Slope
-        self._triggerSlope = temp
+#        self._triggerSlope = temp
         if temp == 0:
             val = 'Falling'
         elif temp == 1:
             val = 'Rising'
         else:
             raise ValueError("Unkown trigger slope returned")
+        self._triggerSlope = val
         return val
     @triggerSlope.setter
     def triggerSlope(self,val):
@@ -195,7 +196,8 @@ class Acqiris(object):
             triggerSlopeC = 1
         else:
             raise ValueError("Edge trigger slope must be either 'Rising' or 'Falling'")
-        self._triggerSlope = triggerSlopeC
+#        self._triggerSlope = triggerSlopeC
+        self._triggerSlope = val
         activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
         activeTrigger.Edge.Slope = triggerSlopeC 
         
@@ -373,7 +375,7 @@ class Acqiris(object):
         
         fields = params.keys()
         if not len(fields) == 0:
-            self.loadConfig(params)
+            self.LoadConfig(params)
         
         #configure the trigger
         self.ConfigureTrigger(Source = self.triggerSource, Level = self.triggerLevel, Slope = self.triggerSlope, Mode = self.triggerMode)
@@ -421,7 +423,7 @@ class Acqiris(object):
 #        return hardwareSettings
             
             
-    def close(self):    
+    def Close(self):    
         self.driver.Close()
         
     def SelfCalibrate(self):
@@ -664,7 +666,25 @@ class Acqiris(object):
         self.hardwareKeys.append('clockSource')
         
 #        self.hardwareKeys.append('timeout') #i don't know how to get this from the hardware, so it's a software setting
+    
+    def _generateConfig(self):
+        '''Make a dictionary of the hardware settings and a couple of useful flags.
         
+        As it currently stands it will try to get the settings from the hardware
+        and ignore the python shadow copies.
+        '''
+        params = {}
+        for key in self.hardwareKeys:
+            val = getattr(self,key)
+            params[key] = val
+        
+        #a couple of the python software settings need to go too.
+        params['verbose'] = self.verbose
+        params['timeout'] = self.timeout
+        params['simulate'] = self.simulate
+        return params
+        
+    
     def InitializeDriver(self):
         '''Basic init function. Creates the driver.'''
         print('Initializing...')
@@ -681,7 +701,7 @@ class Acqiris(object):
         self.armed = True #throw flag so that python knows acquisition has been itiated
         #and system is waiting for trigger.
         
-    def loadConfig(self, params):
+    def LoadConfig(self, params):
         for key in params.keys():
             bool1 = key in self.__dict__.keys()
             bool2 = ('_' + key) in self.__dict__.keys()
@@ -923,17 +943,24 @@ class Acqiris(object):
         #or something about mising TDC curves. Running close before reinitializing it seems to allow
         #things to work. So, putting this try in here to try to catch things
         try:
-            self.close()
+            self.Close()
         except:
             pass
         
         self.InitializeDriver() #this puts the driver back in a default
         #and then some of the properties act funny, because they are only stored in hardware
-        #so they revert to the driver default. Going to patch this by loading out default
-        self._loadDefaultConfig()
-        #however, what I wold like to do is reinitialize to what the python had previously.
-        #That's gonna be tricky though without having shadow python copies of everything.
-        #It might work if I call self.save(). self.InitializeDriver(), self.load()
+        #so they revert to the driver default.
+        #trying to patch this by pulling the current settings, but if it's vry confuzzled,
+        #this may not work. So, if that fails, I will just load the default.
+        try:
+            #try to pull the current values of all the settings
+            params = self._generateConfig()
+            #and load it
+            self.loadConfig(params)
+        except:
+            #load the default if you can't get the current ones.
+            self._loadDefaultConfig()
+
        
         #push the currently stored settings to the card and calibrate. Hopefully ths will actually save hassle.
         #if this is running at _init_ then it will push the defaults
