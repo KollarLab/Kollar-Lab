@@ -156,19 +156,23 @@ class Acqiris(object):
     @property
     def triggerSource(self):
         val = self.driver.Trigger.ActiveSource
+        self._triggerSource = val
         return val
     @triggerSource.setter
     def triggerSource(self,val):
+        self._triggerSource = val
         self.driver.Trigger.ActiveSource = val 
 
     @property
     def triggerLevel(self):
         activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
         val = activeTrigger.Level
+        self._triggerLevel = val
         return val
     @triggerLevel.setter
     def triggerLevel(self,val):
         activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
+        self._triggerLevel = val
         activeTrigger.Level = val 
     
     @property
@@ -198,19 +202,23 @@ class Acqiris(object):
     @property
     def triggerDelay(self):
         val = self.driver.Trigger.Delay
+        self._triggerDelay = val
         return val
     @triggerDelay.setter
     def triggerDelay(self,val):
+        self._triggerDelay = val
         self.driver.Trigger.Delay = val 
         
     @property
     def triggerCoupling(self):
         activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
         val = activeTrigger.Coupling
+        self._triggerCoupling = val
         return val
     @triggerCoupling.setter
     def triggerCoupling(self,val):
          activeTrigger = self.driver.Trigger.Sources[self.triggerSource]
+         self._triggerCoupling = val
          activeTrigger.Coupling = val
          
          
@@ -282,6 +290,7 @@ class Acqiris(object):
         #have to check what it enabled and convert
         val = self.driver.Channels[0].Offset
         val2 = self.driver.Channels[1].Offset
+        self._channelOffset = numpy.asarray([val,val2])
         if not val == val2:
             print('Warning: Offset set differently on the two channels')
         return val
@@ -289,16 +298,19 @@ class Acqiris(object):
     def channelOffset(self,val):
         self.driver.Channels[0].Offset = val
         self.driver.Channels[1].Offset = val
+        self._channelOffset = numpy.asarray([val,val])
         
         
         
     @property
     def simulateMode(self):
         val = self.driver.DriverOperation.Simulate
+        self._simulateMode = val
         return val
     @simulateMode.setter
     def simulateMode(self,val):  #be very wary just trrying to set this blindly.
         self.driver.DriverOperation.Simulate = val 
+        self._simulateMode = val
         
 
     @property
@@ -310,15 +322,17 @@ class Acqiris(object):
             val = 'External'
         else:
             raise ValueError("Unkown clock source returned")
+        self._clockSource = val
         return val
     @clockSource.setter
     def clockSource(self,val):
         if val == 'Internal':
             sourceC = 0
-        elif val == 'Rising':
+        elif val == 'External':
             sourceC = 1
         else:
             raise ValueError("Edge clock source. Must be either 'Internal' or 'External'")
+        self._clockSource = val
         self.driver.ReferenceOscillator.Source = sourceC
         
     @property
@@ -329,6 +343,7 @@ class Acqiris(object):
                 print('Internal Clock. Frequency Setting Ignored (I think).')
             if not val == 10**7:
                 print('Warning: Clock frequency is not set to 10 MHz.')
+        self._clockFrequency = val
         return val
     @clockFrequency.setter
     def clockFrequency(self,val):  #be very wary just trrying to set this blindly.
@@ -337,6 +352,7 @@ class Acqiris(object):
                 print('Internal Clock. Frequency Setting Ignored (I think).')
         if not val == 10**7:
             raise ValueError('Clock frequency must be 10 MHz?')
+        self._clockFrequency = val
         self.driver.ReferenceOscillator.ExternalFrequency = val 
 
 
@@ -345,13 +361,19 @@ class Acqiris(object):
 #    #############################
 #        
             
-    def SetParams(self):
+    def SetParams(self, params = {}):
         '''Autoinititalize function that will set up the card with all the driver
         parameters stored in this object. It will push all the settings and do cross checks.
         
         This function loads all the settings to the card, so it sets up the trigger and the
         data acquisition channels. Then it calls Configure Acquisition to set up things
-        like averaging and sample/sample rate'''
+        like averaging and sample/sample rate
+        
+        params is an optional settings dictionary that can be used set everything at the python level'''
+        
+        fields = params.keys()
+        if not len(fields) == 0:
+            self.loadConfig(params)
         
         #configure the trigger
         self.ConfigureTrigger(Source = self.triggerSource, Level = self.triggerLevel, Slope = self.triggerSlope, Mode = self.triggerMode)
@@ -373,12 +395,6 @@ class Acqiris(object):
     def GetParams(self):
         '''Autoget function for params. Will querry the hardware and package all the settings, as well as 
         update the fields of the python software object.'''
-        
-#        #going to need this
-#        for key in pickledict.keys():
-#                    setattr(self, key, pickledict[key])
-        
-        #also need to handle timeout. S v ms.
         
         if self.verbose:
             print('    ')
@@ -664,6 +680,16 @@ class Acqiris(object):
         self.driver.Acquisition.Initiate()
         self.armed = True #throw flag so that python knows acquisition has been itiated
         #and system is waiting for trigger.
+        
+    def loadConfig(self, params):
+        for key in params.keys():
+            bool1 = key in self.__dict__.keys()
+            bool2 = ('_' + key) in self.__dict__.keys()
+            if not (bool1 or bool2):
+#                raise ValueError('invalid setting key : ' + str(key))
+                print('Warning:  setting key : ' + key)
+            else:
+                setattr(self, key, params[key])
         
     def _loadDefaultConfig(self):
         #diagnostic prints
