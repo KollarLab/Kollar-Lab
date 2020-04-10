@@ -100,6 +100,7 @@ class HDAWG():
             that contain all the relevant info for their respective categories. Channels will only be stored if 
             the user has configured them or they have been set from a settings file/ dictionary 
         '''
+        self.daq.sync()
         settings = {}
         settings['System']={}
         for key in self.nodepaths.keys():
@@ -140,6 +141,7 @@ class HDAWG():
                         self.Channels[i].setSettings(settings['Channels'][Channelname])
             else:
                 setattr(self,key,settings['System'][key])
+        self.daq.sync()
 
     
     ###################################
@@ -174,7 +176,7 @@ class HDAWG():
         ziUtils.save_settings(self.daq, self.device, file)
 
     ##########################
-    #Properties
+    # Properties
     ##########################
     
     _groupInt=bidict({
@@ -304,15 +306,21 @@ class HDAWGawg:
             [ch1,ch2,markers]: list of 3 arrays containing data from channel 1, 2 and markers.
             Arrays will be empty if nothing was played or set on them
         '''
+        self.daq.sync()
+
         node = self.nodepaths['waves'].replace('index',index)
         #prepare data to be read out, unclear what this does exactly but in combination with the poll command this will read arbitrarily long data
-        checktime=0.1 #time to record data for (s)
-        timeout=5 #timeout for poll command (ms)
+        checktime = 0.1 #time to record data for (s)
+        timeout   = 5 #timeout for poll command (ms)
         self.daq.getAsEvent(node) 
-        pollReturn=self.daq.poll(checktime,timeout,flat=True)
+
         #poll command returns dictionary so we need to access the actual array data
-        wave_awg=pollReturn[node][0]['vector']
-        [ch1,ch2,markers]=ziUtils.parse_awg_waveform(wave_awg,channels,markers_present)
+        pollReturn = self.daq.poll(checktime,timeout,flat=True)
+        wave_awg   = pollReturn[node][0]['vector']
+
+        #Use built in parse_awg_waveform to recover the channel data
+        [ch1,ch2,markers] = ziUtils.parse_awg_waveform(wave_awg,channels,markers_present)
+
         return [ch1,ch2,markers]
 
     def load_program(self, awg_program):
@@ -360,6 +368,7 @@ class HDAWGawg:
         '''
         Turn on AWG and run code once
         '''
+        self.daq.sync()
         node = self.nodepaths['single']
         self.daq.setInt(node,1)
 
@@ -367,6 +376,7 @@ class HDAWGawg:
         '''
         Run AWG continuously
         '''
+        self.daq.sync()
         node = self.nodepaths['enable']
         self.daq.setInt(node,1)
 
@@ -382,6 +392,7 @@ class HDAWGawg:
                 key AWG settings
                 'Triggers':{Trigger0:{Key trigger0 settings}, etc.}
         '''
+        self.daq.sync()
         settings = {}
         settings['samplerate'] = self.samplerate
         settings['Triggers'] = {}
@@ -405,7 +416,8 @@ class HDAWGawg:
                     self.Triggers[i].setSettings(settings['Triggers'][trigger])
                 else:
                     continue
-
+        self.daq.sync()
+        
     ###################################
     # Properties
     ###################################
@@ -496,6 +508,7 @@ class HDAWGtrigger():
         self.slope      = slope
         self.channel    = channel
         self.configured = True
+        self.daq.sync()
 
     ###################################
     # Settings Methods
@@ -507,6 +520,7 @@ class HDAWGtrigger():
         Returns:
             settings (dict) : dictionary of trigger settinsg
         '''
+        self.daq.sync()
         settings={}
         for key in self.nodepaths.keys():
             settings[key]=getattr(self,key)
@@ -521,6 +535,7 @@ class HDAWGtrigger():
         for key in settings.keys():
             setattr(self,key,settings[key])
         self.configured = True
+        self.daq.sync()
 
     ###################################
     # Properties
@@ -672,6 +687,7 @@ class HDAWGchannel():
         self.markers    = markers
         self.configured = True
         self.status     = 'On'
+        self.daq.sync()
 
     ###################################
     # Settings Methods
@@ -683,6 +699,7 @@ class HDAWGchannel():
         Returns:
             settings (dict) : dictionary where keys are attributes of channel object
         '''
+        self.daq.sync()
         settings={}
         settings['amp'] = getattr(self,'amp')
         for key in self.nodepaths.keys():
@@ -699,6 +716,7 @@ class HDAWGchannel():
         for key in settings:
             setattr(self,key,settings[key])
         self.configured = True
+        self.daq.sync()
 
     ###################################
     # Properties
