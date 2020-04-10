@@ -716,6 +716,7 @@ class HDAWGchannel():
         for key in settings:
             setattr(self,key,settings[key])
         self.configured = True
+        self.status     = 'On'
         self.daq.sync()
 
     ###################################
