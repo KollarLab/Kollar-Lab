@@ -612,7 +612,7 @@ class HDAWGchannel():
         markers (str) : determines whether this channel has markers associated with it
     '''
 
-    def __init__(self, daq, channelID, device='dev8163', amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, markers = 'On'):
+    def __init__(self, daq, channelID, device='dev8163', amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, marker_out = 'Trigger'):
         '''
         Constructor for channel class.
         Arguments:
@@ -640,7 +640,7 @@ class HDAWGchannel():
         self.amp        = amp
         self.offset     = offset
         self.delay      = delay
-        self.markers    = markers
+        self.marker     = marker_out
         self._notinit   = True
         self.configured = False
 
@@ -653,7 +653,7 @@ class HDAWGchannel():
         nodes['offset'] = '/{}/sigouts/{}/offset'.format(self.device,self.ID)
         nodes['delay'] = '/{}/sigouts/{}/delay'.format(self.device,self.ID)
         nodes['AWGamp'] = '/{}/awgs/{}/outputs/{}/amplitude'.format(self.device, self.AWGcore, self.AWGout)
-        nodes['markers'] = '/{}/triggers/out/{}/source'.format(self.device,self.ID)
+        nodes['marker'] = '/{}/triggers/out/{}/source'.format(self.device,self.ID)
         nodes['status'] = '/{}/sigouts/{}/on'.format(self.device,self.ID)
         return nodes
 
@@ -661,7 +661,7 @@ class HDAWGchannel():
     # Methods
     ###################################
 
-    def configureChannel(self, amp=1.0, fullscale=1.0, AWGamp=1.0, delay=0.0, offset=0.0, markers = 'Off'):
+    def configureChannel(self, amp=1.0, fullscale=1.0, AWGamp=1.0, delay=0.0, offset=0.0, marker_out = 'Trigger'):
         '''
         Configure channel output settings. If amp is provided, ignores fullscale and AWGamp parameters
         Arguments:
@@ -684,7 +684,7 @@ class HDAWGchannel():
 
         self.delay      = delay
         self.offset     = offset
-        self.markers    = markers
+        self.marker     = marker_out
         self.configured = True
         self.status     = 'On'
         self.daq.sync()
@@ -750,7 +750,6 @@ class HDAWGchannel():
         ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
         for x in ranges:
             if val > x:
-                #print('{} is greater than {}'.format(val,x))
                 continue
             else:
                 self.fullscale = x
@@ -758,28 +757,28 @@ class HDAWGchannel():
                 break
         self.configured = True
 
+    _markerInt = bidict({
+        'Trigger':0,
+        'Marker':4
+    })
+
     @property
     def markers(self):
-        node      = self.nodepaths['markers']
-        markindex = self.ID+4
-        status    = self.daq.getDouble(node)
-        if status == markindex:
-            return 'On'
-        else:
-            return 'Off'
+        node   = self.nodepaths['marker']
+        status = self.daq.getInt(node)
+        val    = status-self.ID
+        output = self._markerInt.inverse[val]   
+        print('Using {} function on marker channel'.format(output))
     @markers.setter
     def markers(self,val):
-        node      = self.nodepaths['markers']
-        markindex = self.ID+4
-        if val == 'On':
-            if self._notinit:
-                print('Enabling markers')
-            self.daq.setInt(node,markindex)
+        node      = self.nodepaths['marker']
+        markindex = self.ID+self._markerInt[val]
+        if val not in self._markerInt.keys():
+            print('Error, acceptable inputs are {}'.format(list(self._markerInt)))
         else:
-            if self._notinit:
-                print('Disabling markers')
-            self.daq.setInt(node,self.ID)
-        self.configured = True
+            print('Setting marker output to {}'.format(val))
+            self.daq.setInt(node,markindex)
+            self.configured = True
         
     @property
     def fullscale(self):
