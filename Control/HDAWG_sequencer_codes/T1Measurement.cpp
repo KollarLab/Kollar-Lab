@@ -18,32 +18,32 @@ const averages   = _averages_;
 const numConfig  = _numConfig_;
 
 //Convert times to number of samples
-const sampleRate      = AWG_RATE_DEFAULT;
+const sampleRate      = 2.4e+9;
 const sequencerRate   = sampleRate/8;
-var waitInc_cycles    = round(waitInc*sequencerRate);
-var qlifetime_cycles  = round(qlifetime*sequencerRate);
-var piTime_samples    = round(piTime*sampleRate/16)*16;
-var piWidth_samples   = round(piWidth*sampleRate);
-var markerPos_samples = round(markerPos*sampleRate);
+const waitInc_cycles    = round(waitInc*sequencerRate);
+const qlifetime_cycles  = round(qlifetime*sequencerRate);
+const piTime_samples    = round(piTime*sampleRate/16)*16;
+const piWidth_samples   = round(piWidth*sampleRate);
+const markerPos_samples = round(markerPos*sampleRate);
 
 wave w1        = gauss(piTime_samples,piTime_samples/2,piWidth_samples);
 wave w1_final  = zeros(piTime_samples); //Gaussian starting at 0
-wave mark_low  = marker(markerPos_samples,0);
+//wave mark_low  = marker(markerPos_samples,0);
 wave mark_high = marker(piTime_samples-markerPos_samples,1);
-wave w1_mark   = join(mark_low,mark_high);
+//wave w1_mark   = join(mark_low,mark_high);
 
 cvar i;
 for(i=0;i<piTime_samples;i++){
   w1_final[i] = w1[i]-w1[0]; //Remove offset from discrete gaussian
 }
 
-wave w1_markers = w1_final + w1_mark;
+wave w1_markers = w1_final + mark_high;
 
 for (i=0 ; i<numConfig ; i++){
   cvar j;
   for (j=0 ; j<averages; j++){
     //Wait for trigger on channel 1
-    waitDigTrigger(1)
+    waitDigTrigger(1);
     playWave(w1_markers);
     waitWave();
     wait(waitInc_cycles*i);

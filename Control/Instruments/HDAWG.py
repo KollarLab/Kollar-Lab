@@ -4,7 +4,8 @@ import numpy as np
 
 import zhinst.ziPython as ziPython
 import zhinst.utils as ziUtils
-import settingTools as sT
+from . import settingTools as sT
+#import settingTools as sT
 from bidict import bidict
 
 class HDAWG():
@@ -179,17 +180,14 @@ class HDAWG():
     # Properties
     ##########################
     
+    #Structure used to convert between int and string rep of channelgrouping property
     _groupInt=bidict({
-        '''
-        Structure used to convert between int and string rep of channelgrouping property
-        '''
         '2x2':0,
         '1x4':1
     })
+
+    #Structure used to convert between int and string rep of reference clock property
     _refInt=bidict({
-        '''
-        Structure used to convert between int and string rep of reference clock property
-        '''
         'Internal':0,
         'External':1
     })
@@ -422,10 +420,8 @@ class HDAWGawg:
     # Properties
     ###################################
 
+    #Structure to convert between int and string rep of sample rate
     _sampleInt=bidict({
-        '''
-        Structure to convert between int and string rep of sample rate
-        '''
         '2.4GHz'   : 0,
         '1.2GHz'   : 1,
         '600MHz'   : 2,
@@ -541,20 +537,16 @@ class HDAWGtrigger():
     # Properties
     ###################################
 
+    #Structure to convert between int and string rep of slope property
     _slopeInt = bidict({
-        '''
-        Structure to convert between int and string rep of slope property
-        '''
         'level':0,
         'rising':1,
         'falling':2,
         'both':3
     })
 
+    #Structure to convert between int and string rep of channel property
     _channelInt = bidict({
-        '''
-        Structure to convert between int and string rep of channel property
-        '''
         'Trigger in 1':0,
         'Trigger in 2':1,
         'Trigger in 3':2,
@@ -764,19 +756,20 @@ class HDAWGchannel():
     })
 
     @property
-    def markers(self):
+    def marker(self):
         node   = self.nodepaths['marker']
         status = self.daq.getInt(node)
         val    = status-self.ID
         output = self._markerInt.inverse[val]   
         print('Using {} function on marker channel'.format(output))
-    @markers.setter
-    def markers(self,val):
+        return output
+    @marker.setter
+    def marker(self,val):
         node      = self.nodepaths['marker']
-        markindex = self.ID+self._markerInt[val]
         if val not in self._markerInt.keys():
             print('Error, acceptable inputs are {}'.format(list(self._markerInt)))
         else:
+            markindex = self.ID+self._markerInt[val]
             print('Setting marker output to {}'.format(val))
             self.daq.setInt(node,markindex)
             self.configured = True

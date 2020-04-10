@@ -36,6 +36,6 @@ loadprog = loadprog.replace('_waitInc_', str(wait_increment))
 loadprog = loadprog.replace('_markerPos_', str(marker_position))
 loadprog = loadprog.replace('_averages_', str(averages))
 loadprog = loadprog.replace('_numConfig_', str(number_configs))
-hdawg.load_program(loadprog)
+hdawg.AWGs[0].load_program(loadprog)
 
 hdawg.AWGs[0].run()
