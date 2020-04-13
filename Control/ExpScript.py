@@ -34,11 +34,11 @@ loadprog = loadprog.replace('_meas_wait_', str(meas_wait))
 loadprog = loadprog.replace('_meas_time_', str(meas_time))
 loadprog = loadprog.replace('_max_time_', str(max_time))
 
-taus = [2,3,4,5,6,7,8,9]*1e-6
+taus = [x*1e-6 for x in range(2,10)]
 
 for time in taus:
-    finalprog=loadprog
-    finalprog.replace('_tau_',str(time))
+    finalprog = loadprog
+    finalprog = finalprog.replace('_tau_',str(time))
     hdawg.AWGs[0].load_program(finalprog)
     hdawg.AWGs[0].run()
     #if Digitizer Happy:
