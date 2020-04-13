@@ -377,6 +377,15 @@ class HDAWGawg:
         self.daq.sync()
         node = self.nodepaths['enable']
         self.daq.setInt(node,1)
+    
+    def stop(self):
+        '''
+        Stop AWG program
+        '''
+        node = self.nodepaths['single']
+        self.daq.setInt(node,0)
+        node = self.nodepaths['enable']
+        self.daq.setInt(node,0)
 
     ###################################
     # Settings methods
