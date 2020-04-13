@@ -10,6 +10,7 @@ hdawg = HDAWG('dev8163') #HDAWG device name
 hdawg.AWGs[0].samplerate = '2.4GHz'
 hdawg.channelgrouping = '1x4'
 hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker')
+hdawg.Channels[1].configureChannel(marker_out='Trigger')
 hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
 
 ## Read in the sequencer program we want to use
@@ -33,10 +34,12 @@ loadprog = loadprog.replace('_meas_wait_', str(meas_wait))
 loadprog = loadprog.replace('_meas_time_', str(meas_time))
 loadprog = loadprog.replace('_max_time_', str(max_time))
 
+taus = [2,3,4,5,6,7,8,9]*1e-6
+
 for time in taus:
     finalprog=loadprog
     finalprog.replace('_tau_',str(time))
     hdawg.AWGs[0].load_program(finalprog)
     hdawg.AWGs[0].run()
-    if Digitizer Happy:
-        hdawg.AWGs[0].stop()
+    #if Digitizer Happy:
+    #    hdawg.AWGs[0].stop()
