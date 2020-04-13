@@ -19,23 +19,24 @@ loadprog = rawprog
 progFile.close
 
 ## Configure program to our parameters
-piAmp           = 1.0 #pi pulse amplitude, relative to output amplitude
-piTime          = 0.5e-6 #pi pulse length (s)
-piWidth         = piTime/8 #pi pulse width (gaussian) (s)
-qubit_lifetime  = 10e-6 #qubit lifetime (s)
-wait_increment  = 1e-6 #timestep between different iterations (s)
-marker_position = 0 #timing of marker signal (s)
-averages        = 10 #number of averages per setting
-number_configs  = 5 #number of different configurations
+piAmp     = 1.0 #pi pulse amplitude, relative to output amplitude
+piTime    = 0.5e-6 #pi pulse length (s)
+piWidth   = piTime/8 #pi pulse width (gaussian) (s)
+meas_wait = 0.5e-6 #wait time between last pulse and measurement (s)
+meas_time = 10e-6 #measurement window size (s)
+max_time  = 200e-6 #maximum separation between pulses (s)
 
 loadprog = loadprog.replace('_piAmp_', str(piAmp))
 loadprog = loadprog.replace('_piTime_', str(piTime))
 loadprog = loadprog.replace('_piWidth_', str(piWidth))
-loadprog = loadprog.replace('_qlifetime_', str(qubit_lifetime))
-loadprog = loadprog.replace('_waitInc_', str(wait_increment))
-loadprog = loadprog.replace('_markerPos_', str(marker_position))
-loadprog = loadprog.replace('_averages_', str(averages))
-loadprog = loadprog.replace('_numConfig_', str(number_configs))
-hdawg.AWGs[0].load_program(loadprog)
+loadprog = loadprog.replace('_meas_wait_', str(meas_wait))
+loadprog = loadprog.replace('_meas_time_', str(meas_time))
+loadprog = loadprog.replace('_max_time_', str(max_time))
 
-hdawg.AWGs[0].run()
+for time in taus:
+    finalprog=loadprog
+    finalprog.replace('_tau_',str(time))
+    hdawg.AWGs[0].load_program(finalprog)
+    hdawg.AWGs[0].run()
+    if Digitizer Happy:
+        hdawg.AWGs[0].stop()

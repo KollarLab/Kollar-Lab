@@ -8,7 +8,6 @@ const piTime     = _piTime_;
 const piWidth    = _piWidth_;
 
 //Timing control 
-const qlifetime  = _qlifetime_;
 const tau        = _tau_;
 const meas_wait  = _meas_wait_;
 const meas_time  = _meas_time_;
