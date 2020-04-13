@@ -22,6 +22,8 @@ const piWidth_samples   = round(piWidth*sampleRate);
 wave w1       = gauss(piTime_samples,piTime_samples/2,piWidth_samples);
 wave w1_final = zeros(piTime_samples); //Gaussian starting at 0
 wave mark     = marker(piTime_samples,1);
+wave w2       = ones(32);
+wave w2_2     = zeros(32);
 
 cvar i;
 for(i=0;i<piTime_samples;i++){
@@ -49,7 +51,7 @@ while(true){
   //Wait some amount of time until measurement
   wait(meas_wait_cycles);
   //Measurement window (simple TTL signal)
-  setTrigger(0b0010);
+  playWave(2,w2);
   wait(meas_time_cycles);
-  setTrigger(0b0000);
+  playWave(2,w2_2);
 }

@@ -379,7 +379,7 @@ class Acqiris(object):
         
         #configure the trigger
 #        self.ConfigureTrigger(Source = self.triggerSource, Level = self.triggerLevel, Slope = self.triggerSlope, Mode = self.triggerMode)
-        self.ConfigureTrigger(Source = self._triggerSource, Level = self._triggerLevel, Slope = self._triggerSlope, Mode = self._triggerMode)
+        self.ConfigureTrigger(Source = self._triggerSource, Level = self._triggerLevel, Slope = self._triggerSlope, Mode = self.triggerMode)
         
         #configure the channels:
         for chind in [1,2]:
