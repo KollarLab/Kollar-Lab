@@ -1,6 +1,6 @@
 from Instruments.HDAWG import HDAWG
 from Instruments.SGS import RFgen
-import numpy as np
+import numpy
 import time
 
 #RFsource=RFgen('TCPIP0::rssgs100a110739::inst0::INSTR') #SGS visa resource name
@@ -26,6 +26,7 @@ piWidth   = piTime/8 #pi pulse width (gaussian) (s)
 meas_wait = 0.5e-6 #wait time between last pulse and measurement (s)
 meas_time = 10e-6 #measurement window size (s)
 max_time  = 200e-6 #maximum separation between pulses (s)
+min_time  = piTime*2
 
 loadprog = loadprog.replace('_piAmp_', str(piAmp))
 loadprog = loadprog.replace('_piTime_', str(piTime))
@@ -34,7 +35,9 @@ loadprog = loadprog.replace('_meas_wait_', str(meas_wait))
 loadprog = loadprog.replace('_meas_time_', str(meas_time))
 loadprog = loadprog.replace('_max_time_', str(max_time))
 
-taus = [x*1e-6 for x in range(2,10)]
+# Create a logarithmically spaced array for exponential measurements 
+measure_points = 50
+taus = numpy.logspace(min_time,max_time,num=measure_points)
 
 for time in taus:
     finalprog = loadprog
