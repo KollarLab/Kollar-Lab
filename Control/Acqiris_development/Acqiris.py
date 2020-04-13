@@ -378,7 +378,8 @@ class Acqiris(object):
             self.LoadConfig(params)
         
         #configure the trigger
-        self.ConfigureTrigger(Source = self.triggerSource, Level = self.triggerLevel, Slope = self.triggerSlope, Mode = self.triggerMode)
+#        self.ConfigureTrigger(Source = self.triggerSource, Level = self.triggerLevel, Slope = self.triggerSlope, Mode = self.triggerMode)
+        self.ConfigureTrigger(Source = self._triggerSource, Level = self._triggerLevel, Slope = self._triggerSlope, Mode = self._triggerMode)
         
         #configure the channels:
         for chind in [1,2]:
@@ -957,6 +958,13 @@ class Acqiris(object):
     def ReInitialize(self):
         '''Basic init function. Can also be used to wipe he settings if the card is very confused. 
         Will push the currently stored settings to the card and calibrate'''
+        try:
+            #try to pull the current values of all the settings
+            params = self._generateConfig()
+            gotSettings = True
+        except:
+            pass
+
 
         #in the python version, there seems to be an issue with reinitializing an already
         #existing instnace of the driver. It causes an error that the sample clocks are unstable
@@ -972,12 +980,10 @@ class Acqiris(object):
         #so they revert to the driver default.
         #trying to patch this by pulling the current settings, but if it's vry confuzzled,
         #this may not work. So, if that fails, I will just load the default.
-        try:
-            #try to pull the current values of all the settings
-            params = self._generateConfig()
-            #and load it
-            self.loadConfig(params)
-        except:
+        if gotSettings:
+            #load rescued settings
+            self.LoadConfig(params)
+        else:
             #load the default if you can't get the current ones.
             self._loadDefaultConfig()
 
