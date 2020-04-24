@@ -113,7 +113,13 @@ def load_settings(inputfile):
         #Setting
         if level == 0:
             #Store setting in local dict 
-            localset[regexp.group(1)] = regexp.group(2)
+            key = regexp.group(1)
+            try:
+                value = eval(regexp.group(2).split()[0])
+            except:
+                value = regexp.group(2)
+
+            localset[key] = value
 
     #Store final set of local settings
     _store_settings(settings,names,localset)
