@@ -35,10 +35,12 @@ class HDAWG():
         self.nodepaths = self.fill_paths()
         self.Channels = []
         self.AWGs     = []
+        self.OSCs     = []
         for i in range(4):
             self.Channels.append(HDAWGchannel(self.daq,i))
         for i in range(2):
             self.AWGs.append(HDAWGawg(self.daq,i))
+            self.OSCs.append(HDAWGosc(self.daq,i))
 
     def fill_paths(self):
         '''
@@ -116,6 +118,9 @@ class HDAWG():
         for i in range(4):
             if self.Channels[i].configured:
                 settings['Channels']['Channel{}'.format(i)] = self.Channels[i].getSettings()
+        settings['Oscillators']={}
+        for i in range(2):
+            settings['Oscillators']['OSC{}'.format(i)] = self.OSCs[i].getSettings()
         return settings
 
     def setSettings(self, settings):
@@ -140,6 +145,11 @@ class HDAWG():
                     Channelname = 'Channel{}'.format(i)
                     if Channelname in settings['Channels'].keys():
                         self.Channels[i].setSettings(settings['Channels'][Channelname])
+            elif key == 'OSCs':
+                for i in range(2):
+                    OSCname = 'OSC{}'.format(i)
+                    if OSCname in settings['OSCs'].keys():
+                        self.OSCs[i].setSettings(settings['OSCs'][OSCname])
             else:
                 setattr(self,key,settings['System'][key])
         self.daq.sync()
@@ -652,14 +662,14 @@ class HDAWGchannel():
         Helper function to fill paths to nodes in hardware containing settings of interest
         '''
         nodes = {}
-        nodes['fullscale'] = '/{}/sigouts/{}/range'.format(self.device,self.ID)
-        nodes['offset'] = '/{}/sigouts/{}/offset'.format(self.device,self.ID)
-        nodes['delay'] = '/{}/sigouts/{}/delay'.format(self.device,self.ID)
-        nodes['AWGamp'] = '/{}/awgs/{}/outputs/{}/amplitude'.format(self.device, self.AWGcore, self.AWGout)
-        nodes['marker'] = '/{}/triggers/out/{}/source'.format(self.device,self.ID)
-        nodes['status'] = '/{}/sigouts/{}/on'.format(self.device,self.ID)
-        nodes['hold'] = '/{}/awgs/{}/outputs/{}/hold'.format(self.device,self.AWGcore,self.AWGout)
-        nodes['analog_outs'] = '/{}/sines/{}/amplitudes/{}'.format(self.device,'sineID',self.AWGout)
+        nodes['fullscale']   = '/{}/sigouts/{}/range'.format(self.device,self.ID)
+        nodes['offset']      = '/{}/sigouts/{}/offset'.format(self.device,self.ID)
+        nodes['delay']       = '/{}/sigouts/{}/delay'.format(self.device,self.ID)
+        nodes['status']      = '/{}/sigouts/{}/on'.format(self.device,self.ID)
+        nodes['marker']      = '/{}/triggers/out/{}/source'.format(self.device,self.ID)
+        nodes['AWGamp']      = '/{}/awgs/{}/outputs/{}/amplitude'.format(self.device,self.AWGcore,self.AWGout)
+        nodes['hold']        = '/{}/awgs/{}/outputs/{}/hold'.format(self.device,self.AWGcore,self.AWGout)
+        nodes['analog_outs'] = '/{}/sines/{}/amplitudes/{}'.format(self.device,'{}',self.AWGout)
         return nodes
 
     ###################################
@@ -696,6 +706,11 @@ class HDAWGchannel():
         self.daq.sync()
 
     def configureAnalogOut(self, amps=[]):
+        '''
+        Configure amplitudes of oscillators for this channel
+        Arguments:
+            amps: list of amplitude in front of the sine outputs (between 0 and 1)
+        '''
         node1 = self.nodepaths['analog_outs'].format(self.ID+1)
         if self.ID%2==0:
             pairedChannel = 1
