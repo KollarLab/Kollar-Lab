@@ -752,7 +752,7 @@ class Acqiris(object):
 #        self.triggerCoupling = 1 #1 for DC, 0 for AC. I think it must always be DC, at least on external
         
         #clock settings
-        self.clockSource = 'Internal'
+        self.clockSource = 'External'
         self.clockFrequency = 10**7
         
         #timeout of failed acquisitions
