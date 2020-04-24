@@ -613,7 +613,7 @@ class HDAWGchannel():
         markers (str) : determines whether this channel has markers associated with it
     '''
 
-    def __init__(self, daq, channelID, device='dev8163', amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, marker_out = 'Trigger'):
+    def __init__(self, daq, channelID, device='dev8163', amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, marker_out = 'Trigger', hold = 'False'):
         '''
         Constructor for channel class.
         Arguments:
@@ -642,6 +642,7 @@ class HDAWGchannel():
         self.offset     = offset
         self.delay      = delay
         self.marker     = marker_out
+        self.hold       = hold
         self._notinit   = True
         self.configured = False
 
@@ -656,13 +657,14 @@ class HDAWGchannel():
         nodes['AWGamp'] = '/{}/awgs/{}/outputs/{}/amplitude'.format(self.device, self.AWGcore, self.AWGout)
         nodes['marker'] = '/{}/triggers/out/{}/source'.format(self.device,self.ID)
         nodes['status'] = '/{}/sigouts/{}/on'.format(self.device,self.ID)
+        nodes['hold'] = '/{}/awgs/{}/outputs/{}/hold'.format(self.device,self.AWGcore,self.AWGout)
         return nodes
 
     ###################################
     # Methods
     ###################################
 
-    def configureChannel(self, amp=1.0, fullscale=1.0, AWGamp=1.0, delay=0.0, offset=0.0, marker_out = 'Trigger'):
+    def configureChannel(self, amp=1.0, fullscale=1.0, AWGamp=1.0, delay=0.0, offset=0.0, marker_out = 'Trigger', hold = 'False'):
         '''
         Configure channel output settings. If amp is provided, ignores fullscale and AWGamp parameters
         Arguments:
@@ -686,6 +688,7 @@ class HDAWGchannel():
         self.delay      = delay
         self.offset     = offset
         self.marker     = marker_out
+        self.hold       = hold
         self.configured = True
         self.status     = 'On'
         self.daq.sync()
@@ -782,7 +785,26 @@ class HDAWGchannel():
             print('Setting marker output to {}'.format(val))
             self.daq.setInt(node,markindex)
             self.configured = True
-        
+
+    @property
+    def hold(self):
+        node = self.nodepaths['hold']
+        val  = self.daq.getDouble(node)
+        if val:
+            return 'True'
+        else:
+            return 'False'
+    @hold.setter
+    def hold(self,val):
+        node = self.nodepaths['hold']
+        if val not in ['True','False']:
+            print('Hold setting is either "True" or "False", invalid input')
+        else:
+            if val:
+                self.daq.setDouble(node,1)
+            else:
+                self.daq.setDouble(node,0)
+    
     @property
     def fullscale(self):
         node = self.nodepaths['fullscale']
