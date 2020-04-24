@@ -41,6 +41,8 @@ class HDAWG():
         for i in range(2):
             self.AWGs.append(HDAWGawg(self.daq,i))
             self.OSCs.append(HDAWGosc(self.daq,i))
+        self.channelgrouping = '1x4'
+        self.referenceClock  = 'Internal'
 
     def fill_paths(self):
         '''
@@ -86,6 +88,7 @@ class HDAWG():
             filename (str): full name of file to be loaded (provide full path if not in directory)
         '''
         settings = sT.load_settings(filename)
+        print(settings)
         self.setSettings(settings)
 
     ###################################
@@ -108,9 +111,9 @@ class HDAWG():
         settings['System']={}
         for key in self.nodepaths.keys():
             settings['System'][key] = getattr(self,key)
-        settings['AWGS']={}
+        settings['AWGs']={}
         if self.channelgrouping == '1x4':
-            settings['AWGS']['AWG0'] = self.AWGs[0].getSettings()
+            settings['AWGs']['AWG0'] = self.AWGs[0].getSettings()
         else:
             for i in range(2):
                 settings['AWGS']['AWG{}'.format(i)] = self.AWGs[i].getSettings()
@@ -118,9 +121,9 @@ class HDAWG():
         for i in range(4):
             if self.Channels[i].configured:
                 settings['Channels']['Channel{}'.format(i)] = self.Channels[i].getSettings()
-        settings['Oscillators']={}
+        settings['OSCs']={}
         for i in range(2):
-            settings['Oscillators']['OSC{}'.format(i)] = self.OSCs[i].getSettings()
+            settings['OSCs']['OSC{}'.format(i)] = self.OSCs[i].getSettings()
         return settings
 
     def setSettings(self, settings):
@@ -135,11 +138,15 @@ class HDAWG():
             Nothing
         '''
         for key in settings.keys():
-            if key == 'AWGs':
+            print(key)
+            if key == 'System':
+                for setting in settings['System'].keys():
+                    setattr(self, setting, settings['System'][setting])
+            elif key == 'AWGs':
                 for i in range(2):
                     AWGname = 'AWG{}'.format(i)
                     if AWGname in settings['AWGs'].keys():
-                        self.AWGs[i].setSettings(settings['AWGS'][AWGname])
+                        self.AWGs[i].setSettings(settings['AWGs'][AWGname])
             elif key == 'Channels':
                 for i in range(4):
                     Channelname = 'Channel{}'.format(i)
@@ -151,7 +158,8 @@ class HDAWG():
                     if OSCname in settings['OSCs'].keys():
                         self.OSCs[i].setSettings(settings['OSCs'][OSCname])
             else:
-                setattr(self,key,settings['System'][key])
+                print('Unknown key: {}'.format(key))
+                #setattr(self,key,settings['System'][key])
         self.daq.sync()
 
     
@@ -705,32 +713,6 @@ class HDAWGchannel():
         self.status     = 'On'
         self.daq.sync()
 
-    def configureAnalogOut(self, amps=[]):
-        '''
-        Configure amplitudes of oscillators for this channel
-        Arguments:
-            amps: list of amplitude in front of the sine outputs (between 0 and 1)
-        '''
-        node1 = self.nodepaths['analog_outs'].format(self.ID)
-        if self.ID%2==0:
-            pairedChannel = 1
-            i=0
-        else:
-            pairedChannel = -1
-            i=1
-        node2 = self.nodepaths['analog_outs'].format(self.ID+pairedChannel)
-        enables1 = node1.replace('amplitudes','enables')
-        enables2 = node2.replace('amplitudes','enables')
-        node = [node1, node2]
-        enables = [enables1,enables2]
-        for amp in amps:
-            self.daq.setDouble(node[i],amp)
-            if amp>0:
-                self.daq.setInt(enables[i],1)
-            i = i + pairedChannel
-
-        self.analog_outs = amps
-
     ###################################
     # Settings Methods
     ###################################
@@ -838,7 +820,7 @@ class HDAWGchannel():
         if val not in ['True','False']:
             print('Hold setting is either "True" or "False", invalid input')
         else:
-            if val:
+            if val == 'True':
                 self.daq.setDouble(node,1)
             else:
                 self.daq.setDouble(node,0)
@@ -892,6 +874,53 @@ class HDAWGchannel():
     def delay(self,val):
         node = self.nodepaths['delay']
         self.daq.setDouble(node,val)
+        self.configured = True
+
+    @property
+    def analog_outs(self):
+        node1 = self.nodepaths['analog_outs'].format(self.ID)
+        if self.ID%2==0:
+            pairedChannel = 1
+            i=0
+        else:
+            pairedChannel = -1
+            i=1
+        node2 = self.nodepaths['analog_outs'].format(self.ID+pairedChannel)
+        nodes =[node1, node2]
+        amps = [0,0]
+        for amp in amps:
+            amps[i] = self.daq.getDouble(nodes[i])
+            i = i + pairedChannel
+
+        return amps
+
+    @analog_outs.setter
+    def analog_outs(self, amps=[]):
+        '''
+        Configure amplitudes of oscillators for this channel
+        Arguments:
+            amps: list of amplitude in front of the sine outputs (between 0 and 1)
+        '''
+        node1 = self.nodepaths['analog_outs'].format(self.ID)
+        if self.ID%2==0:
+            pairedChannel = 1
+            i=0
+        else:
+            pairedChannel = -1
+            i=1
+        node2 = self.nodepaths['analog_outs'].format(self.ID+pairedChannel)
+        enables1 = node1.replace('amplitudes','enables')
+        enables2 = node2.replace('amplitudes','enables')
+        node = [node1, node2]
+        enables = [enables1,enables2]
+        for amp in amps:
+            print('Setting amp {}'.format(amp))
+            self.daq.setDouble(node[i],amp)
+            if amp>0:
+                self.daq.setInt(enables[i],1)
+            if amp == 0:
+                self.daq.setInt(enables[i],0)
+            i = i + pairedChannel
         self.configured = True
 
 class HDAWGosc():
