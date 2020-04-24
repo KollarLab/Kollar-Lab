@@ -711,17 +711,22 @@ class HDAWGchannel():
         Arguments:
             amps: list of amplitude in front of the sine outputs (between 0 and 1)
         '''
-        node1 = self.nodepaths['analog_outs'].format(self.ID+1)
+        node1 = self.nodepaths['analog_outs'].format(self.ID)
         if self.ID%2==0:
             pairedChannel = 1
             i=0
         else:
             pairedChannel = -1
             i=1
-        node2 = self.nodepaths['analog_outs'].format(self.ID+1+pairedChannel)
+        node2 = self.nodepaths['analog_outs'].format(self.ID+pairedChannel)
+        enables1 = node1.replace('amplitudes','enables')
+        enables2 = node2.replace('amplitudes','enables')
         node = [node1, node2]
+        enables = [enables1,enables2]
         for amp in amps:
             self.daq.setDouble(node[i],amp)
+            if amp>0:
+                self.daq.setInt(enables[i],1)
             i = i + pairedChannel
 
         self.analog_outs = amps
@@ -893,8 +898,8 @@ class HDAWGosc():
     def __init__(self, daq, oscID, freq = 10e6, device = 'dev8163'):
         self.daq       = daq
         self.device    = device
-        self.nodepaths = self.fill_paths()
         self.ID        = oscID
+        self.nodepaths = self.fill_paths()
         self.freq      = freq
         self.sines     = []
         for i in range(2):
@@ -902,30 +907,31 @@ class HDAWGosc():
 
     def fill_paths(self):
         nodes = {}
-        nodes['freq'] = '{}/oscs/{}/freq'.format(self.device, self.ID)
+        nodes['freq'] = '/{}/oscs/{}/freq'.format(self.device, self.ID)
         return nodes
 
     ###################################
     # Methods
     ###################################
 
-    def configure_sine(self, sineID, freq = freq, phase = 0.):
+    def configure_sine(self, sineID, freq, phase = 0.):
         osc_freq   = self.freq
         configured = self.sines[1-sineID].configured
         harm2      = self.sines[1-sineID].harmonic
         freq2      = harm2*osc_freq
         if not configured:
-            osc_freq = freq
+            osc_freq = round(freq)
             harm1    = 1
             harm2    = 1
-            freq2    = osc_freq
-        elif freq >= osc_freq and freq%osc_freq==0:
-            harm1 = freq/osc_freq
+            freq2    = round(osc_freq)
+        #elif freq >= osc_freq and freq%osc_freq==0:
+        #    harm1 = round(freq)/osc_freq
         else:
             print('Adjusting the oscillator frequency')
-            osc_freq = gcd(freq, freq2)
-            harm1    = freq/osc_freq
-            harm2    = freq2/osc_freq
+            osc_freq = gcd(round(freq), round(freq2))
+            harm1    = round(freq/osc_freq)
+            harm2    = round(freq2/osc_freq)
+            print('H1: {}, H2: {}, ref: {}'.format(harm1, harm2, osc_freq))
 
         self.sines[sineID].harmonic   = harm1
         self.sines[sineID].phase      = phase
@@ -986,11 +992,11 @@ class HDAWGosc():
             self.daq.setDouble(node,val)
 
 class HDAWGsines():
-    def __init__(self, daq, oscID, channelID, device = 'dev8163', phase = 0., harmonic = 1.0):
+    def __init__(self, daq, oscID, channelID, device = 'dev8163', phase = 0., harmonic = 1):
         self.daq        = daq
-        self.ID         = channelID+oscID*2+1
-        self.nodepaths  = self.fill_paths()
+        self.ID         = channelID+oscID*2
         self.device     = device
+        self.nodepaths  = self.fill_paths()
         self.phase      = phase
         self.harmonic   = harmonic
         self.configured = False
@@ -998,7 +1004,7 @@ class HDAWGsines():
     def fill_paths(self):
         nodes = {}
         nodes['phase']    = '/{}/sines/{}/phaseshift'.format(self.device, self.ID)
-        nodes['harmonic'] = '{}/sines/{}/harmonic'.format(self.device, self.ID)
+        nodes['harmonic'] = '/{}/sines/{}/harmonic'.format(self.device, self.ID)
         return nodes
 
     ###################################
