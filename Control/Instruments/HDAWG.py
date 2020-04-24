@@ -613,7 +613,7 @@ class HDAWGchannel():
         markers (str) : determines whether this channel has markers associated with it
     '''
 
-    def __init__(self, daq, channelID, device='dev8163', amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, marker_out = 'Trigger', hold = 'False'):
+    def __init__(self, daq, channelID, device='dev8163', amp = 1.0, fullscale = 1.0, AWGamp = 1.0, offset = 0.0, delay = 0.0, marker_out = 'Trigger', hold = 'False', aouts = []):
         '''
         Constructor for channel class.
         Arguments:
@@ -628,23 +628,24 @@ class HDAWGchannel():
                 offset: offset applied to output of channel (default: 0)
                 markers: determines whether channel has markers associated with it
         '''
-        self.device     = device
-        self.daq        = daq
-        self.ID         = channelID
-        self.AWGcore    = int(np.floor(channelID/2))
-        self.AWGout     = channelID%2
-        self.nodepaths  = self.fill_paths()
-        self.status     = 'Off'
+        self.device      = device
+        self.daq         = daq
+        self.ID          = channelID
+        self.AWGcore     = int(np.floor(channelID/2))
+        self.AWGout      = channelID%2
+        self.nodepaths   = self.fill_paths()
+        self.status      = 'Off'
         self._notinit    = False
-        self.fullscale  = fullscale
-        self.AWGamp     = AWGamp
-        self.amp        = amp
-        self.offset     = offset
-        self.delay      = delay
-        self.marker     = marker_out
-        self.hold       = hold
-        self._notinit   = True
-        self.configured = False
+        self.fullscale   = fullscale
+        self.AWGamp      = AWGamp
+        self.amp         = amp
+        self.offset      = offset
+        self.delay       = delay
+        self.marker      = marker_out
+        self.hold        = hold
+        self.analog_outs = aouts
+        self._notinit    = True
+        self.configured  = False
 
     def fill_paths(self):
         '''
@@ -658,7 +659,7 @@ class HDAWGchannel():
         nodes['marker'] = '/{}/triggers/out/{}/source'.format(self.device,self.ID)
         nodes['status'] = '/{}/sigouts/{}/on'.format(self.device,self.ID)
         nodes['hold'] = '/{}/awgs/{}/outputs/{}/hold'.format(self.device,self.AWGcore,self.AWGout)
-        nodes['SINEamp'] = '/{}/sines/{}/amplitudes/{}'.format(self.device,'sineID',self.AWGout)
+        nodes['analog_outs'] = '/{}/sines/{}/amplitudes/{}'.format(self.device,'sineID',self.AWGout)
         return nodes
 
     ###################################
@@ -695,14 +696,14 @@ class HDAWGchannel():
         self.daq.sync()
 
     def configureAnalogOut(self, amps=[]):
-        node1 = self.nodepaths['SINEamp'].format(self.ID+1)
+        node1 = self.nodepaths['analog_outs'].format(self.ID+1)
         if self.ID%2==0:
             pairedChannel = 1
             i=0
         else:
             pairedChannel = -1
             i=1
-        node2 = self.nodepaths['SINEamp'].format(self.ID+1+pairedChannel)
+        node2 = self.nodepaths['analog_outs'].format(self.ID+1+pairedChannel)
         node = [node1, node2]
         for amp in amps:
             self.daq.setDouble(node[i],amp)
@@ -894,11 +895,16 @@ class HDAWGosc():
     ###################################
 
     def configure_sine(self, sineID, freq = freq, phase = 0.):
-        osc_freq = self.freq
-        configure = self.sines[1-sineID].cofn
-        harm2 = self.sines[1-sineID].harmonic
-        freq2=harm2*osc_freq
-        if freq >= osc_freq and freq%osc_freq==0:
+        osc_freq   = self.freq
+        configured = self.sines[1-sineID].configured
+        harm2      = self.sines[1-sineID].harmonic
+        freq2      = harm2*osc_freq
+        if not configured:
+            osc_freq = freq
+            harm1    = 1
+            harm2    = 1
+            freq2    = osc_freq
+        elif freq >= osc_freq and freq%osc_freq==0:
             harm1 = freq/osc_freq
         else:
             print('Adjusting the oscillator frequency')
@@ -908,6 +914,7 @@ class HDAWGosc():
 
         self.sines[sineID].harmonic   = harm1
         self.sines[sineID].phase      = phase
+        self.sines[sineID].configured = True
         self.sines[1-sineID].harmonic = harm2
 
         self.freq = osc_freq
@@ -924,7 +931,12 @@ class HDAWGosc():
         '''
         self.daq.sync()
         settings = {}
-        settings['freq'] = self.freq
+        settings['freq']  = self.freq
+        settings['Sines'] = {}
+        for i in range(2):
+            sineID = 'Sines{}'.format(i)
+            if self.sines[i].configured:
+                settings['Sines'][sineID] = self.sines[i].getSettings()
         return settings
     
     def setSettings(self, settings):
@@ -934,6 +946,11 @@ class HDAWGosc():
             settings (dict): contains settings for osc class
         '''
         self.freq = settings['freq']
+        for i in range(2):
+            sineID = 'Sines{}'.format(i)
+            if sineID in settings.keys():
+                self.sines[i].setSettings(settings[sineID])
+
         self.daq.sync()
         
     ###################################
@@ -954,17 +971,18 @@ class HDAWGosc():
             self.daq.setDouble(node,val)
 
 class HDAWGsines():
-    def __init__(self, daq, channelID, device = 'dev8163', phase = 0., harmonic = 1.0):
-        self.daq = daq
-        self.ID = channelID
-        self.nodepaths = self.fill_paths()
-        self.device = device
-        self.phase = phase
-        self.harmonic = harmonic
+    def __init__(self, daq, oscID, channelID, device = 'dev8163', phase = 0., harmonic = 1.0):
+        self.daq        = daq
+        self.ID         = channelID+oscID*2+1
+        self.nodepaths  = self.fill_paths()
+        self.device     = device
+        self.phase      = phase
+        self.harmonic   = harmonic
+        self.configured = False
 
     def fill_paths(self):
         nodes = {}
-        nodes['phase'] = '/{}/sines/{}/phaseshift'.format(self.device, self.ID)
+        nodes['phase']    = '/{}/sines/{}/phaseshift'.format(self.device, self.ID)
         nodes['harmonic'] = '{}/sines/{}/harmonic'.format(self.device, self.ID)
         return nodes
 
@@ -1002,7 +1020,7 @@ class HDAWGsines():
     @property
     def phase(self):
         node = self.nodepaths['phase']
-        val = self.daq.getDouble(node)
+        val  = self.daq.getDouble(node)
         return val
     @phase.setter
     def phase(self,val):
@@ -1012,7 +1030,7 @@ class HDAWGsines():
     @property
     def harmonic(self):
         node = self.nodepaths['harmonic']
-        val = self.daq.getInt(node)
+        val  = self.daq.getInt(node)
         return val
     @harmonic.setter
     def harmonic(self,val):
