@@ -5,8 +5,8 @@ import numpy as np
 import zhinst.ziPython as ziPython
 import zhinst.utils as ziUtils
 from . import settingTools as sT
-#import settingTools as sT
 from bidict import bidict
+from math import gcd
 
 class HDAWG():
     '''
@@ -658,6 +658,7 @@ class HDAWGchannel():
         nodes['marker'] = '/{}/triggers/out/{}/source'.format(self.device,self.ID)
         nodes['status'] = '/{}/sigouts/{}/on'.format(self.device,self.ID)
         nodes['hold'] = '/{}/awgs/{}/outputs/{}/hold'.format(self.device,self.AWGcore,self.AWGout)
+        nodes['SINEamp'] = '/{}/sines/{}/amplitudes/{}'.format(self.device,'sineID',self.AWGout)
         return nodes
 
     ###################################
@@ -692,6 +693,22 @@ class HDAWGchannel():
         self.configured = True
         self.status     = 'On'
         self.daq.sync()
+
+    def configureAnalogOut(self, amps=[]):
+        node1 = self.nodepaths['SINEamp'].format(self.ID+1)
+        if self.ID%2==0:
+            pairedChannel = 1
+            i=0
+        else:
+            pairedChannel = -1
+            i=1
+        node2 = self.nodepaths['SINEamp'].format(self.ID+1+pairedChannel)
+        node = [node1, node2]
+        for amp in amps:
+            self.daq.setDouble(node[i],amp)
+            i = i + pairedChannel
+
+        self.analog_outs = amps
 
     ###################################
     # Settings Methods
@@ -855,3 +872,152 @@ class HDAWGchannel():
         node = self.nodepaths['delay']
         self.daq.setDouble(node,val)
         self.configured = True
+
+class HDAWGosc():
+    def __init__(self, daq, oscID, freq = 10e6, device = 'dev8163'):
+        self.daq       = daq
+        self.device    = device
+        self.nodepaths = self.fill_paths()
+        self.ID        = oscID
+        self.freq      = freq
+        self.sines     = []
+        for i in range(2):
+            self.sines.append(HDAWGsines(self.daq, self.ID, i, self.device))
+
+    def fill_paths(self):
+        nodes = {}
+        nodes['freq'] = '{}/oscs/{}/freq'.format(self.device, self.ID)
+        return nodes
+
+    ###################################
+    # Methods
+    ###################################
+
+    def configure_sine(self, sineID, freq = freq, phase = 0.):
+        osc_freq = self.freq
+        configure = self.sines[1-sineID].cofn
+        harm2 = self.sines[1-sineID].harmonic
+        freq2=harm2*osc_freq
+        if freq >= osc_freq and freq%osc_freq==0:
+            harm1 = freq/osc_freq
+        else:
+            print('Adjusting the oscillator frequency')
+            osc_freq = gcd(freq, freq2)
+            harm1    = freq/osc_freq
+            harm2    = freq2/osc_freq
+
+        self.sines[sineID].harmonic   = harm1
+        self.sines[sineID].phase      = phase
+        self.sines[1-sineID].harmonic = harm2
+
+        self.freq = osc_freq
+
+    ###################################
+    # Settings methods
+    ###################################
+
+    def getSettings(self):
+        '''
+        Function to build dictionary from all key settings of osc object
+        Returns:
+            dict with key oscillator settings
+        '''
+        self.daq.sync()
+        settings = {}
+        settings['freq'] = self.freq
+        return settings
+    
+    def setSettings(self, settings):
+        '''
+        Function to set settings on AWG from settings dictionary
+        Arguments:
+            settings (dict): contains settings for osc class
+        '''
+        self.freq = settings['freq']
+        self.daq.sync()
+        
+    ###################################
+    # Properties
+    ###################################
+
+    @property
+    def freq(self):
+        node = self.nodepaths['freq']
+        val = self.daq.getDouble(node)
+        return val
+    @freq.setter
+    def freq(self, val):
+        node = self.nodepaths['freq']
+        if val > 1.2e9 or val <= 0:
+            print('Invalid frequency, accepted range: 10 - 1.2e9')
+        else:
+            self.daq.setDouble(node,val)
+
+class HDAWGsines():
+    def __init__(self, daq, channelID, device = 'dev8163', phase = 0., harmonic = 1.0):
+        self.daq = daq
+        self.ID = channelID
+        self.nodepaths = self.fill_paths()
+        self.device = device
+        self.phase = phase
+        self.harmonic = harmonic
+
+    def fill_paths(self):
+        nodes = {}
+        nodes['phase'] = '/{}/sines/{}/phaseshift'.format(self.device, self.ID)
+        nodes['harmonic'] = '{}/sines/{}/harmonic'.format(self.device, self.ID)
+        return nodes
+
+    ###################################
+    # Settings methods
+    ###################################
+
+    def getSettings(self):
+        '''
+        Function to build dictionary from all key settings of osc object
+        Returns:
+            dict with key oscillator settings
+        '''
+        self.daq.sync()
+        settings = {}
+        for key in self.nodepaths.keys():
+            settings[key] = getattr(self, key)
+        return settings
+    
+    def setSettings(self, settings):
+        '''
+        Function to set settings on AWG from settings dictionary
+        Arguments:
+            settings (dict): contains settings for osc class
+        '''
+        for key in settings.keys():
+            setattr(self, key, settings[key])
+
+        self.daq.sync()
+        
+    ###################################
+    # Properties
+    ###################################
+
+    @property
+    def phase(self):
+        node = self.nodepaths['phase']
+        val = self.daq.getDouble(node)
+        return val
+    @phase.setter
+    def phase(self,val):
+        node = self.nodepaths['phase']
+        self.daq.setDouble(node, val%360)
+
+    @property
+    def harmonic(self):
+        node = self.nodepaths['harmonic']
+        val = self.daq.getInt(node)
+        return val
+    @harmonic.setter
+    def harmonic(self,val):
+        node = self.nodepaths['harmonic']
+        if round(val) < 1:
+            print('Invalid harmonic, must be integer >=1')
+        else:
+            self.daq.setInt(node, val)
