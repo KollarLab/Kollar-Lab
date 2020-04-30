@@ -59,7 +59,8 @@ class Acqiris(object):
                  'armed', 
                  'acquisitionFinished',
                  'offsetWithinRecord',
-                 'totalSamples']
+                 'totalSamples',
+                 '_triggerCoupling']
     
     def __init__(self, ResourceName, simulate = False):  
         #look to the right place.
