@@ -245,6 +245,7 @@ class HDAWG():
 # HDAWGawg subclass
 #################################################################################################
 
+@freeze
 class HDAWGawg:
     '''
     Helper class used to access the awg cores on HDAWG. Contains two trigger objects that can be
@@ -483,6 +484,7 @@ class HDAWGawg:
 #################################################################################################
 # HDAWGtrigger subclass
 #################################################################################################
+@freeze
 class HDAWGtrigger():
     '''
     Helper class to access trigger settings for AWG cores
@@ -617,6 +619,7 @@ class HDAWGtrigger():
 #################################################################################################
 # HDAWGchannel subclass
 #################################################################################################
+@freeze
 class HDAWGchannel():
     '''
     Helper class used to access all the output settings of the 4 HDAWG channels
@@ -925,8 +928,30 @@ class HDAWGchannel():
             i = i + pairedChannel
         self.configured = True
 
+#################################################################################################
+# HDAWGosc subclass
+#################################################################################################
+@freeze
 class HDAWGosc():
+    '''
+    Helper class used to control the two internal oscillators of the HDAWG
+    Each oscillator controls two sine outputs that can be set nearly independently
+    Two the sines need to be related by some harmonic ratio (m/n where both can go
+    from 1 to 1023)
+    Attributes:
+        freq (int): frequency of reference oscillator
+        sines ([HDAWGsines]) : list of HDAWGsines objects to hold the phase and 
+        harmonic for each sine output
+    '''
     def __init__(self, daq, oscID, freq = 10e6, device = 'dev8163'):
+        '''
+        Constructor class for HDAWGosc object
+        Arguments:
+            daq (daq) : handle to daq used to interface with hardware
+            oscID (int) : oscillator identifier (0 or 1)
+            freq (int) :  frequency of oscillator (default 10MHz)
+            device (str) : device identifier (default dev8163)
+        '''
         self.daq       = daq
         self.device    = device
         self.ID        = oscID
@@ -937,6 +962,9 @@ class HDAWGosc():
             self.sines.append(HDAWGsines(self.daq, self.ID, i, self.device))
 
     def fill_paths(self):
+        '''
+        Helper function to fill the paths to the nodes of interest
+        '''
         nodes = {}
         nodes['freq'] = '/{}/oscs/{}/freq'.format(self.device, self.ID)
         return nodes
@@ -946,6 +974,18 @@ class HDAWGosc():
     ###################################
 
     def configure_sine(self, sineID, freq, phase = 0.):
+        '''
+        Method to set the frequency on the sine outputs.
+        By default, it will just adjust the frequency of the ref oscillator
+        but if one of the channels was already configured, it will adjust the
+        harmonics to maintain the frequency on the other channel. We find the 
+        gcd of the two frequencies and adjust the ref osc and harmonics to get
+        the smallest harmonics possible
+        Arguments:
+            sineID (int) : identifier of sine output (0 or 1)
+            freq (double) : frequency desired on sine output
+            phase (double) : phase delay on output
+        '''
         osc_freq   = self.freq
         configured = self.sines[1-sineID].configured
         harm2      = self.sines[1-sineID].harmonic
@@ -1022,8 +1062,30 @@ class HDAWGosc():
         else:
             self.daq.setDouble(node,val)
 
+#################################################################################################
+# HDAWGosc subclass
+#################################################################################################
+@freeze
 class HDAWGsines():
+    '''
+    Helper class used to control the sine outputs of the HDAWG
+    Attributes:
+        oscID(int): reference oscillator number (0 or 1)
+        channelID(int): self identifier (0 to 3)
+        phase (double) :phase delay on output
+        harmonic (int) : harmonic of reference oscillator used (1-1023)
+    '''
     def __init__(self, daq, oscID, channelID, device = 'dev8163', phase = 0., harmonic = 1):
+        '''
+        Constructor class for HDAWGsines
+        Arguments:
+            daq (daq): Handle to daq used to control instrument
+            oscID (int): Reference oscillator number
+            channelID (int): self identifier (0 to 3)
+            device (str) : device serial number (default dev8163)
+            phase (double) :phase delay on output (default 0)
+            harmonic (int) : harmonic of reference oscillator used (default 1)
+        '''
         self.daq        = daq
         self.ID         = channelID+oscID*2
         self.device     = device
@@ -1033,6 +1095,9 @@ class HDAWGsines():
         self.configured = False
 
     def fill_paths(self):
+        '''
+        Helper function used to fill in the paths to the nodes of interest
+        '''
         nodes = {}
         nodes['phase']    = '/{}/sines/{}/phaseshift'.format(self.device, self.ID)
         nodes['harmonic'] = '/{}/sines/{}/harmonic'.format(self.device, self.ID)
