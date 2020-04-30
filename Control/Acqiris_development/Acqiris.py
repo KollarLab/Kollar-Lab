@@ -1037,6 +1037,7 @@ class Acqiris(object):
             params = self._generateConfig()
             gotSettings = True
         except:
+            gotSettings = False
             pass
 
 

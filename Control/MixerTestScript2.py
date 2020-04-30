@@ -90,10 +90,10 @@ def ellipse_angle_of_rotation2( a ):
 #measurement parameters
 measDur = 5e-6
 
-numFreqs = 11
+numFreqs = 45
 freqs = numpy.linspace(4e9,10e9, numFreqs)
 
-numPoints = 50
+numPoints = 10
 #phases = numpy.linspace(0, numpy.pi,numPoints)
 phases = numpy.linspace(0, 360,numPoints)
 
@@ -173,6 +173,8 @@ rfgen.power_On()
 
 
 
+stigVec = numpy.zeros(len(freqs))
+phiVec = numpy.zeros(len(freqs))
 
 for find in range(0, len(freqs)):
     freq = freqs[find]
@@ -226,7 +228,14 @@ for find in range(0, len(freqs)):
     #This mixer seems to have major axis along pi/4, roughly
     if phi > numpy.pi/4:
         phi = phi - numpy.pi/2
-    
+        
+    if axes[1] > axes[0]:
+        #major axis is second
+        axes = [axes[1], axes[0]]
+        phi = phi + numpy.pi/2
+        
+    if phi < 0:
+        phi = phi +numpy.pi
     
     xOffset = center[0]
     yOffset = center[1]
@@ -237,7 +246,7 @@ for find in range(0, len(freqs)):
     print("frequency = ", freq_GHz)
     print("center = ",  numpy.round(center,3))
     print("angle of rotation = " + str(numpy.round( stigAngle, 3)) + ' degrees')
-    print("axes = ", axes)
+    print("axes = ", numpy.round(axes,3))
     print("stig = ", numpy.round(stig,3))
     
     
@@ -246,6 +255,9 @@ for find in range(0, len(freqs)):
     yy = center[1] + a*np.cos(thetas)*np.sin(phi) + b*np.sin(thetas)*np.cos(phi)
     
     
+    
+    stigVec[find] = stig
+    phiVec[find] = phi
     
     
     ##compute residuals, something is sneakily wrong here, and stuff doesn;t land right, I don't know why.
@@ -312,9 +324,48 @@ for find in range(0, len(freqs)):
     fig.canvas.draw()
     fig.canvas.flush_events()
 
+ 
+    
+stigVec_dB = numpy.log10(stigVec+1)*10
+    
+fig2 = pylab.figure(2)
+pylab.clf()
+
+ax = pylab.subplot(2,2,1)
+pylab.plot(freqs/1e9, stigVec, 'b.')
+pylab.xlabel('Frequency (GHz)')
+pylab.ylabel('Astigmatism (linear)')
+pylab.title('Linear Astigmatism')
+
+ax = pylab.subplot(2,2,2)
+pylab.plot(freqs/1e9, stigVec_dB, 'r.')
+pylab.xlabel('Frequency (GHz)')
+pylab.ylabel('Astigmatism (dB)')
+pylab.title('Log Astigmatism')
+
+
+
+ax = pylab.subplot(2,2,3)
+pylab.plot(freqs/1e9, 180*phiVec/numpy.pi, 'b.')
+pylab.xlabel('Frequency (GHz)')
+pylab.ylabel('Astigmatism Angle (degrees)')
+pylab.title('Absolute Astigmatism Angle')
+
+ax = pylab.subplot(2,2,4)
+pylab.plot(freqs/1e9, 180*phiVec/numpy.pi - 45, 'r.')
+pylab.xlabel('Frequency (GHz)')
+pylab.ylabel('Astigmatism Angle (degrees) - 45')
+pylab.title('IQ Angle Imbalance')
+
+
+pylab.suptitle('Mixer Calibration')
+pylab.tight_layout()
+pylab.show()
+    
+    
     
 
-rfgen.power_off()
+rfgen.power_Off()
 logen.power_Off()    
     
     
