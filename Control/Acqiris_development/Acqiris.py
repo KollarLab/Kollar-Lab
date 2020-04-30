@@ -33,6 +33,34 @@ import AqMD3
 
 
 class Acqiris(object):
+    __slots__ = ['settingsCurrent', 
+                 'driverKeys', 
+                 'hardwareKeys', 
+                 'simulate', 
+                 'hardwareAddress', 
+                 'driver', 
+                 'verbose', 
+                 '_samples', 
+                 '_sampleRate', 
+                 '_averageMode', 
+                 '_averages', 
+                 '_segments', 
+                 '_activeChannels', 
+                 '_channelRange', 
+                 '_channelOffset', 
+                 '_triggerSource', 
+                 'triggerMode', 
+                 '_triggerLevel', 
+                 '_triggerSlope', 
+                 '_triggerDelay', 
+                 '_clockSource', 
+                 '_clockFrequency', 
+                 'timeout', 
+                 'armed', 
+                 'acquisitionFinished',
+                 'offsetWithinRecord',
+                 'totalSamples']
+    
     def __init__(self, ResourceName, simulate = False):  
         #look to the right place.
         IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
@@ -42,6 +70,7 @@ class Acqiris(object):
         
         self.settingsCurrent = False
             
+        
         self._fillHardwareKeys()
         
         
@@ -71,6 +100,8 @@ class Acqiris(object):
         #some flags for controlling the read
         self.armed = False
         self.acquisitionFinished = False
+        
+#        self._fill_slots()
         
 #    ##############################
     #hardware properties
@@ -676,6 +707,12 @@ class Acqiris(object):
         self.hardwareKeys.append('clockSource')
         
 #        self.hardwareKeys.append('timeout') #i don't know how to get this from the hardware, so it's a software setting
+    
+    def _fill_slots(self):
+        firstRound = list(self.__dict__.keys()) #this gets all of the normal attributes, but it doesn't handle the properties
+        propertyKeys = self.hardwareKeys
+        
+        self.__slots__ = firstRound + propertyKeys
     
     def _generateConfig(self):
         '''Make a dictionary of the hardware settings and a couple of useful flags.
