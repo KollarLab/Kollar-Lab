@@ -146,6 +146,15 @@ class Acqiris(object):
         return actives
     @activeChannels.setter
     def activeChannels(self,val):
+        if (type(val) == int) or (type(val) == float):
+            val = [val]
+        if not val[0] == 1:
+            raise ValueError('Active channels needs to be either 1, [1], or [1,2].')
+        if len(val) > 1:
+            if  not val[1] == 2:
+                raise ValueError('Active channels needs to be either 1, [1], or [1,2].')
+            if len(val)>2:
+                raise ValueError('Only two channels')
         self.settingsCurrent = False
         self._activeChannels = val
 
@@ -767,11 +776,14 @@ class Acqiris(object):
             print(key + ' : ' + str(params[key]))
         print()
         
-    def ReadAllData(self, returnRaw = False):
+    def ReadAllData(self, returnRaw = False, returnTwoArrays = True):
         ''' Highest level read function. Will automatically read all active
         channels.
         
         Will trip flags when it is done that the data acquisition and read are complete
+        
+        if returnTwoArrays is true, then it will alwyas return two data arrays, even if channel 
+        two is turned off. But it will return an empty array for the inactive channel
         '''
         #check if the card is done. 
         #NOTE: Card needs to be asked if its done, or it will get mad, even if it is actually done
@@ -796,10 +808,14 @@ class Acqiris(object):
             return data1, data2
         else:
             data =  self.ReadData(self._activeChannels[0], returnRaw = returnRaw)
+            data_blank = numpy.zeros((0,0))
             #notify the python that this acquisition and read are done
             self.armed = False
             self.acquisitionFinished = False
-            return data
+            if returnTwoArrays:
+                return data, data_blank
+            else:
+                return data
 
     def ReadData(self, chanNum, returnRaw = False):
         '''Single channel data read function.
