@@ -222,42 +222,35 @@ yy = center[1] + a*np.cos(thetas)*np.sin(phi) + b*np.sin(thetas)*np.cos(phi)
 
 
 
-#a = 0.041
-#b = 0.037
-#phi = numpy.pi/4
-#xx = center[0] + a*np.cos(thetas)*np.cos(phi) - b*np.sin(thetas)*np.sin(phi)
-#yy = center[1] + a*np.cos(thetas)*np.sin(phi) + b*np.sin(thetas)*np.cos(phi)
 
-
-
-#compute residuals, something is sneakily wrong here, and stuff doesn;t land right, I don't know why.
-newIs = Is - center[0]
-newQs = Qs - center[1]
-dataThetas = numpy.arctan2(newQs, newIs)
-dataMags = numpy.sqrt(newIs**2 + newQs**2)
-#fitXs = center[0] + a*np.cos(dataThetas-phi)*np.cos(phi) - b*np.sin(dataThetas-phi)*np.sin(phi)
-#fitYs = center[1] + a*np.cos(dataThetas-phi)*np.sin(phi) + b*np.sin(dataThetas-phi)*np.cos(phi)
-fitXs =  a*np.cos(dataThetas-phi)*np.cos(phi) - b*np.sin(dataThetas-phi)*np.sin(phi)
-fitYs =  a*np.cos(dataThetas-phi)*np.sin(phi) + b*np.sin(dataThetas-phi)*np.cos(phi)
-#fitXs = 0.33*np.cos(dataThetas-phi)*np.cos(phi) - 0.33*np.sin(dataThetas-phi)*np.sin(phi)
-#fitYs = 0.33*np.cos(dataThetas-phi)*np.sin(phi) + 0.33*np.sin(dataThetas-phi)*np.cos(phi)
-#fitXs = fitXs/4
-#fitYs = fitYs/4
-
-fitThetas = numpy.arctan2(fitYs, fitXs)
-fitMags  = numpy.sqrt(fitXs**2 + fitYs**2)
-
-residuals = numpy.sqrt( (Is - fitXs)**2 + (Qs - fitYs)**2)
-meanResidual = numpy.mean(residuals)/numpy.mean(axes)
-print("average residual = ", numpy.round(meanResidual, 3))
-
-
-pylab.figure(2)
-pylab.clf()
-ax = pylab.subplot(1,1,1)
-pylab.polar( dataThetas, dataMags, 'b.')
-pylab.polar( fitThetas, fitMags, 'r.')
-pylab.show()
+##compute residuals, something is sneakily wrong here, and stuff doesn;t land right, I don't know why.
+#newIs = Is - center[0]
+#newQs = Qs - center[1]
+#dataThetas = numpy.arctan2(newQs, newIs)
+#dataMags = numpy.sqrt(newIs**2 + newQs**2)
+##fitXs = center[0] + a*np.cos(dataThetas-phi)*np.cos(phi) - b*np.sin(dataThetas-phi)*np.sin(phi)
+##fitYs = center[1] + a*np.cos(dataThetas-phi)*np.sin(phi) + b*np.sin(dataThetas-phi)*np.cos(phi)
+#fitXs =  a*np.cos(dataThetas-phi)*np.cos(phi) - b*np.sin(dataThetas-phi)*np.sin(phi)
+#fitYs =  a*np.cos(dataThetas-phi)*np.sin(phi) + b*np.sin(dataThetas-phi)*np.cos(phi)
+##fitXs = 0.33*np.cos(dataThetas-phi)*np.cos(phi) - 0.33*np.sin(dataThetas-phi)*np.sin(phi)
+##fitYs = 0.33*np.cos(dataThetas-phi)*np.sin(phi) + 0.33*np.sin(dataThetas-phi)*np.cos(phi)
+##fitXs = fitXs/4
+##fitYs = fitYs/4
+#
+#fitThetas = numpy.arctan2(fitYs, fitXs)
+#fitMags  = numpy.sqrt(fitXs**2 + fitYs**2)
+#
+#residuals = numpy.sqrt( (Is - fitXs)**2 + (Qs - fitYs)**2)
+#meanResidual = numpy.mean(residuals)/numpy.mean(axes)
+#print("average residual = ", numpy.round(meanResidual, 3))
+#
+#
+#pylab.figure(2)
+#pylab.clf()
+#ax = pylab.subplot(1,1,1)
+#pylab.polar( dataThetas, dataMags, 'b.')
+#pylab.polar( fitThetas, fitMags, 'r.')
+#pylab.show()
 
 
 

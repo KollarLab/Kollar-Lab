@@ -785,8 +785,8 @@ class Acqiris(object):
             raise ValueError("Cannot read data. Card acquisition hasn't happened.")
         
         
-        data1 = []
-        data2 = []
+#        data1 = []
+#        data2 = []
         if len(self._activeChannels) > 1:
             data1 = self.ReadData(1, returnRaw = returnRaw)
             data2 = self.ReadData(2, returnRaw = returnRaw)
@@ -868,15 +868,22 @@ class Acqiris(object):
         if self.verbose:
             print('Fetch Complete. Processing Data.')
             
-        if self.segments == 1:
-            rawData = numpy.zeros( self.samples)
-            waveform  = waveformObj[0]
-            rawData[:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
-        else:
-            rawData = numpy.zeros((self.segments, self.samples))
-            for segind in range(0, self.segments):
-                waveform  = waveformObj[segind]
-                rawData[segind,:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
+#        if self.segments == 1:
+#            rawData = numpy.zeros( self.samples)
+#            waveform  = waveformObj[0]
+#            rawData[:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
+#        else:
+#            rawData = numpy.zeros((self.segments, self.samples))
+#            for segind in range(0, self.segments):
+#                waveform  = waveformObj[segind]
+#                rawData[segind,:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
+            
+        #always get matrix shaped data
+        rawData = numpy.zeros((self.segments, self.samples))
+        for segind in range(0, self.segments):
+            waveform  = waveformObj[segind]
+            rawData[segind,:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
+        
         
         if waveformObj[0].ActualSamples != self.samples:
             print("Warning. Data size doesn't match the number of samples. Something wierd happened.")
@@ -950,7 +957,9 @@ class Acqiris(object):
             out = [rawData, waveformObj]
             return out
         else:
-            data = rawData
+            #always make matrix shaped data to be compatible with the other read functions
+            data = numpy.zeros((1, len(rawData)))
+            data[0,:] = rawData
             if self.verbose:
                 print('Data Processed.')
             return data
