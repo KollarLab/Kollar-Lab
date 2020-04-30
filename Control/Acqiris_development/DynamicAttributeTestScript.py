@@ -21,9 +21,18 @@ if not IVIbinPath in sys.path:
 #b = Base()
     
     
-card = Acqiris(hardwareAddress) 
+#card = Acqiris(hardwareAddress) 
     
     
 #card.segements = 1
 
 #card.Close()
+    
+    
+    
+    
+from Instruments.SGS import RFgen
+
+
+#rfgen = RFgen('192.168.1.16')
+rfgen = RFgen('TCPIP0::rssgs100a110739::inst0::INSTR')
