@@ -31,36 +31,44 @@ import sys
 #import AqMD3 as driver #this is the Acqiris python driver
 import AqMD3
 
+InstrumentFolderPath = r'C:\Users\Kollarlab\Desktop\Kollar-Lab\Control'
+if not InstrumentFolderPath in sys.path:
+    sys.path.append(InstrumentFolderPath)
 
+
+from userfuncs import freeze
+
+@freeze
 class Acqiris(object):
-    __slots__ = ['settingsCurrent', 
-                 'driverKeys', 
-                 'hardwareKeys', 
-                 'simulate', 
-                 'hardwareAddress', 
-                 'driver', 
-                 'verbose', 
-                 '_samples', 
-                 '_sampleRate', 
-                 '_averageMode', 
-                 '_averages', 
-                 '_segments', 
-                 '_activeChannels', 
-                 '_channelRange', 
-                 '_channelOffset', 
-                 '_triggerSource', 
-                 'triggerMode', 
-                 '_triggerLevel', 
-                 '_triggerSlope', 
-                 '_triggerDelay', 
-                 '_clockSource', 
-                 '_clockFrequency', 
-                 'timeout', 
-                 'armed', 
-                 'acquisitionFinished',
-                 'offsetWithinRecord',
-                 'totalSamples',
-                 '_triggerCoupling']
+#    __slots__ = ['settingsCurrent', 
+#                 'driverKeys', 
+#                 'hardwareKeys', 
+#                 'simulate', 
+#                 'hardwareAddress', 
+#                 'driver', 
+#                 'verbose', 
+#                 '_samples', 
+#                 '_sampleRate', 
+#                 '_averageMode', 
+#                 '_averages', 
+#                 '_segments', 
+#                 '_activeChannels', 
+#                 '_channelRange', 
+#                 '_channelOffset', 
+#                 '_triggerSource', 
+#                 'triggerMode', 
+#                 '_triggerLevel', 
+#                 '_triggerSlope', 
+#                 '_triggerDelay', 
+#                 '_clockSource', 
+#                 '_clockFrequency', 
+#                 'timeout', 
+#                 'armed', 
+#                 'acquisitionFinished',
+#                 'offsetWithinRecord',
+#                 'totalSamples',
+#                 '_triggerCoupling'
+#                 ]
     
     def __init__(self, ResourceName, simulate = False):  
         #look to the right place.
@@ -103,6 +111,9 @@ class Acqiris(object):
         self.acquisitionFinished = False
         
 #        self._fill_slots()
+        #declare some attributes that will be needed later
+        self.offsetWithinRecord = 0
+        self.totalSamples = self.samples
         
 #    ##############################
     #hardware properties
@@ -796,7 +807,7 @@ class Acqiris(object):
         self.triggerLevel = 0
         self.triggerSlope = 'Falling'
         self.triggerDelay = 0
-#        self.triggerCoupling = 1 #1 for DC, 0 for AC. I think it must always be DC, at least on external
+        self.triggerCoupling = 1 #1 for DC, 0 for AC. I think it must always be DC, at least on external
         
         #clock settings
         self.clockSource = 'External'
