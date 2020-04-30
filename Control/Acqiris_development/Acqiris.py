@@ -33,6 +33,34 @@ import AqMD3
 
 
 class Acqiris(object):
+    __slots__ = ['settingsCurrent', 
+                 'driverKeys', 
+                 'hardwareKeys', 
+                 'simulate', 
+                 'hardwareAddress', 
+                 'driver', 
+                 'verbose', 
+                 '_samples', 
+                 '_sampleRate', 
+                 '_averageMode', 
+                 '_averages', 
+                 '_segments', 
+                 '_activeChannels', 
+                 '_channelRange', 
+                 '_channelOffset', 
+                 '_triggerSource', 
+                 'triggerMode', 
+                 '_triggerLevel', 
+                 '_triggerSlope', 
+                 '_triggerDelay', 
+                 '_clockSource', 
+                 '_clockFrequency', 
+                 'timeout', 
+                 'armed', 
+                 'acquisitionFinished',
+                 'offsetWithinRecord',
+                 'totalSamples']
+    
     def __init__(self, ResourceName, simulate = False):  
         #look to the right place.
         IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
@@ -42,6 +70,7 @@ class Acqiris(object):
         
         self.settingsCurrent = False
             
+        
         self._fillHardwareKeys()
         
         
@@ -71,6 +100,8 @@ class Acqiris(object):
         #some flags for controlling the read
         self.armed = False
         self.acquisitionFinished = False
+        
+#        self._fill_slots()
         
 #    ##############################
     #hardware properties
@@ -146,6 +177,15 @@ class Acqiris(object):
         return actives
     @activeChannels.setter
     def activeChannels(self,val):
+        if (type(val) == int) or (type(val) == float):
+            val = [val]
+        if not val[0] == 1:
+            raise ValueError('Active channels needs to be either 1, [1], or [1,2].')
+        if len(val) > 1:
+            if  not val[1] == 2:
+                raise ValueError('Active channels needs to be either 1, [1], or [1,2].')
+            if len(val)>2:
+                raise ValueError('Only two channels')
         self.settingsCurrent = False
         self._activeChannels = val
 
@@ -668,6 +708,12 @@ class Acqiris(object):
         
 #        self.hardwareKeys.append('timeout') #i don't know how to get this from the hardware, so it's a software setting
     
+    def _fill_slots(self):
+        firstRound = list(self.__dict__.keys()) #this gets all of the normal attributes, but it doesn't handle the properties
+        propertyKeys = self.hardwareKeys
+        
+        self.__slots__ = firstRound + propertyKeys
+    
     def _generateConfig(self):
         '''Make a dictionary of the hardware settings and a couple of useful flags.
         
@@ -767,11 +813,14 @@ class Acqiris(object):
             print(key + ' : ' + str(params[key]))
         print()
         
-    def ReadAllData(self, returnRaw = False):
+    def ReadAllData(self, returnRaw = False, returnTwoArrays = True):
         ''' Highest level read function. Will automatically read all active
         channels.
         
         Will trip flags when it is done that the data acquisition and read are complete
+        
+        if returnTwoArrays is true, then it will alwyas return two data arrays, even if channel 
+        two is turned off. But it will return an empty array for the inactive channel
         '''
         #check if the card is done. 
         #NOTE: Card needs to be asked if its done, or it will get mad, even if it is actually done
@@ -785,8 +834,8 @@ class Acqiris(object):
             raise ValueError("Cannot read data. Card acquisition hasn't happened.")
         
         
-        data1 = []
-        data2 = []
+#        data1 = []
+#        data2 = []
         if len(self._activeChannels) > 1:
             data1 = self.ReadData(1, returnRaw = returnRaw)
             data2 = self.ReadData(2, returnRaw = returnRaw)
@@ -796,10 +845,14 @@ class Acqiris(object):
             return data1, data2
         else:
             data =  self.ReadData(self._activeChannels[0], returnRaw = returnRaw)
+            data_blank = numpy.zeros((0,0))
             #notify the python that this acquisition and read are done
             self.armed = False
             self.acquisitionFinished = False
-            return data
+            if returnTwoArrays:
+                return data, data_blank
+            else:
+                return data
 
     def ReadData(self, chanNum, returnRaw = False):
         '''Single channel data read function.
@@ -868,15 +921,22 @@ class Acqiris(object):
         if self.verbose:
             print('Fetch Complete. Processing Data.')
             
-        if self.segments == 1:
-            rawData = numpy.zeros( self.samples)
-            waveform  = waveformObj[0]
-            rawData[:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
-        else:
-            rawData = numpy.zeros((self.segments, self.samples))
-            for segind in range(0, self.segments):
-                waveform  = waveformObj[segind]
-                rawData[segind,:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
+#        if self.segments == 1:
+#            rawData = numpy.zeros( self.samples)
+#            waveform  = waveformObj[0]
+#            rawData[:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
+#        else:
+#            rawData = numpy.zeros((self.segments, self.samples))
+#            for segind in range(0, self.segments):
+#                waveform  = waveformObj[segind]
+#                rawData[segind,:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
+            
+        #always get matrix shaped data
+        rawData = numpy.zeros((self.segments, self.samples))
+        for segind in range(0, self.segments):
+            waveform  = waveformObj[segind]
+            rawData[segind,:] = waveform.Samples* waveform.ScaleFactor + waveform.ScaleOffset
+        
         
         if waveformObj[0].ActualSamples != self.samples:
             print("Warning. Data size doesn't match the number of samples. Something wierd happened.")
@@ -950,7 +1010,9 @@ class Acqiris(object):
             out = [rawData, waveformObj]
             return out
         else:
-            data = rawData
+            #always make matrix shaped data to be compatible with the other read functions
+            data = numpy.zeros((1, len(rawData)))
+            data[0,:] = rawData
             if self.verbose:
                 print('Data Processed.')
             return data
