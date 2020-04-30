@@ -4,10 +4,12 @@ import numpy as np
 
 import zhinst.ziPython as ziPython
 import zhinst.utils as ziUtils
-from . import settingTools as sT
+from Instruments import settingTools as sT
 from bidict import bidict
 from math import gcd
+from userfuncs import freeze
 
+@freeze
 class HDAWG():
     '''
     Class representing an HDAWG instrument
