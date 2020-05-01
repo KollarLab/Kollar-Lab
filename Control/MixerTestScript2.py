@@ -29,7 +29,7 @@ if not IVIbinPath in sys.path:
 
 
 ###############
-#shamelessly stolen elimpse fitting functions
+#shamelessly stolen elipse fitting functions
 #############
 import numpy as np
 from numpy.linalg import eig, inv
@@ -90,10 +90,11 @@ def ellipse_angle_of_rotation2( a ):
 #measurement parameters
 measDur = 5e-6
 
-numFreqs = 45
+numFreqs = 2
 freqs = numpy.linspace(4e9,10e9, numFreqs)
+freqs = numpy.flipud(freqs)
 
-numPoints = 10
+numPoints = 15
 #phases = numpy.linspace(0, numpy.pi,numPoints)
 phases = numpy.linspace(0, 360,numPoints)
 
