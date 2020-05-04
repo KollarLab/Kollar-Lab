@@ -3,11 +3,11 @@
 //Keeps measurement window at the same temporal position as pulse spacing varies
 
 //Configure tones
-const Amp      = _piAmp_;
-const Time     = _piTime_;
+const Amp      = _Amp_;
+const Time     = _Time_;
 
 //Ramp config
-const frac = 10;
+const frac = 0.1;
 
 //Timing control 
 const tau        = _tau_;
@@ -16,17 +16,29 @@ const max_time   = _max_time_;
 //Convert times to number of samples
 const sampleRate      = 2.4e+9;
 const sequencerRate   = sampleRate/8;
-const Time_samples    = round(piTime*sampleRate/16)*16;
-const ramp_samples    = round(Time_samples/(16*frac))*16;
+const Time_samples    = round(Time*sampleRate/16)*16;
+const ramp_samples    = max(round(Time_samples*frac/16)*16,32);
 
-wave ramp = gauss(2*ramp_samples, ramp_samples, ramp_samples/2);
-wave rise = cut(ramp,0,ramp_samples-1);
-wave fall = cut(ramp,ramp_samples,2*ramp_samples-1);
-wave sig  = ones(Time);
-wave tone = Amp*join(rise, sig, fall);
+//The -0.5 is critical to have a symmetric gaussian (so that the signal goes to 0 at both ends)
+wave ramp = gauss(ramp_samples, ramp_samples/2-0.5, ramp_samples/8);
+wave rise = cut(ramp,0,ramp_samples/2-1);
+wave fall = cut(ramp,ramp_samples/2,ramp_samples-1);
+wave sig  = ones(Time_samples);
+//Round the edges of the square pulse by adding a gaussian ramp up and down around it
+wave tone = join(rise, sig, fall);
 
-const init_wait_cycles = round((max_time-tau-(1+2./frac)Time/2)*sequencerRate);
-const pulse_sep_cycles = round((tau-(1+2./frac)Time)*sequencerRate);
+//Subtract offset from data (gaussian doesn't go to 0 at the ends initially)
+const offset = ramp[0];
+cvar i;
+for (i=0; i<ramp_samples+Time_samples;i++){
+  tone[i] = tone[i]-offset;
+}
+//Perform scaling to user specified height 
+tone = Amp*tone/(1-offset);
+
+//Calculate the number of cycles we need to wait for the two pulses
+const init_wait_cycles = round((max_time-tau-(1+2.*frac)*Time/2)*sequencerRate);
+const pulse_sep_cycles = round((tau-(1+2.*frac)*Time)*sequencerRate);
 
 while(true){
   //Wait for trigger on channel 1
@@ -35,7 +47,7 @@ while(true){
   wait(init_wait_cycles);
   playWave(tone);
   waitWave();
-  //Wait the programmed amount of time to measure a T2 for example
+  //Wait the programmed amount of time for next pulse
   wait(pulse_sep_cycles);
   playWave(tone);
   waitWave();
