@@ -452,7 +452,8 @@ print("std(angles) = " , numpy.std(Angles))
 
 
 
-
+rfgen.power_Off()
+logen.power_Off()    
 
 
 
