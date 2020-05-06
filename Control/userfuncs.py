@@ -96,7 +96,7 @@ def ellipse_angle_of_rotation( a ):
         
     return out
 
-def make_elipse(axes, phi, center,  numPoints):
+def make_elipse(axes, center, phi,  numPoints):
     a, b = axes
     thetas = np.linspace(0,2*np.pi, numPoints)
     

@@ -56,7 +56,7 @@ overflowBuffer = 10e-6
 #maxtime = 110e-6
 #tau = 1e-6
 #T2 measurement protocol parameters
-measure_points = 20
+measure_points = 15
 tau_max = 1000e-6
 tau_min = 1e-6
 trig_buffer = 0e-6
@@ -65,7 +65,7 @@ maxtime = tau_max + overflowBuffer
 
 #Data acquisition parameters
 card.averages = 1 #on-board averages
-card.segments = 150
+card.segments = 75
 card.triggerDelay = trig_buffer
 card.activeChannels = [1,2]
 reads = 2  #reads of the card
@@ -91,7 +91,7 @@ digitizer_time = digitizer_max_time - digitizer_min_time
 card.samples = numpy.ceil(digitizer_time*card.sampleRate)
 card.SetParams() #warning. this may round the number of smaples to multiple of 1024
 
-empiricalFudgeFactor = 0.0e-6
+empiricalFudgeFactor = -0.096e-6   #this is a very exact number to be off by!!!!!!
 digitizerTimeOffset = tau_max + overflowBuffer + pulselength + empiricalFudgeFactor
 cardTicks = scipy.arange(0, card.samples, 1.) # time in sample clocks from the digitizers point of view
 cardXaxis = cardTicks /card.sampleRate - digitizerTimeOffset #time in seconds from the digitizers point of view
@@ -105,10 +105,6 @@ raw_read1 = numpy.zeros((card.segments, card.samples)) #store all the raw data f
 
 raw_read2 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single read
 #raw_data2 = numpy.zeros((measure_points, card.samples)) #an averaged time trace for every value of tau
-
-#phaseMat1 = numpy.zeros((len(taus), card.segments*reads))
-#phaseMat2 = numpy.zeros((len(taus), card.segments*reads))
-#
 
 
 phaseMat1 = numpy.zeros((len(taus), reads, card.segments))
@@ -367,34 +363,37 @@ ax.legend(loc = 'upper left')
 pylab.show()
 
     
-    
+
+
+
+
+pylab.figure(4)
+pylab.clf()
+ax = pylab.subplot(1,1,1)
+pylab.plot(cardXaxis*1e6,dataVec1 )
+pylab.plot(cardXaxis*1e6,dataVec2 )
+
+t0 = cardXaxis[pulse2_range[0]]
+t1 = cardXaxis[pulse2_range[1]]
+pylab.plot([t0*1e6,t0*1e6], [-0.05,0.05])
+pylab.plot([t1*1e6,t1*1e6], [-0.06,0.06])
+
+t0 = cardXaxis[pulse1_range[0]]
+t1 = cardXaxis[pulse1_range[1]]
+pylab.plot([t0*1e6,t0*1e6], [-0.05,0.05])
+pylab.plot([t1*1e6,t1*1e6], [-0.06,0.06])
+
+pylab.xlabel('time (us)')
+pylab.ylabel('voltage')
+pylab.title('Single raw trace')
+pylab.show()
 
 
 
 
 
-
-################
-#check the long time stability
-#################
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-rfgen.power_off()
-logen.power_off()
+rfgen.power_Off()
+logen.power_Off()
 
 
 

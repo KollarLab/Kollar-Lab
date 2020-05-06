@@ -83,7 +83,9 @@ class Acqiris(object):
         self._fillHardwareKeys()
         
         
-        self.simulate = simulate
+        self.simulate = simulate #python for whether we want to simulate or not
+        #perperty simulateMode will come from the driver.
+        
         self.hardwareAddress = ResourceName
 #        self.ReInitialize()
         
@@ -114,6 +116,7 @@ class Acqiris(object):
         #declare some attributes that will be needed later
         self.offsetWithinRecord = 0
         self.totalSamples = self.samples
+        self._simulateMode = self.simulate 
         
 #    ##############################
     #hardware properties

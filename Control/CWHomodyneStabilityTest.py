@@ -267,7 +267,7 @@ power = 2
 
 #cailbrate the mixer for reference
 mixerAxes, mixerCenter, mixerPhi = calibrate_mixer_IQ(freq, power, 35, measDur = 5e-6, verbose = False)
-xx, yy = make_elipse(mixerAxes, mixerPhi, mixerCenter, 150)
+xx, yy = uf.make_elipse(mixerAxes,  mixerCenter, mixerPhi, 150)
 
 #########
 #now look at homodyne versus time.
