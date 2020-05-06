@@ -109,10 +109,7 @@ raw_read2 = numpy.zeros((card.segments, card.samples)) #store all the raw data f
 #phaseMat1 = numpy.zeros((len(taus), card.segments*reads))
 #phaseMat2 = numpy.zeros((len(taus), card.segments*reads))
 #
-#IMat1 = numpy.zeros((len(taus), card.segments*reads))
-#QMat1 = numpy.zeros((len(taus), card.segments*reads))
-#IMat2 = numpy.zeros((len(taus), card.segments*reads))
-#QMat2 = numpy.zeros((len(taus), card.segments*reads))
+
 
 phaseMat1 = numpy.zeros((len(taus), reads, card.segments))
 phaseMat2 = numpy.zeros((len(taus), reads, card.segments))
@@ -154,16 +151,7 @@ for tind in range(0, len(taus)):
         
         raw_read1 = data1
         raw_read2 = data2
-        
-#        #if card.segments == 1:
-#        #    dataVec1 = data1
-#        #    dataVec2 = data2
-#        #else:
-#        dataVec1 = numpy.mean(data1,0)
-#        dataVec2 = numpy.mean(data2,0)
-#        
-#        raw_data1[tind,:] = raw_data1[tind,:] + dataVec1
-#        raw_data2[tind,:] = raw_data2[tind,:] + dataVec2 
+    
         
         
         dataVec1 = data1[0,:] #first segements is representative data vector
@@ -198,15 +186,6 @@ for tind in range(0, len(taus)):
             phase1 = numpy.arctan2(Q1, I1)*180/numpy.pi
             phase2 = numpy.arctan2(Q2, I2)*180/numpy.pi
         
-#            #store data
-#            IMat1[tind,dind] = I1
-#            QMat1[tind,dind] = Q1
-#            
-#            IMat2[tind,dind] = I2
-#            QMat2[tind,dind] = Q2
-#            
-#            phaseMat1[tind,dind] = phase1
-#            phaseMat2[tind,dind] = phase2
             
             #store data
             IMat1[tind,rind, sind] = I1
