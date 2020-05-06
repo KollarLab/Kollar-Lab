@@ -374,6 +374,35 @@ pylab.show()
 
 
 
+################
+#check the long time stability
+#################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+rfgen.power_off()
+logen.power_off()
+
+
+
+
+
+
+
+
 
 
 
