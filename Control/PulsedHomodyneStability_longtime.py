@@ -208,8 +208,6 @@ for tind in range(0, len(timeSpacings)):
 #    print("current spacing = ", numpy.round(spacing,3))
     time.sleep(spacing)
     
-    
-    
     card.ArmAndWait()
     currT = time.time()
     print("current time = ", numpy.round(currT-t0,3))
@@ -231,6 +229,39 @@ for tind in range(0, len(timeSpacings)):
     Qs[tind] = Qav
     
     actualTimes[tind] = currT - t0
+    
+    
+    if tind == 0:
+        ############
+        #diagnostic figures
+        
+        fig4 = pylab.figure(4)
+        pylab.clf()
+        ax = pylab.subplot(1,1,1)
+        pylab.plot(cardXaxis*1e6,Idata[0,:] )
+        pylab.plot(cardXaxis*1e6,Qdata[0,:] )
+        
+        t0 = cardXaxis[pulse2_range[0]]
+        t1 = cardXaxis[pulse2_range[1]]
+        pylab.plot([t0*1e6,t0*1e6], [-0.02,0.02])
+        pylab.plot([t1*1e6,t1*1e6], [-0.03,0.03])
+        
+        #find the first pulse
+        cut1 = numpy.where(cardXaxis > -pulselength/2 - tau)[0][0] 
+        cut2 = numpy.where(cardXaxis < pulselength/2-tau)[0][-1] -1  
+        pulse1_range = [cut1,cut2]
+        
+        t0 = cardXaxis[pulse1_range[0]]
+        t1 = cardXaxis[pulse1_range[1]]
+        pylab.plot([t0*1e6,t0*1e6], [-0.05,0.05])
+        pylab.plot([t1*1e6,t1*1e6], [-0.06,0.06])
+        
+        pylab.xlabel('time (us)')
+        pylab.ylabel('voltage')
+        pylab.title('Single raw trace')
+        pylab.show()
+        fig4.canvas.draw()
+        fig4.canvas.flush_events()
 
 
     if numpy.mod(tind, plotSpacing) == 0:
@@ -319,8 +350,8 @@ print("std(angles) = " , numpy.std(Angles))
 
 
 
-#rfgen.power_Off()
-#logen.power_Off()  
+rfgen.power_Off()
+logen.power_Off()  
 
 
 
@@ -329,24 +360,6 @@ print("std(angles) = " , numpy.std(Angles))
 
 
 
-############
-#diagnostic figures
-
-pylab.figure(4)
-pylab.clf()
-ax = pylab.subplot(1,1,1)
-pylab.plot(cardXaxis*1e6,Idata[0,:] )
-pylab.plot(cardXaxis*1e6,Qdata[0,:] )
-
-t0 = cardXaxis[pulse2_range[0]]
-t1 = cardXaxis[pulse2_range[1]]
-pylab.plot([t0*1e6,t0*1e6], [-0.02,0.02])
-pylab.plot([t1*1e6,t1*1e6], [-0.03,0.03])
-
-pylab.xlabel('time (us)')
-pylab.ylabel('voltage')
-pylab.title('Single raw trace')
-pylab.show()
 
 
 

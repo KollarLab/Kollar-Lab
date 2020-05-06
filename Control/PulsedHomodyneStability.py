@@ -56,7 +56,7 @@ overflowBuffer = 10e-6
 #maxtime = 110e-6
 #tau = 1e-6
 #T2 measurement protocol parameters
-measure_points = 15
+measure_points = 20
 tau_max = 1000e-6
 tau_min = 1e-6
 trig_buffer = 0e-6
@@ -65,7 +65,7 @@ maxtime = tau_max + overflowBuffer
 
 #Data acquisition parameters
 card.averages = 1 #on-board averages
-card.segments = 75
+card.segments = 150
 card.triggerDelay = trig_buffer
 card.activeChannels = [1,2]
 reads = 2  #reads of the card
