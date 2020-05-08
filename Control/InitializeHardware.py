@@ -10,6 +10,7 @@ import sys
 import numpy
 import scipy
 import time
+from mpldatacursor import datacursor
 
 from Instruments.HDAWG import HDAWG
 from Acqiris_development.Acqiris import Acqiris

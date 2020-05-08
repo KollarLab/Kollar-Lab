@@ -11,6 +11,8 @@ import numpy
 import scipy
 import time
 
+from mpldatacursor import datacursor
+
 from Instruments.HDAWG import HDAWG
 from Acqiris_development.Acqiris import Acqiris
 from Instruments.SGS import RFgen
@@ -67,7 +69,7 @@ time.sleep(0.05)
 ##############
 ## Experimental parameters, that we change
 ###########
-timeSpacings = numpy.ones(5)
+timeSpacings = numpy.ones(7200)
 
 pulseamp = 0.5
 pulselength = 200e-9
@@ -241,20 +243,20 @@ for tind in range(0, len(timeSpacings)):
         pylab.plot(cardXaxis*1e6,Idata[0,:] )
         pylab.plot(cardXaxis*1e6,Qdata[0,:] )
         
-        t0 = cardXaxis[pulse2_range[0]]
-        t1 = cardXaxis[pulse2_range[1]]
-        pylab.plot([t0*1e6,t0*1e6], [-0.02,0.02])
-        pylab.plot([t1*1e6,t1*1e6], [-0.03,0.03])
+        ta = cardXaxis[pulse2_range[0]]
+        tb = cardXaxis[pulse2_range[1]]
+        pylab.plot([ta*1e6,ta*1e6], [-0.02,0.02])
+        pylab.plot([tb*1e6,tb*1e6], [-0.03,0.03])
         
         #find the first pulse
         cut1 = numpy.where(cardXaxis > -pulselength/2 - tau)[0][0] 
         cut2 = numpy.where(cardXaxis < pulselength/2-tau)[0][-1] -1  
         pulse1_range = [cut1,cut2]
         
-        t0 = cardXaxis[pulse1_range[0]]
-        t1 = cardXaxis[pulse1_range[1]]
-        pylab.plot([t0*1e6,t0*1e6], [-0.05,0.05])
-        pylab.plot([t1*1e6,t1*1e6], [-0.06,0.06])
+        ta = cardXaxis[pulse1_range[0]]
+        tb = cardXaxis[pulse1_range[1]]
+        pylab.plot([ta*1e6,ta*1e6], [-0.02,0.02])
+        pylab.plot([tb*1e6,tb*1e6], [-0.03,0.03])
         
         pylab.xlabel('time (us)')
         pylab.ylabel('voltage')
@@ -339,7 +341,7 @@ pylab.plot(actualTimes, Angles, color = 'mediumblue', linestyle = '', marker = '
 pylab.xlabel('Time (s)')
 pylab.ylabel('Homodyne Phase (degrees)')
 
-pylab.suptitle('Homodyne Stability v. Time')
+pylab.suptitle('Pulse Homodyne Stability v. Time')
 
 #        pylab.tight_layout()
 fig1.canvas.draw()

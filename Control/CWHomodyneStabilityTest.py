@@ -13,6 +13,9 @@ import sys
 import scipy
 import pylab
 import scipy.optimize
+from mpldatacursor import datacursor
+
+
 from userfuncs import freeze
 import userfuncs as uf
 
