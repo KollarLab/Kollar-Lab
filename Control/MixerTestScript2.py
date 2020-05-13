@@ -18,7 +18,7 @@ import pylab
 import scipy.optimize
 import os
 import pickle
-from mpldatacursor import datacursor
+from mplcursors import cursor as datacursor
 
 from Acqiris_development.Acqiris import Acqiris
 

@@ -11,6 +11,7 @@ import os
 #from mpldatacursor import datacursor
 #import mplcursors.cursor as datacursor
 from mplcursors import cursor as datacursor
+import userfuncs as uf
 
 
 #saveFolder = r'Z:\Data\MeasurementSetupTests\random'

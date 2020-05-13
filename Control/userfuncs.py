@@ -155,7 +155,40 @@ def fitEllipse(Is, Qs, verbose = False):
         
         
         
-        
-        
+#############
+#figures
+############       
+import pickle
+import os
+
+def savefig(fig, name, path = '', png = False):
+    '''
+    save an interactive pickle version of a figure
+    fig = figure object
+    name = name of file, not including extension
+    path = folder where the figure should end up
+    png = boolean for if you want a png copy too
+    
+    '''
+    saveName = name + '.pkl'
+    pathStr= os.path.join(path, saveName) 
+    pickle.dump(fig, open(pathStr, 'wb'))
+    
+    if png:
+        saveName = name + '.png'
+        pathStr= os.path.join(path, saveName) 
+        fig.savefig(pathStr, dpi = 200, transparent  = False)
+    return
+
+def loadfig(path):
+    figx = pickle.load(open(path, 'rb'))
+    figx.show()
+    return figx
+
+
+
+
+
+
         
         
