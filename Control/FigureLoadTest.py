@@ -27,10 +27,18 @@ import userfuncs as uf
     
 
 
+#saveFolder = r'Z:\Data\MeasurementSetupTests\random'
+#saveName = 'testfig.pkl'
+#pathStr= os.path.join(saveFolder, saveName) 
+#figx = pickle.load(open(pathStr, 'rb'))    
+
+
 saveFolder = r'Z:\Data\MeasurementSetupTests\random'
-saveName = 'testfig.pkl'
-pathStr= os.path.join(saveFolder, saveName) 
-figx = pickle.load(open(pathStr, 'rb'))    
+saveName = 'testfig'
+pathStr= os.path.join(saveFolder, saveName)
+#uf.savefig(oldfig, saveName, saveFolder, png = True) 
+figx = uf.loadfig(r'Z:\Data\MeasurementSetupTests\random\testfig.pkl') 
+
 
 
 #datacursor()
@@ -39,3 +47,4 @@ figx.show()
 
 
 #datatips.remove() ##clears all cursors.
+

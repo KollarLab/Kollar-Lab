@@ -170,7 +170,10 @@ def savefig(fig, name, path = '', png = False):
     png = boolean for if you want a png copy too
     
     '''
-    saveName = name + '.pkl'
+    if name[-4:] == '.pkl':
+        saveName = name
+    else:
+        saveName = name + '.pkl'
     pathStr= os.path.join(path, saveName) 
     pickle.dump(fig, open(pathStr, 'wb'))
     
