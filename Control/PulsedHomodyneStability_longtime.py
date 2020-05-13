@@ -12,7 +12,7 @@ import scipy
 import time
 import threading
 
-from mpldatacursor import datacursor
+from mplcursors import cursor as datacursor
 
 from Instruments.HDAWG import HDAWG
 from Acqiris_development.Acqiris import Acqiris

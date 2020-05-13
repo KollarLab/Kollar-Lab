@@ -13,7 +13,7 @@ import sys
 import scipy
 import pylab
 import scipy.optimize
-from mpldatacursor import datacursor
+from mplcursors import cursor as datacursor
 
 
 from userfuncs import freeze
