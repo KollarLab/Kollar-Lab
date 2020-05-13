@@ -16,7 +16,9 @@ import sys
 import scipy
 import pylab
 import scipy.optimize
-
+import os
+import pickle
+from mpldatacursor import datacursor
 
 from Acqiris_development.Acqiris import Acqiris
 
@@ -371,9 +373,22 @@ logen.power_Off()
     
     
     
-    
-    
-    
+
+
+#saveFolder = r'Z:\Data\MeasurementSetupTests\random'
+#saveName = 'testfig.png'
+#pathStr= os.path.join(saveFolder, saveName) 
+#fig.savefig(pathStr )
+#    
+#
+#saveName = 'testfig.pkl'
+#pathStr= os.path.join(saveFolder, saveName) 
+##pickle.dump(fig, open('FigureObject.fig.pickle', 'wb'))
+#pickle.dump(fig, open(pathStr, 'wb'))
+#    
+#figx = pickle.load(open(pathStr, 'rb'))    
+
+
 
 ######make test elipse
 #elipticity = 0.9
