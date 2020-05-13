@@ -34,10 +34,10 @@ import userfuncs as uf
 
 
 saveFolder = r'Z:\Data\MeasurementSetupTests\random'
-saveName = 'testfig'
+saveName = 'testfig.pkl'
 pathStr= os.path.join(saveFolder, saveName)
 #uf.savefig(oldfig, saveName, saveFolder, png = True) 
-figx = uf.loadfig(r'Z:\Data\MeasurementSetupTests\random\testfig.pkl') 
+figx = uf.loadfig(pathStr) 
 
 
 
