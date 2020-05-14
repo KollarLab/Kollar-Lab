@@ -15,20 +15,30 @@ class RFgen():
     def set_Amp(self,amp):
         #set power in dB
         self.inst.write('SOURce:POWer {}'.format(amp))
-        
-        
-        
 
     def set_Freq(self,freq):
         self.inst.write('SOURce:FREQuency:CW {} GHz'.format(freq))
         
+    def set_Offset(self, offset):
+        self.inst.write('SOURce:FREQuency:OFFSet {} MHz'.format(offset))
         
-    def set_External_Reference(self):
+    def set_External_Reference(self, freq=10):
         self.inst.write(':SOURce:ROSCillator:SOURce EXTernal')
+        self.inst.write(':SOURce:ROSCillator:EXTernal:FREQuency {} MHz'.format(freq))
         
     def set_Internal_Reference(self):
         self.inst.write(':SOURce:ROSCillator:SOURce Internal')
         
+    def set_External_LO(self):
+        self.inst.write(':SOURce:LOSCillator:SOURce EXTernal')
+    
+    def set_Internal_LO(self):
+        self.inst.write(':SOURce:LOSCillator:SOURce INTernal')
+    
+    def set_RefLO_output(self, output = 'Ref', freq = 10):
+        self.inst.write(':CONNector:REFLo:OUTPut {}'.format(output))
+        if output == 'Ref':
+            self.inst.write(':SOURce:ROSCillator:OUTPut:FREQuency {} MHz'.format(freq))
         
     def set_Phase(self, phase):
         #degrees
