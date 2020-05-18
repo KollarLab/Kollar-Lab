@@ -28,7 +28,7 @@ if not IVIbinPath in sys.path:
     sys.path.append(IVIbinPath)
     
     
-def calibrate_mixer_IQ(freq, power, numPoints, measDur = 5e-6, verbose = False):
+def calibrate_mixer_IQ(freq, power, numPoints, measDur = 5e-6, verbose = False, showFig = True):
     freq_GHz = freq/1e9
     phases = numpy.linspace(0,360,numPoints)
     
@@ -66,7 +66,7 @@ def calibrate_mixer_IQ(freq, power, numPoints, measDur = 5e-6, verbose = False):
     Qs = numpy.zeros(numPoints)
     
     for tind in range(0, numPoints):
-        #logen.set_Phase(phases[tind])
+#        logen.set_Phase(phases[tind])
         time.sleep(0.05)
         
         card.ArmAndWait()
@@ -85,6 +85,39 @@ def calibrate_mixer_IQ(freq, power, numPoints, measDur = 5e-6, verbose = False):
         Qs[tind] = Qav
         
     axes, center, phi = uf.fitEllipse(Is,Qs, verbose = True)
+    
+    if showFig:
+        xx, yy = uf.make_elipse(axes,  center, phi, 150)
+        
+        fig = pylab.figure(10)
+        pylab.clf()
+        ax = pylab.subplot(1,1,1)
+        pylab.plot(Is, Qs, linestyle = '', marker = 'o', markersize = 5, color = 'mediumblue')
+        pylab.plot(xx, yy, color = 'firebrick')
+        
+        
+        # Move left y-axis and bottim x-axis to centre, passing through (0,0)
+        ax.spines['left'].set_position('center')
+        ax.spines['bottom'].set_position('center')
+        
+        # Eliminate upper and right axes
+        ax.spines['right'].set_color('none')
+        ax.spines['top'].set_color('none')
+        
+        # Show ticks in the left and lower axes only
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        
+        
+        ax.set_aspect('equal')
+        titleStr = 'Mixer performance '
+        pylab.title(titleStr)
+    #    pylab.show(block = False)
+        
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+    
+    
     return axes, center, phi
     
     
@@ -95,8 +128,8 @@ global logen
 #################################
 #Configuration settings
 #################################
-reference_signal   = 'HDAWG'
-reference_freq_MHz = 10
+reference_signal   = 'None'
+reference_freq_MHz = 100
 coupling_type      = 'Ref'
 #Timing
 short = numpy.ones(1800)
@@ -140,7 +173,7 @@ hdawg.OSCs[1].configure_sine(1,reference_freq_MHz*1e6)
 ###########
 measDur = 1e-6
 freq = 8e9
-power = 2
+power = 0
 
 
 rfgen.set_Internal_Reference() #RF gen by itself, to it's own drum
