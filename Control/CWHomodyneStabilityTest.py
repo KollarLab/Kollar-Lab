@@ -14,6 +14,7 @@ import scipy
 import pylab
 import scipy.optimize
 from mplcursors import cursor as datacursor
+from datetime import datetime
 
 
 from userfuncs import freeze
@@ -27,7 +28,7 @@ IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
 if not IVIbinPath in sys.path:
     sys.path.append(IVIbinPath)
     
-    
+        
 def calibrate_mixer_IQ(freq, power, numPoints, measDur = 5e-6, verbose = False, showFig = True):
     freq_GHz = freq/1e9
     phases = numpy.linspace(0,360,numPoints)
@@ -119,249 +120,275 @@ def calibrate_mixer_IQ(freq, power, numPoints, measDur = 5e-6, verbose = False, 
     
     
     return axes, center, phi
-    
-    
-global card
-global rfgen
-global logen
 
-#################################
-#Configuration settings
-#################################
-reference_signal   = 'None'
-reference_freq_MHz = 100
-SGS_ref_freq       = 1000
-coupling_type      = 'Ref'
-savepath           = r'C:\Users\Kollarlab\Desktop'
-#Timing
-short = numpy.ones(1800)
 
-############
-#measurement params
-###########
-measDur = 1e-6
-freq = 8e9
-power = 0
-
-#initializeHardware = True
-#initializeHardware = False
-try:
-    card.samples == 1024
-except:
-#if initializeHardware:
+def CWHomodyneStabilityTest(ref='HDAWG', ref_freq=10, SGS_ref_freq=1000, coupling='LO', measure_time=900, savepath=r'C:\Users\Kollarlab\Desktop'):
+        
+    #################################
+    #Configuration settings
+    #################################
+    reference_signal   = ref
+    reference_freq_MHz = ref_freq
+    SGS_ref_freq       = SGS_ref_freq
+    coupling_type      = coupling
+    #Timing
+    short = numpy.ones(measure_time)
     
-    hardwareAddress = "PXI23::0::0::INSTR"
-
+    ############
+    #measurement params
+    ###########
+    measDur = 1e-6
+    freq = 8e9
+    power = 0             
     
-    card = Acqiris(hardwareAddress)
-#       
-    ##set up the HDAWG. 
-    ##in this case, we just need channels 3,4 for our fake clock
-    #### Connect to HDAWG and initialize it 
-    hdawg = HDAWG('dev8163') #HDAWG device name
-    hdawg.AWGs[0].samplerate = '2.4GHz'
-    hdawg.channelgrouping = '1x4'
     hdawg.Channels[2].analog_outs = [0.5,0]
     hdawg.Channels[3].analog_outs = [0,1]
     hdawg.Channels[2].configureChannel(amp=1.0)
     hdawg.Channels[3].configureChannel(amp=2.0)
-    
-    
-    logen = RFgen('TCPIP0::rssgs100a110738::inst0::INSTR')
-    rfgen = RFgen('TCPIP0::rssgs100a110739::inst0::INSTR')
+    hdawg.OSCs[1].configure_sine(0,10e6)
+    hdawg.OSCs[1].configure_sine(1,reference_freq_MHz*1e6)
     
     logen.power_Off()
     rfgen.power_Off()
+    #rfgen.set_Internal_Reference() #RF gen by itself, to it's own drum
+    #logen.set_Internal_Reference() #LO gen following RF gen
+    time.sleep(0.5)
     
-
-hdawg.OSCs[1].configure_sine(0,10e6)
-hdawg.OSCs[1].configure_sine(1,reference_freq_MHz*1e6)
-
-
-#rfgen.set_Internal_Reference() #RF gen by itself, to it's own drum
-#logen.set_Internal_Reference() #LO gen following RF gen
-time.sleep(0.5)
-
-#calibrate the mixer for reference
-mixerAxes, mixerCenter, mixerPhi = calibrate_mixer_IQ(freq, power, 35, measDur = 5e-6, verbose = False)
-xx, yy = uf.make_elipse(mixerAxes,  mixerCenter, mixerPhi, 150)
-
-#########
-#now look at homodyne versus time.
-freq_GHz = freq/1e9
-
-card.triggerSlope = 'Rising'
-card.triggerLevel = 0.1
-card.averages = 1 #on-board averages
-card.segments = 1
-card.triggerDelay = 0
-card.activeChannels = [1,2]
-card.verbose = False
-card.sampleRate = 2e9
-card.clockSource = 'External'
-card.channelRange = 0.5
-card.samples = numpy.ceil(measDur*card.sampleRate)
-card.SetParams() #warning. this may round the number of smaples to multiple of 1024
-
-
-##################################
-#SGS settings
-##################################
-logen.set_Freq(freq_GHz)
-logen.set_Amp(12)
-logen.mod_Off()
-
-rfgen.set_Freq(freq_GHz)
-rfgen.set_Amp(power)
-rfgen.mod_Off()
-if reference_signal == 'HDAWG':
-    rfgen.set_External_Reference(freq = reference_freq_MHz)
-else:
-    rfgen.set_Internal_Reference()
-if coupling_type == 'LO':
-    rfgen.set_RefLO_output(output='LO')
-else:
-    rfgen.set_RefLO_output(output='Ref', freq = SGS_ref_freq)
-rfgen.power_On()
-
-if coupling_type == 'Ref':
-    logen.set_External_Reference(freq = SGS_ref_freq)
-    logen.set_Internal_LO()
-if coupling_type == 'LO':
-    logen.set_External_LO()
-logen.power_On() 
-
-time.sleep(30)
-
-timeSpacings = short
-actualTimes = numpy.zeros(len(timeSpacings))
-
-Is = numpy.zeros(len(timeSpacings))
-Qs = numpy.zeros(len(timeSpacings))
-Amps = numpy.zeros(len(timeSpacings))
-Angles = numpy.zeros(len(timeSpacings))
-
-
-plotSpacing = 30
-fig1 = pylab.figure(1)
-pylab.clf()
-
-t0 = time.time()
-for tind in range(0, len(timeSpacings)):
-    spacing = timeSpacings[tind]
-#    print("current spacing = ", numpy.round(spacing,3))
-    time.sleep(spacing)
+    #calibrate the mixer for reference
+    mixerAxes, mixerCenter, mixerPhi = calibrate_mixer_IQ(freq, power, 35, measDur = 5e-6, verbose = False)
+    xx, yy = uf.make_elipse(mixerAxes,  mixerCenter, mixerPhi, 150)
+    
+    #########
+    #now look at homodyne versus time.
+    freq_GHz = freq/1e9
+    
+    card.triggerSlope = 'Rising'
+    card.triggerLevel = 0.1
+    card.averages = 1 #on-board averages
+    card.segments = 1
+    card.triggerDelay = 0
+    card.activeChannels = [1,2]
+    card.verbose = False
+    card.sampleRate = 2e9
+    card.clockSource = 'External'
+    card.channelRange = 0.5
+    card.samples = numpy.ceil(measDur*card.sampleRate)
+    card.SetParams() #warning. this may round the number of smaples to multiple of 1024
     
     
+    ##################################
+    #SGS settings
+    ##################################
+    logen.set_Freq(freq_GHz)
+    logen.set_Amp(12)
+    logen.mod_Off()
     
-    card.ArmAndWait()
-    currT = time.time()
-    print("current time = ", numpy.round(currT-t0,3))
-    Idata, Qdata = card.ReadAllData()
+    rfgen.set_Freq(freq_GHz)
+    rfgen.set_Amp(power)
+    rfgen.mod_Off()
+    if reference_signal == 'HDAWG':
+        rfgen.set_External_Reference(freq = reference_freq_MHz)
+    else:
+        rfgen.set_Internal_Reference()
+    if coupling_type == 'LO':
+        rfgen.set_RefLO_output(output='LO')
+    else:
+        rfgen.set_RefLO_output(output='Ref', freq = SGS_ref_freq)
+    rfgen.power_On()
     
-    Iav = numpy.mean(Idata)
-    Qav = numpy.mean(Qdata)
+    if coupling_type == 'Ref':
+        logen.set_External_Reference(freq = SGS_ref_freq)
+        logen.set_Internal_LO()
+    if coupling_type == 'LO':
+        logen.set_External_LO()
+    logen.power_On() 
     
-    Amp = numpy.sqrt(Iav**2 + Qav**2)
-    Angle = numpy.arctan2(Qav, Iav)*180/numpy.pi
+    time.sleep(30)
     
-    Amps[tind] = Amp
-    Angles[tind] = Angle
+    timeSpacings = short
+    actualTimes = numpy.zeros(len(timeSpacings))
     
-    Is[tind] = Iav
-    Qs[tind] = Qav
+    Is = numpy.zeros(len(timeSpacings))
+    Qs = numpy.zeros(len(timeSpacings))
+    Amps = numpy.zeros(len(timeSpacings))
+    Angles = numpy.zeros(len(timeSpacings))
     
-    actualTimes[tind] = currT - t0
-
-
-    if numpy.mod(tind, plotSpacing) == 0:
-        fig1 = pylab.figure(1)
-        pylab.clf()
-        ax = pylab.subplot(1,2,1)
-#        pylab.plot(Is[0:tind], Qs[0:tind], linestyle = '', marker = 'o', markersize = 5, color = 'mediumblue')
-        
-#        cVec = actualTimes[0:tind]/sum(timeSpacings)
-#        cmap = 'cividis'
-#        pylab.scatter(Is[0:tind], Qs[0:tind], c = cVec, cmap = cmap , marker = 'o', s = 75, edgecolors = 'midnightblue', zorder = 2)
-        
-        cVec = actualTimes[0:tind]
-        cmap = 'cividis'
-        pylab.scatter(Is[0:tind], Qs[0:tind], c = cVec, cmap = cmap , marker = 'o', s = 75,
-                      vmin = 0, vmax = sum(timeSpacings), edgecolors = 'midnightblue', zorder = 2)
+    
+    plotSpacing = 30
+    fig1 = pylab.figure(1, figsize=(14, 8))
+    pylab.clf()
+    
+    t0 = time.time()
+    for tind in range(0, len(timeSpacings)):
+        spacing = timeSpacings[tind]
+    #    print("current spacing = ", numpy.round(spacing,3))
+        time.sleep(spacing)
         
         
-        pylab.plot(xx, yy, color = 'firebrick', zorder = 0)
-        cbar = pylab.colorbar()
-        cbar.set_label('elapsed time (s)', rotation=270)
+        
+        card.ArmAndWait()
+        currT = time.time()
+        print("current time = ", numpy.round(currT-t0,3))
+        Idata, Qdata = card.ReadAllData()
+        
+        Iav = numpy.mean(Idata)
+        Qav = numpy.mean(Qdata)
+        
+        Amp = numpy.sqrt(Iav**2 + Qav**2)
+        Angle = numpy.arctan2(Qav, Iav)*180/numpy.pi
+        
+        Amps[tind] = Amp
+        Angles[tind] = Angle
+        
+        Is[tind] = Iav
+        Qs[tind] = Qav
+        
+        actualTimes[tind] = currT - t0
     
-        # Move left y-axis and bottim x-axis to centre, passing through (0,0)
-        ax.spines['left'].set_position('center')
-        ax.spines['bottom'].set_position('center')
-        # Eliminate upper and right axes
-        ax.spines['right'].set_color('none')
-        ax.spines['top'].set_color('none')
-        # Show ticks in the left and lower axes only
-        ax.xaxis.set_ticks_position('bottom')
-        ax.yaxis.set_ticks_position('left')
-        ax.set_aspect('equal')
+    
+        if numpy.mod(tind, plotSpacing) == 0:
+            fig1 = pylab.figure(1)
+            pylab.clf()
+            ax = pylab.subplot(1,2,1)
+    #        pylab.plot(Is[0:tind], Qs[0:tind], linestyle = '', marker = 'o', markersize = 5, color = 'mediumblue')
+            
+    #        cVec = actualTimes[0:tind]/sum(timeSpacings)
+    #        cmap = 'cividis'
+    #        pylab.scatter(Is[0:tind], Qs[0:tind], c = cVec, cmap = cmap , marker = 'o', s = 75, edgecolors = 'midnightblue', zorder = 2)
+            
+            cVec = actualTimes[0:tind]
+            cmap = 'cividis'
+            pylab.scatter(Is[0:tind], Qs[0:tind], c = cVec, cmap = cmap , marker = 'o', s = 75,
+                          vmin = 0, vmax = sum(timeSpacings), edgecolors = 'midnightblue', zorder = 2)
+            
+            
+            pylab.plot(xx, yy, color = 'firebrick', zorder = 0)
+            cbar = pylab.colorbar()
+            cbar.set_label('elapsed time (s)', rotation=270)
         
-        ax.set_xlim([-0.16, 0.16])
-        ax.set_ylim([-0.16, 0.16])
+            # Move left y-axis and bottim x-axis to centre, passing through (0,0)
+            ax.spines['left'].set_position('center')
+            ax.spines['bottom'].set_position('center')
+            # Eliminate upper and right axes
+            ax.spines['right'].set_color('none')
+            ax.spines['top'].set_color('none')
+            # Show ticks in the left and lower axes only
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            ax.set_aspect('equal')
+            
+            ax.set_xlim([-0.16, 0.16])
+            ax.set_ylim([-0.16, 0.16])
+    
+            ax = pylab.subplot(1,2,2)
+            pylab.plot(actualTimes[0:tind], Angles[0:tind], color = 'mediumblue', linestyle = '', marker = 'd', markersize = 3)
+            pylab.xlabel('Time (s)')
+            pylab.ylabel('Homodyne Phase (degrees)')
+            
+            pylab.suptitle('Homodyne Stability v. Time')
+            
+    #        pylab.tight_layout()
+            fig1.canvas.draw()
+            fig1.canvas.flush_events()
+    
+    
+    
+    fig1 = pylab.figure(1, figsize=(14, 8))
+    pylab.clf()
+    ax = pylab.subplot(1,2,1)
+    cVec = actualTimes
+    cmap = 'cividis'
+    pylab.scatter(Is, Qs, c = cVec, cmap = cmap , marker = 'o', s = 75,
+                  vmin = 0, vmax = sum(timeSpacings), edgecolors = 'midnightblue', zorder = 2)
+    
+    
+    pylab.plot(xx, yy, color = 'firebrick', zorder = 0)
+    cbar = pylab.colorbar()
+    cbar.set_label('elapsed time (s)', rotation=270)
+    
+    # Move left y-axis and bottim x-axis to centre, passing through (0,0)
+    ax.spines['left'].set_position('center')
+    ax.spines['bottom'].set_position('center')
+    # Eliminate upper and right axes
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+    # Show ticks in the left and lower axes only
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    ax.set_aspect('equal')
+    
+    ax.set_xlim([-0.16, 0.16])
+    ax.set_ylim([-0.16, 0.16])
+    
+    
+    ax = pylab.subplot(1,2,2)
+    pylab.plot(actualTimes, Angles, color = 'mediumblue', linestyle = '', marker = 'd', markersize = 3)
+    pylab.xlabel('Time (s)')
+    pylab.ylabel('Homodyne Phase (degrees)')
+    date  = datetime.now()
+    stamp = date.strftime('%Y%m%d_%H_%M_%S')
+    filename = 'CWHomodyne{}{}{}{}_{}'.format(reference_signal, reference_freq_MHz, coupling_type,SGS_ref_freq, stamp)
+    fullpath = savepath+'\\'+filename
+    figtitle = 'Homodyne Stability v. Time\n Reference Signal: {}, Ref frequency: {}, Coupling:{}, SGS ref freq:{}\n Path:{}'.format(reference_signal,reference_freq_MHz,coupling_type, SGS_ref_freq, fullpath)
+    
+    pylab.suptitle(figtitle)
+    
+    #        pylab.tight_layout()
+    fig1.canvas.draw()
+    fig1.canvas.flush_events()
+    
+    uf.savefig(fig1,filename,savepath)
+    uf.savefig(fig1,filename,savepath, png = True)
+    
+    print("std(angles) = " , numpy.std(Angles))
+    
+    rfgen.power_Off()
+    logen.power_Off()    
+    
+global card
+global hdawg
+global rfgen
+global logen
 
-        ax = pylab.subplot(1,2,2)
-        pylab.plot(actualTimes[0:tind], Angles[0:tind], color = 'mediumblue', linestyle = '', marker = 'd', markersize = 3)
-        pylab.xlabel('Time (s)')
-        pylab.ylabel('Homodyne Phase (degrees)')
-        
-        pylab.suptitle('Homodyne Stability v. Time')
-        
-#        pylab.tight_layout()
-        fig1.canvas.draw()
-        fig1.canvas.flush_events()
+try:
+    card.samples = 1024
+except:
+    card  = Acqiris('PXI23::0::0::INSTR')
+    hdawg = HDAWG('dev8163')
+    logen = RFgen('TCPIP0::rssgs100a110738::inst0::INSTR')
+    rfgen = RFgen('TCPIP0::rssgs100a110739::inst0::INSTR')
+
+#################################
+#Configuration settings
+#################################
+reference_signal   = 'HDAWG'
+coupling_type      = 'Ref'
+savepath           = r'C:\Users\Kollarlab\Desktop\CWHomodyneData'
+measure_time       = 1800
+
+reference_freq_MHz = 10
+SGS_ref_freq       = 1000
+CWHomodyneStabilityTest(ref = reference_signal, ref_freq = reference_freq_MHz, SGS_ref_freq = SGS_ref_freq, coupling='Ref',measure_time = measure_time, savepath=savepath)
+SGS_ref_freq       = 10
+CWHomodyneStabilityTest(ref = reference_signal, ref_freq = reference_freq_MHz, SGS_ref_freq = SGS_ref_freq, coupling='Ref',measure_time = measure_time, savepath=savepath)
+
+#reference_freq_MHz = 100
+#SGS_ref_freq       = 100
+#CWHomodyneStabilityTest(ref = reference_signal, ref_freq = reference_freq_MHz, SGS_ref_freq = SGS_ref_freq, coupling='Ref',measure_time = measure_time, savepath=savepath)
+#SGS_ref_freq       = 1000
+#CWHomodyneStabilityTest(ref = reference_signal, ref_freq = reference_freq_MHz, SGS_ref_freq = SGS_ref_freq, coupling='Ref',measure_time = measure_time, savepath=savepath)
 
 
 
-fig1 = pylab.figure(1)
-pylab.clf()
-ax = pylab.subplot(1,2,1)
-cVec = actualTimes
-cmap = 'cividis'
-pylab.scatter(Is, Qs, c = cVec, cmap = cmap , marker = 'o', s = 75,
-              vmin = 0, vmax = sum(timeSpacings), edgecolors = 'midnightblue', zorder = 2)
 
 
-pylab.plot(xx, yy, color = 'firebrick', zorder = 0)
-cbar = pylab.colorbar()
-cbar.set_label('elapsed time (s)', rotation=270)
-
-# Move left y-axis and bottim x-axis to centre, passing through (0,0)
-ax.spines['left'].set_position('center')
-ax.spines['bottom'].set_position('center')
-# Eliminate upper and right axes
-ax.spines['right'].set_color('none')
-ax.spines['top'].set_color('none')
-# Show ticks in the left and lower axes only
-ax.xaxis.set_ticks_position('bottom')
-ax.yaxis.set_ticks_position('left')
-ax.set_aspect('equal')
-
-ax.set_xlim([-0.16, 0.16])
-ax.set_ylim([-0.16, 0.16])
 
 
-ax = pylab.subplot(1,2,2)
-pylab.plot(actualTimes, Angles, color = 'mediumblue', linestyle = '', marker = 'd', markersize = 3)
-pylab.xlabel('Time (s)')
-pylab.ylabel('Homodyne Phase (degrees)')
 
-pylab.suptitle('Homodyne Stability v. Time\n Reference Signal: {}, Ref frequency: {}, Coupling:{}, SGS ref freq:{}'.format(reference_signal,reference_freq_MHz,coupling_type, SGS_ref_freq))
 
-#        pylab.tight_layout()
-fig1.canvas.draw()
-fig1.canvas.flush_events()
-uf.savefig(fig1,'CWHomodyne{}{}{}'.format(reference_signal, reference_freq_MHz, coupling_type),savepath)
 
-print("std(angles) = " , numpy.std(Angles))
 
-rfgen.power_Off()
-logen.power_Off()    
+
+
+
+
