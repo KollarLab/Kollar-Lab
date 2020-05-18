@@ -66,7 +66,7 @@ def calibrate_mixer_IQ(freq, power, numPoints, measDur = 5e-6, verbose = False, 
     Qs = numpy.zeros(numPoints)
     
     for tind in range(0, numPoints):
-#        logen.set_Phase(phases[tind])
+        logen.set_Phase(phases[tind])
         time.sleep(0.05)
         
         card.ArmAndWait()
@@ -130,9 +130,18 @@ global logen
 #################################
 reference_signal   = 'None'
 reference_freq_MHz = 100
+SGS_ref_freq       = 1000
 coupling_type      = 'Ref'
+savepath           = r'C:\Users\Kollarlab\Desktop'
 #Timing
 short = numpy.ones(1800)
+
+############
+#measurement params
+###########
+measDur = 1e-6
+freq = 8e9
+power = 0
 
 #initializeHardware = True
 #initializeHardware = False
@@ -168,21 +177,12 @@ except:
 hdawg.OSCs[1].configure_sine(0,10e6)
 hdawg.OSCs[1].configure_sine(1,reference_freq_MHz*1e6)
 
-############
-#measurement params
-###########
-measDur = 1e-6
-freq = 8e9
-power = 0
 
-
-rfgen.set_Internal_Reference() #RF gen by itself, to it's own drum
-logen.set_Internal_Reference() #LO gen following RF gen
+#rfgen.set_Internal_Reference() #RF gen by itself, to it's own drum
+#logen.set_Internal_Reference() #LO gen following RF gen
 time.sleep(0.5)
 
-
-
-#cailbrate the mixer for reference
+#calibrate the mixer for reference
 mixerAxes, mixerCenter, mixerPhi = calibrate_mixer_IQ(freq, power, 35, measDur = 5e-6, verbose = False)
 xx, yy = uf.make_elipse(mixerAxes,  mixerCenter, mixerPhi, 150)
 
@@ -203,6 +203,10 @@ card.channelRange = 0.5
 card.samples = numpy.ceil(measDur*card.sampleRate)
 card.SetParams() #warning. this may round the number of smaples to multiple of 1024
 
+
+##################################
+#SGS settings
+##################################
 logen.set_Freq(freq_GHz)
 logen.set_Amp(12)
 logen.mod_Off()
@@ -217,22 +221,19 @@ else:
 if coupling_type == 'LO':
     rfgen.set_RefLO_output(output='LO')
 else:
-    rfgen.set_RefLO_output(output='Ref', freq = reference_freq_MHz)
+    rfgen.set_RefLO_output(output='Ref', freq = SGS_ref_freq)
 rfgen.power_On()
 
 if coupling_type == 'Ref':
-    logen.set_External_Reference(freq = reference_freq_MHz)
+    logen.set_External_Reference(freq = SGS_ref_freq)
     logen.set_Internal_LO()
 if coupling_type == 'LO':
     logen.set_External_LO()
-    
 logen.power_On() 
 
 time.sleep(30)
 
 timeSpacings = short
-
-
 actualTimes = numpy.zeros(len(timeSpacings))
 
 Is = numpy.zeros(len(timeSpacings))
@@ -353,12 +354,12 @@ pylab.plot(actualTimes, Angles, color = 'mediumblue', linestyle = '', marker = '
 pylab.xlabel('Time (s)')
 pylab.ylabel('Homodyne Phase (degrees)')
 
-pylab.suptitle('Homodyne Stability v. Time\n Reference Signal: {}, Ref frequency: {}, Coupling:{}'.format(reference_signal,reference_freq_MHz,coupling_type))
+pylab.suptitle('Homodyne Stability v. Time\n Reference Signal: {}, Ref frequency: {}, Coupling:{}, SGS ref freq:{}'.format(reference_signal,reference_freq_MHz,coupling_type, SGS_ref_freq))
 
 #        pylab.tight_layout()
 fig1.canvas.draw()
 fig1.canvas.flush_events()
-
+uf.savefig(fig1,'CWHomodyne{}{}{}'.format(reference_signal, reference_freq_MHz, coupling_type),savepath)
 
 print("std(angles) = " , numpy.std(Angles))
 
