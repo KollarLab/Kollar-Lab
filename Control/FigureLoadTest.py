@@ -48,3 +48,13 @@ figx.show()
 
 #datatips.remove() ##clears all cursors.
 
+
+
+#import datetime
+#
+#now = datetime.datetime()
+
+
+
+
+

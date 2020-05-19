@@ -145,7 +145,7 @@ card.SetParams() #warning. this may round the number of smaples to multiple of 1
 #rf on
 #mod off
 #ext ref on (for good phase), or ext ref off for random phase
-logen = RFgen('TCPIP0::rssgs100a110738::inst0::INSTR')
+#logen = RFgen('TCPIP0::rssgs100a110738::inst0::INSTR')
 logen.set_Freq(8)
 logen.set_Amp(12)
 logen.mod_Off()
@@ -161,7 +161,7 @@ logen.power_On()
 #rf on
 #mod off
 #ext ref on
-rfgen = RFgen('TCPIP0::rssgs100a110739::inst0::INSTR')
+#rfgen = RFgen('TCPIP0::rssgs100a110739::inst0::INSTR')
 rfgen.set_Freq(8)
 rfgen.set_Amp(-4)
 rfgen.mod_Off()
