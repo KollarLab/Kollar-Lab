@@ -38,8 +38,13 @@ tau_max      = 100e-6
 num_points   = 10
 spacing      = 'Linear'
 
+## Card overall settings
 digitizer_buffer      = 10e-6
 digitizer_trig_buffer = 0e-6
+
+segments = 10
+reads    = 2  #reads of the card
+averages = 1
 
 T_min = pulse_width*(1+ramp_frac)
 T_max = P2_time-T_min/2
@@ -56,12 +61,15 @@ if spacing == 'Log':
     taus = numpy.logspace(tau_min, tau_max, num_points)
 
 ##HDAWG Configuration
+# AWG/ channel configuration
 hdawg.AWGs[0].samplerate = '2.4GHz'
 hdawg.channelgrouping = '1x4'
-hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='True')
-hdawg.Channels[1].configureChannel(marker_out='Trigger', hold='True')
+hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
+hdawg.Channels[1].configureChannel(marker_out='Trigger', hold='False')
 hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
-hdawg.OSCs[1].freq = 10e6
+# Configure artificial clock using HDAWG
+hdawg.OSCs[1].configure_sine(0,10e6) #set frequency of sine generator
+hdawg.OSCs[1].configure_sine(1,reference_freq_MHz*1e6)
 hdawg.Channels[2].analog_outs = [0.5,0]
 hdawg.Channels[3].analog_outs = [0,1.0]
 hdawg.Channels[2].configureChannel(amp=1.0)
@@ -76,8 +84,9 @@ logen.mod_Off()
 rfgen.set_Freq(freq_GHz)
 rfgen.set_Amp(0)
 rfgen.mod_On()
-
+# Configure coupling between generators
 SGS_coupling(ext_ref='HDAWG', ext_ref_freq=10, coupling='Ref', SGS_ref_freq=1000)
+
 logen.power_On() 
 rfgen.power_On()
 
@@ -86,11 +95,10 @@ time.sleep(0.05)
 #Data acquisition parameters
 card.triggerSlope = 'Rising'
 card.triggerLevel = 0.1
-card.averages = 1 #on-board averages
-card.segments = 25
+card.averages = averages #on-board averages
+card.segments = segments
 card.triggerDelay = digitizer_trig_buffer
 card.activeChannels = [1,2]
-reads = 2  #reads of the card
 card.verbose = False
 card.sampleRate = 2e9/8
 card.clockSource = 'External'
@@ -174,7 +182,7 @@ for tind in range(0, len(taus)):
     
         
         
-        dataVec1 = data1[0,:] #first segements is representative data vector
+        dataVec1 = data1[0,:] #first segments is representative data vector
         dataVec2 = data2[0,:]
   
         
