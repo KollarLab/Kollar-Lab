@@ -9,7 +9,7 @@ from mplcursors import cursor as datacursor
 from Instruments.HDAWG import HDAWG
 from Acqiris_development.Acqiris import Acqiris
 from Instruments.SGS import RFgen
-from SGShelper import SGS_coupling
+from SGShelper import SGS_coupling, HDAWG_clock
 
 global card
 global hdawg
@@ -32,19 +32,23 @@ pulse_width  = 200e-9
 pulse_amp    = 0.5
 ramp_frac    = 0.1
 
-P2_time      = 200e-6
+
 tau_min      = 1e-6
-tau_max      = 100e-6
-num_points   = 10
+tau_max      = 1000e-6
+num_points   = 25
 spacing      = 'Linear'
+P2_time      = tau_max + 3e-6
+#P2_time      = 200e-6
 
 ## Card overall settings
 digitizer_buffer      = 10e-6
 digitizer_trig_buffer = 0e-6
 
-segments = 10
+segments = 100
 reads    = 2  #reads of the card
 averages = 1
+
+periodSteps = 30  #how many periods to compare
 
 T_min = pulse_width*(1+ramp_frac)
 T_max = P2_time-T_min/2
@@ -67,13 +71,11 @@ hdawg.channelgrouping = '1x4'
 hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
 hdawg.Channels[1].configureChannel(marker_out='Trigger', hold='False')
 hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
-# Configure artificial clock using HDAWG
-hdawg.OSCs[1].configure_sine(0,10e6) #set frequency of sine generator
-hdawg.OSCs[1].configure_sine(1,reference_freq_MHz*1e6)
-hdawg.Channels[2].analog_outs = [0.5,0]
-hdawg.Channels[3].analog_outs = [0,1.0]
-hdawg.Channels[2].configureChannel(amp=1.0)
-hdawg.Channels[3].configureChannel(amp=2.0)
+
+freqs    = [10e6, 10e6]
+channels = [2,3]
+amps     = [1,2]
+HDAWG_clock(hdawg, freqs, channels, amps)
 
 ##Generators
 freq_GHz = carrier_freq/1e9
@@ -85,7 +87,8 @@ rfgen.set_Freq(freq_GHz)
 rfgen.set_Amp(0)
 rfgen.mod_On()
 # Configure coupling between generators
-SGS_coupling(ext_ref='HDAWG', ext_ref_freq=10, coupling='Ref', SGS_ref_freq=1000)
+SGS_coupling(logen, rfgen, ext_ref='HDAWG', ext_ref_freq=10, coupling='LO', SGS_ref_freq=1000)
+#SGS_coupling(logen, rfgen, ext_ref='HDAWG', ext_ref_freq=10, coupling='Ref', SGS_ref_freq=1000)
 
 logen.power_On() 
 rfgen.power_On()
@@ -122,9 +125,9 @@ digitizer_time = digitizer_max_time - digitizer_min_time
 card.samples = numpy.ceil(digitizer_time*card.sampleRate)
 card.SetParams() #warning. this may round the number of smaples to multiple of 1024
 
-empiricalFudgeFactor = -0.096e-6   #this is a very exact number to be off by!!!!!!
+empiricalFudgeFactor = 0.137e-6   #this is a very exact number to be off by!!!!!!
 #digitizerTimeOffset = tau_max + overflowBuffer + pulselength + empiricalFudgeFactor
-digitizerTimeOffset = P2_time
+digitizerTimeOffset = P2_time + empiricalFudgeFactor
 cardTicks = scipy.arange(0, card.samples, 1.) # time in sample clocks from the digitizers point of view
 cardXaxis = cardTicks /card.sampleRate - digitizerTimeOffset #time in seconds from the digitizers point of view
 
@@ -132,7 +135,7 @@ cardXaxis = cardTicks /card.sampleRate - digitizerTimeOffset #time in seconds fr
 total_averages = card.averages*card.segments*reads
 
 
-raw_read1 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single read
+raw_read1 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single readS
 #raw_data1 = numpy.zeros((measure_points, card.samples)) #an averaged time trace for every value of tau
 
 raw_read2 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single read
@@ -255,7 +258,7 @@ for tind in range(0, len(taus)):
     mean_v_tau[tind] = numpy.mean(phaseDiff)
             
 #next versus rep rate multiples
-periodSteps = 20           
+        
 
 phaseDiff_v_periods = numpy.zeros(( len(taus), reads, periodSteps, card.segments-periodSteps))
 for tind in range(0, len(taus)):
