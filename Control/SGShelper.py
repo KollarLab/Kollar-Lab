@@ -1,5 +1,5 @@
 
-def SGS_coupling(ext_ref='HDAWG', ext_ref_freq=10, coupling='Ref', SGS_ref_freq=1000):
+def SGS_coupling(logen, rfgen, ext_ref='HDAWG', ext_ref_freq=10, coupling='Ref', SGS_ref_freq=1000):
     if ext_ref == 'HDAWG':
         rfgen.set_External_Reference(freq = ext_ref_freq)
     else:
