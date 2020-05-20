@@ -9,66 +9,86 @@ from mplcursors import cursor as datacursor
 from Instruments.HDAWG import HDAWG
 from Acqiris_development.Acqiris import Acqiris
 from Instruments.SGS import RFgen
+from SGShelper import SGS_coupling
 
-#Card Settings
-hardwareAddress = "PXI23::0::0::INSTR"
-IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
-if not IVIbinPath in sys.path:
-    sys.path.append(IVIbinPath)
+global card
+global hdawg
+global rfgen
+global logen
 
-#card = Acqiris(hardwareAddress)
-card.triggerSlope = 'Rising'
-card.triggerLevel = 0.1
+# Check and see whether instruments have already been defined, if not, create new instances
+try:
+    card.samples = 1024
+except:
+    card  = Acqiris('PXI23::0::0::INSTR')
+    hdawg = HDAWG('dev8163')
+    logen = RFgen('TCPIP0::rssgs100a110738::inst0::INSTR')
+    rfgen = RFgen('TCPIP0::rssgs100a110739::inst0::INSTR')
 
-####HDAWG Configuration
-#hdawg = HDAWG('dev8163')
-#hdawg.AWGs[0].samplerate = '2.4GHz'
-#hdawg.channelgrouping = '1x4'
-#hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='True')
-#hdawg.Channels[1].configureChannel(marker_out='Trigger', hold='True')
-#hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
-#hdawg.OSCs[1].freq = 10e6
-#hdawg.Channels[2].analog_outs = [0.5,0]
-#hdawg.Channels[3].analog_outs = [0,1.0]
-#hdawg.Channels[2].configureChannel(amp=1.0)
-#hdawg.Channels[3].configureChannel(amp=2.0)
+##Experimental parameters
 
-#Generators
-#logen = RFgen('TCPIP0::rssgs100a110738::inst0::INSTR')
-#rfgen = RFgen('TCPIP0::rssgs100a110739::inst0::INSTR')
-freq_GHz = 7;
+carrier_freq = 8e9
+pulse_width  = 200e-9
+pulse_amp    = 0.5
+ramp_frac    = 0.1
+
+P2_time      = 200e-6
+tau_min      = 1e-6
+tau_max      = 100e-6
+num_points   = 10
+spacing      = 'Linear'
+
+digitizer_buffer      = 10e-6
+digitizer_trig_buffer = 0e-6
+
+T_min = pulse_width*(1+ramp_frac)
+T_max = P2_time-T_min/2
+
+if tau_min < T_min:
+    print('tau_min is too small, using {}'.format(T_min))
+    tau_min = tau_min
+if tau_max > T_max:
+    print('tau_max is too large, using {}'.format(T_max))
+
+if spacing == 'Linear':
+    taus = numpy.linspace(tau_min, tau_max, num_points)
+if spacing == 'Log':
+    taus = numpy.logspace(tau_min, tau_max, num_points)
+
+##HDAWG Configuration
+hdawg.AWGs[0].samplerate = '2.4GHz'
+hdawg.channelgrouping = '1x4'
+hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='True')
+hdawg.Channels[1].configureChannel(marker_out='Trigger', hold='True')
+hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
+hdawg.OSCs[1].freq = 10e6
+hdawg.Channels[2].analog_outs = [0.5,0]
+hdawg.Channels[3].analog_outs = [0,1.0]
+hdawg.Channels[2].configureChannel(amp=1.0)
+hdawg.Channels[3].configureChannel(amp=2.0)
+
+##Generators
+freq_GHz = carrier_freq/1e9
 logen.set_Freq(freq_GHz)
 logen.set_Amp(12)
 logen.mod_Off()
-logen.set_External_Reference()
-logen.power_On() 
 
 rfgen.set_Freq(freq_GHz)
-rfgen.set_Amp(2)
+rfgen.set_Amp(0)
 rfgen.mod_On()
-rfgen.set_External_Reference()
+
+SGS_coupling(ext_ref='HDAWG', ext_ref_freq=10, coupling='Ref', SGS_ref_freq=1000)
+logen.power_On() 
 rfgen.power_On()
 
 time.sleep(0.05)
 
-## Experimental parameters
-pulseamp = 0.5
-pulselength = 200e-9
-overflowBuffer = 10e-6
-#maxtime = 110e-6
-#tau = 1e-6
-#T2 measurement protocol parameters
-measure_points = 10
-tau_max = 1000e-6
-tau_min = 1e-6
-trig_buffer = 0e-6
-taus = numpy.linspace(tau_min, tau_max, measure_points)
-maxtime = tau_max + overflowBuffer
-
 #Data acquisition parameters
+card.triggerSlope = 'Rising'
+card.triggerLevel = 0.1
 card.averages = 1 #on-board averages
 card.segments = 25
-card.triggerDelay = trig_buffer
+card.triggerDelay = digitizer_trig_buffer
 card.activeChannels = [1,2]
 reads = 2  #reads of the card
 card.verbose = False
@@ -79,14 +99,15 @@ card.clockSource = 'External'
 progFile = open("HDAWG_sequencer_codes/HomodynePulse.cpp",'r')
 rawprog  = progFile.read()
 loadprog = rawprog
-progFile.close
-loadprog = loadprog.replace('_Amp_', str(pulseamp))
-loadprog = loadprog.replace('_Time_', str(pulselength))
-loadprog = loadprog.replace('_max_time_', str(maxtime))
+progFile.close()
+loadprog = loadprog.replace('_Amp_', str(pulse_amp))
+loadprog = loadprog.replace('_Time_', str(pulse_width))
+loadprog = loadprog.replace('_frac_', str(ramp_frac))
+loadprog = loadprog.replace('_max_time_', str(P2_time))
 
 
 #set up some houskeeping for the timing
-digitizer_max_time = maxtime + 1e-6
+digitizer_max_time = P2_time + pulse_width*(1+ramp_frac) + digitizer_buffer
 digitizer_min_time = 0
 digitizer_time = digitizer_max_time - digitizer_min_time
 
@@ -94,7 +115,8 @@ card.samples = numpy.ceil(digitizer_time*card.sampleRate)
 card.SetParams() #warning. this may round the number of smaples to multiple of 1024
 
 empiricalFudgeFactor = -0.096e-6   #this is a very exact number to be off by!!!!!!
-digitizerTimeOffset = tau_max + overflowBuffer + pulselength + empiricalFudgeFactor
+#digitizerTimeOffset = tau_max + overflowBuffer + pulselength + empiricalFudgeFactor
+digitizerTimeOffset = P2_time
 cardTicks = scipy.arange(0, card.samples, 1.) # time in sample clocks from the digitizers point of view
 cardXaxis = cardTicks /card.sampleRate - digitizerTimeOffset #time in seconds from the digitizers point of view
 
@@ -157,13 +179,13 @@ for tind in range(0, len(taus)):
   
         
         #find the second pulse
-        cut1 = numpy.where(cardXaxis > -pulselength/2)[0][0]
-        cut2 = numpy.where(cardXaxis < pulselength/2)[0][-1] -1 
+        cut1 = numpy.where(cardXaxis > -pulse_width/2)[0][0]
+        cut2 = numpy.where(cardXaxis < pulse_width/2)[0][-1] -1 
         pulse2_range = [cut1,cut2]
         
         #find the first pulse
-        cut1 = numpy.where(cardXaxis > -pulselength/2 - tau)[0][0] 
-        cut2 = numpy.where(cardXaxis < pulselength/2-tau)[0][-1] -1  
+        cut1 = numpy.where(cardXaxis > -pulse_width/2 - tau)[0][0] 
+        cut2 = numpy.where(cardXaxis < pulse_width/2-tau)[0][-1] -1  
         pulse1_range = [cut1,cut2]
         
         for sind in range(0, card.segments):
