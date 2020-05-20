@@ -7,7 +7,7 @@ const Amp      = _Amp_;
 const Time     = _Time_;
 
 //Ramp config
-const frac = 0.1;
+const frac = _frac_;
 
 //Timing control 
 const tau        = _tau_;
@@ -37,8 +37,8 @@ for (i=0; i<ramp_samples+Time_samples;i++){
 tone = Amp*tone/(1-offset);
 
 //Calculate the number of cycles we need to wait for the two pulses
-const init_wait_cycles = round((max_time-tau-(1+2.*frac)*Time/2)*sequencerRate);
-const pulse_sep_cycles = round((tau-(1+2.*frac)*Time)*sequencerRate);
+const init_wait_cycles = round((max_time-tau-(1+frac)*Time/2)*sequencerRate);
+const pulse_sep_cycles = round((tau-(1+frac)*Time)*sequencerRate);
 
 while(true){
   //Wait for trigger on channel 1
