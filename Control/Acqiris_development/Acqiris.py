@@ -26,6 +26,7 @@ import time
 #import datetime
 #import itertools
 import sys
+import warnings
 
 
 #import AqMD3 as driver #this is the Acqiris python driver
@@ -105,7 +106,17 @@ class Acqiris(object):
         #push the currently stored settings to the card and calibrate. Hopefully ths will actually save hassle.
         #if this is running at _init_ then it will push the defaults
         self.SetParams()
-        self.SelfCalibrate()
+        try:
+            self.SelfCalibrate()
+        except:
+            #most likely cause of failure at this point is either that funny
+            #pll synching issue, or the absence of an external clock.
+            if self._clockSource == 'External':
+                warnings.warn('External Clock Failure. Booting in Internal Mode.', RuntimeWarning )
+                self.clockSource = 'Internal'
+                self.SelfCalibrate()
+            else:
+                warnings.warn('Self Calibrate Failed: Cause Unkown.', RuntimeWarning )
         
         
         #some flags for controlling the read
@@ -814,6 +825,7 @@ class Acqiris(object):
         
         #clock settings
         self.clockSource = 'External'
+#        self.clockSource = 'Internal'
         self.clockFrequency = 10**7
         
         #timeout of failed acquisitions
