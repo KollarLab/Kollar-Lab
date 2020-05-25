@@ -41,35 +41,6 @@ from userfuncs import freeze
 
 @freeze
 class Acqiris(object):
-#    __slots__ = ['settingsCurrent', 
-#                 'driverKeys', 
-#                 'hardwareKeys', 
-#                 'simulate', 
-#                 'hardwareAddress', 
-#                 'driver', 
-#                 'verbose', 
-#                 '_samples', 
-#                 '_sampleRate', 
-#                 '_averageMode', 
-#                 '_averages', 
-#                 '_segments', 
-#                 '_activeChannels', 
-#                 '_channelRange', 
-#                 '_channelOffset', 
-#                 '_triggerSource', 
-#                 'triggerMode', 
-#                 '_triggerLevel', 
-#                 '_triggerSlope', 
-#                 '_triggerDelay', 
-#                 '_clockSource', 
-#                 '_clockFrequency', 
-#                 'timeout', 
-#                 'armed', 
-#                 'acquisitionFinished',
-#                 'offsetWithinRecord',
-#                 'totalSamples',
-#                 '_triggerCoupling'
-#                 ]
     
     def __init__(self, ResourceName, simulate = False):  
         #look to the right place.
@@ -100,7 +71,7 @@ class Acqiris(object):
             pass
         self.InitializeDriver()
         
-        #set default values. Eventrually this should probable load from some default config file
+        #set default values. Eventually this should probably load from some default config file
         self._loadDefaultConfig()
         
         #push the currently stored settings to the card and calibrate. Hopefully ths will actually save hassle.
@@ -125,12 +96,44 @@ class Acqiris(object):
         
 #        self._fill_slots()
         #declare some attributes that will be needed later
+        #because class is prozen they need to exist from the get go.
         self.offsetWithinRecord = 0
         self.totalSamples = self.samples
         self._simulateMode = self.simulate 
+        temp  = self.GetParams()
+        temp['timeout'] = self.timeout
+        temp['verbose'] = self.verbose
+        self.settings = temp
         
 #    ##############################
     #hardware properties
+    
+    
+    #master hardware settings parameter, to be used for
+    #saving, and printing
+    #includes what yout would need to reset to a particular configuration
+    #but not changeable things like run time flags or hardware address.
+    @property
+    def settings(self):
+        ''' getts all the settings needed to save or initialize a python card
+        object. So, it calls GetParams to get the hardware level settings. 
+        It adds a couple more like timeout and verbose that don't exist at the lowest level.
+        
+        For looking at amtching function names, this makes something more like a configuration
+        getten from LoadConfig or _laodDefaultConfig
+        
+        '''
+        paramsDict = self.GetParams()
+        paramsDict['timeout'] = self.timeout #timeout is an argument 
+        #of a driver level function, not a driver level parameter, so 
+        #it is not gotten in get params
+        paramsDict['verbose'] = self.verbose #added this so that this
+        #has exactly the same fields as the default config.
+        #Python object can therfore boot from this drictionary.
+        return paramsDict 
+    @settings.setter
+    def settings(self,val):
+        self.LoadConfig(val) #load config checks for invalid fields
     
     #icky properties that have to be batch set
     @property
@@ -463,7 +466,13 @@ class Acqiris(object):
         
     def GetParams(self):
         '''Autoget function for params. Will querry the hardware and package all the settings, as well as 
-        update the fields of the python software object.'''
+        update the fields of the python software object.
+        
+        In order to fully initialize or save a python Acqiris object, you will need the @settings
+        property. This incorporates the hardware-level settings and a couple more. (but still no
+        run time flags or things like that.)'''
+        
+        hardwareSettings= {}
         
         if self.verbose:
             print('    ')
@@ -476,18 +485,17 @@ class Acqiris(object):
             
             #store everything away
             setattr(self, key, val)
-#            hardwareSettings[key] = val
+            hardwareSettings[key] = val
             
             #print all the results    
             if self.verbose:
                 print(key + ' : ' + str(val))
-                
    
         if self.verbose:
             print('    ')
             
-        return
-#        return hardwareSettings
+#        return
+        return hardwareSettings
             
             
     def Close(self):    
@@ -791,7 +799,8 @@ class Acqiris(object):
             bool2 = ('_' + key) in self.__dict__.keys()
             if not (bool1 or bool2):
 #                raise ValueError('invalid setting key : ' + str(key))
-                print('Warning:  setting key : ' + key)
+                warnings.warn('Warning:  Invalid setting key : ' + key, RuntimeWarning)
+#                print('Warning:  setting key : ' + key)
             else:
                 setattr(self, key, params[key])
         
