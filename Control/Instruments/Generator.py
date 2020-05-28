@@ -9,6 +9,20 @@ class Generator():
         self.inst=rm.open_resource(address)
         self.inst.write('*RST')
 
+    def get_settings(self):
+        settings = {}
+        for setting in dir(self):
+            if not setting.startswith('__') and not callable(setting):
+                settings[setting] = getattr(self,setting)
+        return settings
+
+    def set_settings(self, settings):
+        for key in settings.keys():
+            try:
+                setattr(self, key, settings[key])
+            except:
+                Warning('Unknown attribute {}, ignoring'.format(key))
+            
     @property
     def waveform(self):
         wtype = self.inst.query(':FUNC?')
