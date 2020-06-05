@@ -5,6 +5,8 @@
 //Configure tones
 const Amp      = _Amp_;
 const Time     = _Time_;
+const IQangle1 = _IQangle1_;
+const IQangle2 = _IQangle2_;
 
 //Ramp config
 const frac = _frac_;
@@ -45,10 +47,10 @@ while(true){
   waitDigTrigger(1);
   //Always want to measure in the same spot, this timing shifts the first pulse around but keeps everything else fixed
   wait(init_wait_cycles);
-  playWave(tone);
+  playWave(cos(IQangle1)*tone, sin(IQangle1)*tone);
   waitWave();
   //Wait the programmed amount of time for next pulse
   wait(pulse_sep_cycles);
-  playWave(tone);
+  playWave(cos(IQangle2)*tone, sin(IQangle2)*tone);
   waitWave();
 }
