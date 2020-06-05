@@ -15,8 +15,8 @@ from mplcursors import cursor as datacursor
 
 #from Instruments.Acqiris import Acqiris
 import userfuncs as uf
-from Instruments.HDAWG import HDAWG
-from Instruments.SGS import RFgen
+#from Instruments.HDAWG import HDAWG
+#from Instruments.SGS import RFgen
 from SGShelper import HDAWG_clock, SGS_coupling
 
 

@@ -3,6 +3,7 @@ from Instruments.HDAWG import HDAWG
 from Instruments.SGS import RFgen
 
 from calibration import cwhomodynestability
+from calibration import PulsedHomodyneStability
 #card  = Acqiris('PXI23::0::0::INSTR')
 #hdawg = HDAWG('dev8163')
 #logen = RFgen('TCPIP0::rssgs100a110738::inst0::INSTR')
@@ -14,7 +15,7 @@ instruments = {}
 #instruments['LO'] = logen
 #instruments['RFgen'] = rfgen
 
-defaults = cwhomodynestability.GetDefaultSettings()
+defaults = PulsedHomodyneStability.GetDefaultSettings()
 settings = defaults
 print(settings)
 #CWHomodyneStabilityTest(instruments, settings)
