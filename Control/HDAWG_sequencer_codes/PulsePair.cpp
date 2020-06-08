@@ -1,6 +1,7 @@
 //Used .cpp extension to get nice syntax highlighting 
 //Standard measurement code for two pulses and programmable timing between the two pulses
 //Keeps measurement window at the same temporal position as pulse spacing varies
+//Implements I/Q angle to provide full control over the pulse
 
 //Configure tones
 const Amp      = _Amp_;
