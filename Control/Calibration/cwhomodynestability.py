@@ -13,12 +13,24 @@ import numpy
 import pylab
 from mplcursors import cursor as datacursor
 
-#from Instruments.Acqiris import Acqiris
 import userfuncs as uf
-#from Instruments.HDAWG import HDAWG
-#from Instruments.SGS import RFgen
 from SGShelper import HDAWG_clock, SGS_coupling
 
+
+def GetDefaultSettings():
+    settings = {}
+    settings['ref'] = 'HDAWG'
+    settings['ref_freq'] = 10
+    settings['SGS_ref_freq'] = 1000
+    settings['coupling'] = 'Ref'
+    settings['measure_time'] = 900
+    settings['savepath'] = r'C:\Users\Kollarlab\Desktop'
+    settings['lopower'] = 12
+    settings['rfpower'] = 0
+    settings['one_shot_time'] = 1e-6
+    settings['frequency'] = 8e9
+    
+    return settings
 
 def CWHomodyneStabilityTest(instruments, settings):
     '''
@@ -244,21 +256,6 @@ def CWHomodyneStabilityTest(instruments, settings):
     
     rfgen.power_Off()
     logen.power_Off()    
-
-def GetDefaultSettings():
-    settings = {}
-    settings['ref'] = 'HDAWG'
-    settings['ref_freq'] = 10
-    settings['SGS_ref_freq'] = 1000
-    settings['coupling'] = 'Ref'
-    settings['measure_time'] = 900
-    settings['savepath'] = r'C:\Users\Kollarlab\Desktop'
-    settings['lopower'] = 12
-    settings['rfpower'] = 0
-    settings['one_shot_time'] = 1e-6
-    settings['frequency'] = 8e9
-    
-    return settings
 
 ###########################################################################################################
 # Example usage of CWHomodyneStabilityTest

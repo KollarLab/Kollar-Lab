@@ -7,6 +7,32 @@ import time
 from mplcursors import cursor as datacursor
 from SGShelper import SGS_coupling, HDAWG_clock
 
+def GetDefaultSettings():
+    settings = {}
+    settings['ref']           = 'HDAWG'
+    settings['ref_freq']      = 10
+    settings['SGS_ref_freq']  = 1000
+    settings['coupling']      = 'Ref'
+    settings['measure_time']  = 900
+    settings['savepath']      = r'C:\Users\Kollarlab\Desktop'
+    settings['lopower']       = 12
+    settings['rfpower']       = 0
+    settings['one_shot_time'] = 1e-6
+    settings['carrier_freq']  = 8e9
+    settings['pulse_width']   = 200e-9
+    settings['pulse_amp']     = 0.5
+    settings['ramp_frac']     = 0.1
+    settings['IQangle1']      = 0
+    settings['IQangle2']      = 0
+    settings['tau_min']       = 1e-6
+    settings['tau_max']       = 1000e-6
+    settings['num_points']    = 25
+    settings['spacing']       = 'Linear'
+    settings['segments']      = 100
+    settings['reads']         = 2  #reads of the card
+    settings['averages']      = 1
+
+    return settings
 def pulsedhomodynestability(instruments, settings):
 
     ## Instruments used
@@ -507,29 +533,3 @@ def pulsedhomodynestability(instruments, settings):
     #pylab.show()
     #    
     
-def GetDefaultSettings():
-    settings = {}
-    settings['ref']           = 'HDAWG'
-    settings['ref_freq']      = 10
-    settings['SGS_ref_freq']  = 1000
-    settings['coupling']      = 'Ref'
-    settings['measure_time']  = 900
-    settings['savepath']      = r'C:\Users\Kollarlab\Desktop'
-    settings['lopower']       = 12
-    settings['rfpower']       = 0
-    settings['one_shot_time'] = 1e-6
-    settings['carrier_freq']  = 8e9
-    settings['pulse_width']   = 200e-9
-    settings['pulse_amp']     = 0.5
-    settings['ramp_frac']     = 0.1
-    settings['IQangle1']      = 0
-    settings['IQangle2']      = 0
-    settings['tau_min']       = 1e-6
-    settings['tau_max']       = 1000e-6
-    settings['num_points']    = 25
-    settings['spacing']       = 'Linear'
-    settings['segments']      = 100
-    settings['reads']         = 2  #reads of the card
-    settings['averages']      = 1
-
-    return settings
