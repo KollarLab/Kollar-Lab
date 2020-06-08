@@ -1,7 +1,7 @@
 import numpy
 import time
 import pylab
-import ..userfuncs as uf
+import userfuncs as uf
 
 def GetDefaultSettings():
     settings = {}
