@@ -14,6 +14,7 @@ import pylab
 from mplcursors import cursor as datacursor
 
 import userfuncs as uf
+import calibration.mixerIQcal as mixer
 from SGShelper import HDAWG_clock, SGS_coupling
 
 
@@ -29,6 +30,7 @@ def GetDefaultSettings():
     settings['rfpower'] = 0
     settings['one_shot_time'] = 1e-6
     settings['frequency'] = 8e9
+    settings['mixerIQcal'] = mixer.GetDefaultSettings()
     
     return settings
 
@@ -78,7 +80,7 @@ def CWHomodyneStabilityTest(instruments, settings):
     time.sleep(0.5) #Making sure that the settings have been applied
     
     ## Calibrate the mixer for reference
-    mixerAxes, mixerCenter, mixerPhi = calibrate_mixer_IQ(freq, rfpower, 35, measDur = 5e-6, verbose = False, showFig=False)
+    mixerAxes, mixerCenter, mixerPhi = mixer.calibrate_mixer_IQ(instruments, settings['mixerIQcal'])
     xx, yy = uf.make_elipse(mixerAxes,  mixerCenter, mixerPhi, 150)
     xmax = 1.1 * max(abs(xx))
     ymax = 1.1 * max(abs(yy))
@@ -253,39 +255,12 @@ def CWHomodyneStabilityTest(instruments, settings):
     uf.savefig(fig1,filename,savepath, png = True)
     
     print("std(angles) = " , numpy.std(Angles))
-    
+
     rfgen.power_Off()
     logen.power_Off()    
 
-###########################################################################################################
-# Example usage of CWHomodyneStabilityTest
-###########################################################################################################
+    dataTosave = ['Is','Qs','Amps','Angles', 'actualTimes','xx','yy','Idata, Qdata', 'Iav', 'Qav']
+    figsTosave = [fig1]
 
-if __name__ == '__main__':
-    global card
-    global hdawg
-    global rfgen
-    global logen
-
-    # Check and see whether instruments have already been defined, if not, create new instances
-    try:
-        card.samples = 1024
-    except:
-        card  = Acqiris('PXI23::0::0::INSTR')
-        hdawg = HDAWG('dev8163')
-        logen = RFgen('TCPIP0::rssgs100a110738::inst0::INSTR')
-        rfgen = RFgen('TCPIP0::rssgs100a110739::inst0::INSTR')
-
-    #################################
-    #Configuration settings
-    #################################
-    reference_signal   = 'HDAWG'
-    coupling_type      = 'Ref'
-    savepath           = r'C:\Users\Kollarlab\Desktop\CWHomodyneData'
-    measure_time       = 1800
-
-    reference_freq_MHz = 10
-    SGS_ref_freq       = 1000
-    CWHomodyneStabilityTest(ref = reference_signal, ref_freq = reference_freq_MHz, SGS_ref_freq = SGS_ref_freq, coupling='Ref',measure_time = measure_time, savepath=savepath)
-    SGS_ref_freq       = 10
-    CWHomodyneStabilityTest(ref = reference_signal, ref_freq = reference_freq_MHz, SGS_ref_freq = SGS_ref_freq, coupling='Ref',measure_time = measure_time, savepath=savepath)
+    if settings['save']:    
+        uf.SaveFull(savepath, filename, dataTosave, locals(), settings, instruments, figsTosave) 

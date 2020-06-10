@@ -11,7 +11,7 @@ def GetDefaultSettings():
     settings['NumPoints']      = 30
     settings['SingleShotTime'] = 5e-6
     settings['verbose']        = False
-    settings['showFig']        = True
+    settings['showFig']        = False
     return settings
 
 def calibrate_mixer_IQ(instruments, settings):
