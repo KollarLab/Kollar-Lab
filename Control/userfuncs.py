@@ -194,16 +194,14 @@ def SaveInst(instruments):
         HWsettings[inst] = inst.GetSettings()
     return HWsettings
 
-def SaveData(varnames, data):
-    workspace = {}
-    for (var, dat) in zip(varnames, data):
-        workspace[var] = dat
-    return workspace
+def makedict(vars, localdict):
+    return {var:localdict[var] for var in vars}
 
-def SaveFull(path, name, variables, data, expsettings, instruments, figures):
-    pathStr               = path + name
+def SaveFull(path, name, variables, localdict, expsettings={}, instruments={}, figures=[]):
+    pathStr               = os.path.join(path,name)
+
     toSave                = {}
-    toSave['Data']        = SaveData(variables, data)
+    toSave['Data']        = makedict(variables, localdict)
     toSave['ExpSettings'] = expsettings
     toSave['HWSettings']  = SaveInst(instruments)
     toSave['Figures']     = figures
