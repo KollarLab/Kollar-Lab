@@ -188,17 +188,34 @@ def loadfig(path):
     figx.show()
     return figx
 
-def SaveData(path, name, data, settings, figures):
-    toSave             = {}
-    toSave['data']     = data
-    toSave['settings'] = settings
-    toSave['figures']  = figures
-    pathStr            = path + name
+def SaveInst(instruments):
+    HWsettings = {}
+    for inst in instruments.keys():
+        HWsettings[inst] = inst.GetSettings()
+    return HWsettings
+
+def SaveData(varnames, data):
+    workspace = {}
+    for (var, dat) in zip(varnames, data):
+        workspace[var] = dat
+    return workspace
+
+def SaveFull(path, name, variables, data, expsettings, instruments, figures):
+    pathStr               = path + name
+    toSave                = {}
+    toSave['Data']        = SaveData(variables, data)
+    toSave['ExpSettings'] = expsettings
+    toSave['HWSettings']  = SaveInst(instruments)
+    toSave['Figures']     = figures
+
     pickle.dump(toSave, open(pathStr, 'wb'))
 
-def LoadData(path):
-    fullData = pickle.load(open(path,'rb'))
-    figures  = fullData['figures']
-    settings = fullData['settings']
-    data     = fullData['data']
-    return [data, settings, figures]
+def LoadFull(path):
+    fullData    = pickle.load(open(path,'rb'))
+
+    figures     = fullData['Figures']
+    expsettings = fullData['ExpSettings']
+    hwsettings  = fullData['HWSettings']
+    data        = fullData['Data']
+
+    return [data, expsettings, hwsettings, figures]
