@@ -3,9 +3,11 @@ import sys
 import numpy
 import scipy
 import time
+from datetime import datetime
 
 from mplcursors import cursor as datacursor
 from SGShelper import SGS_coupling, HDAWG_clock
+import userfuncs as uf
 
 def GetDefaultSettings():
     settings = {}
@@ -31,8 +33,10 @@ def GetDefaultSettings():
     settings['segments']      = 100
     settings['reads']         = 2  #reads of the card
     settings['averages']      = 1
+    settings['save']          = True
 
     return settings
+
 def pulsedhomodynestability(instruments, settings):
 
     ## Instruments used
@@ -164,11 +168,7 @@ def pulsedhomodynestability(instruments, settings):
 
 
     raw_read1 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single readS
-    #raw_data1 = numpy.zeros((measure_points, card.samples)) #an averaged time trace for every value of tau
-
     raw_read2 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single read
-    #raw_data2 = numpy.zeros((measure_points, card.samples)) #an averaged time trace for every value of tau
-
 
     phaseMat1 = numpy.zeros((len(taus), reads, card.segments))
     phaseMat2 = numpy.zeros((len(taus), reads, card.segments))
@@ -182,7 +182,6 @@ def pulsedhomodynestability(instruments, settings):
     readTimes = numpy.zeros(len(taus))
 
 
-
     #pylab.figure(1)
     #pylab.clf()
     ##ax1 = pylab.subplot(1,1,1)
@@ -191,8 +190,8 @@ def pulsedhomodynestability(instruments, settings):
     #ax1 = pylab.subplot(2,1,1)
     #ax2 = pylab.subplot(2,1,2)
 
-    waterfall = 0.1
-    xshift = 25
+    #waterfall = 0.1
+    #xshift = 25
     t0 = time.time()
     for tind in range(0, len(taus)):
         tau = taus[tind]
@@ -201,6 +200,18 @@ def pulsedhomodynestability(instruments, settings):
         hdawg.AWGs[0].load_program(finalprog)
         hdawg.AWGs[0].run_loop()
         time.sleep(0.1)
+
+        ## Find the pulses on the x-axis
+        #find the second pulse
+        cut1 = numpy.where(cardXaxis > -pulse_width/2)[0][0]
+        cut2 = numpy.where(cardXaxis < pulse_width/2)[0][-1] -1 
+        pulse2_range = [cut1,cut2]
+
+        #find the first pulse
+        cut1 = numpy.where(cardXaxis > -pulse_width/2 - tau)[0][0] 
+        cut2 = numpy.where(cardXaxis < pulse_width/2-tau)[0][-1] -1  
+        pulse1_range = [cut1,cut2]
+
         for rind in range(0, reads):
             card.ArmAndWait()
             data1, data2 = card.ReadAllData() #return a matrix which segments x samples
@@ -211,24 +222,10 @@ def pulsedhomodynestability(instruments, settings):
             raw_read1 = data1
             raw_read2 = data2
 
-
-
             dataVec1 = data1[0,:] #first segments is representative data vector
             dataVec2 = data2[0,:]
-    
-
-            #find the second pulse
-            cut1 = numpy.where(cardXaxis > -pulse_width/2)[0][0]
-            cut2 = numpy.where(cardXaxis < pulse_width/2)[0][-1] -1 
-            pulse2_range = [cut1,cut2]
-
-            #find the first pulse
-            cut1 = numpy.where(cardXaxis > -pulse_width/2 - tau)[0][0] 
-            cut2 = numpy.where(cardXaxis < pulse_width/2-tau)[0][-1] -1  
-            pulse1_range = [cut1,cut2]
 
             for sind in range(0, card.segments):
-    #            dind = card.segments*rind + sind
 
                 Is1 = data1[sind, pulse1_range[0]:pulse1_range[1]]
                 Qs1 = data2[sind, pulse1_range[0]:pulse1_range[1]]
@@ -245,7 +242,6 @@ def pulsedhomodynestability(instruments, settings):
                 phase1 = numpy.arctan2(Q1, I1)*180/numpy.pi
                 phase2 = numpy.arctan2(Q2, I2)*180/numpy.pi
 
-
                 #store data
                 IMat1[tind,rind, sind] = I1
                 QMat1[tind,rind, sind] = Q1
@@ -255,8 +251,6 @@ def pulsedhomodynestability(instruments, settings):
 
                 phaseMat1[tind,rind, sind] = phase1
                 phaseMat2[tind,rind, sind] = phase2
-
-
 
     #    #done reading. Time to plot
     #    pylab.sca(ax1)
@@ -308,7 +302,7 @@ def pulsedhomodynestability(instruments, settings):
 
 
 
-    pylab.figure(2)
+    angle_std_vs_time_fig = pylab.figure(2)
     pylab.clf()
 
     ax = pylab.subplot(2,3,1)
@@ -402,7 +396,7 @@ def pulsedhomodynestability(instruments, settings):
     longHist = longHist/(len(taus)*reads*card.segments)
     shortHist = shortHist/(reads*card.segments)
 
-    pylab.figure(3)
+    histograms_phase_separation = pylab.figure(3)
     pylab.clf()
 
     ax = pylab.subplot(1,1,1)
@@ -430,7 +424,7 @@ def pulsedhomodynestability(instruments, settings):
 
 
 
-    pylab.figure(4)
+    raw_trace_figure = pylab.figure(4)
     pylab.clf()
     ax = pylab.subplot(1,1,1)
     pylab.plot(cardXaxis*1e6,dataVec1 )
@@ -451,20 +445,20 @@ def pulsedhomodynestability(instruments, settings):
     pylab.title('Single raw trace')
     pylab.show()
 
-
-
-
-
     rfgen.power_Off()
     logen.power_Off()
 
+    dataTosave = ['IMat1', 'IMat2', 'QMat1', 'QMat2', 'phaseMat1', 'phaseMat2', 'dataVec1', 'dataVec2',
+        'cardXaxis', 'pulse1_range', 'pulse2_range', 'readTimes', 'mean_v_tau', 'std_v_tau', 'std_v_period',
+        'phaseDiff_v_periods', 'taus']
 
+    date  = datetime.now()
+    stamp = date.strftime('%Y%m%d_%H%M%S')
+    filename = 'PulsedHomodyne{}'.format(stamp)
 
-
-
-
-
-
+    figsTosave = [angle_std_vs_time_fig, histograms_phase_separation, raw_trace_figure]
+    if settings['save']:
+        uf.SaveFull(savepath, filename, dataTosave, locals(), settings, instruments, figsTosave)
 
     ##plot testing
     #from mpldatacursor import datacursor
