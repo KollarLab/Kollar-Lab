@@ -35,10 +35,10 @@ syncgen     = Generator('')
 
 triggergen.reference = 'Ext'
 triggergen.waveform  = 'SQU'
-triggergen.frequency = '200 Hz'
+triggergen.frequency = '500 Hz'
 triggergen.volts     = '0.5 V'
 
 syncgen.reference = 'Ext'
-syncgen.waveform  = 'SQU'
+syncgen.waveform  = 'SIN'
 syncgen.frequency = '10 MHz'
-syncgen.volts     = '0.5 V'
+syncgen.volts     = '3 dBm'
