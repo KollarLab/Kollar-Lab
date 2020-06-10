@@ -6,11 +6,9 @@ Created on Fri May  1 11:21:50 2020
 """
 
 import time
-from datetime import datetime
-
 import numpy
-#import sys
 import pylab
+from datetime import datetime
 from mplcursors import cursor as datacursor
 
 import userfuncs as uf
@@ -20,17 +18,18 @@ from SGShelper import HDAWG_clock, SGS_coupling
 
 def GetDefaultSettings():
     settings = {}
-    settings['ref'] = 'HDAWG'
-    settings['ref_freq'] = 10
-    settings['SGS_ref_freq'] = 1000
-    settings['coupling'] = 'Ref'
-    settings['measure_time'] = 900
-    settings['savepath'] = r'C:\Users\Kollarlab\Desktop'
-    settings['lopower'] = 12
-    settings['rfpower'] = 0
+    settings['ref']           = 'HDAWG'
+    settings['ref_freq']      = 10
+    settings['SGS_ref_freq']  = 1000
+    settings['coupling']      = 'Ref'
+    settings['measure_time']  = 900
+    settings['savepath']      = r'C:\Users\Kollarlab\Desktop'
+    settings['lopower']       = 12
+    settings['rfpower']       = 0
     settings['one_shot_time'] = 1e-6
-    settings['frequency'] = 8e9
-    settings['mixerIQcal'] = mixer.GetDefaultSettings()
+    settings['frequency']     = 8e9
+    settings['save']          = True
+    settings['mixerIQcal']    = mixer.GetDefaultSettings()
     
     return settings
 
