@@ -56,7 +56,7 @@ class Generator():
         return off[0]
     @offset.setter
     def offset(self, off):
-        self.inst.write('VOLT:OFFS {}'.format(off))
+        self.inst.write(':VOLT:OFFS {}'.format(off))
     
     @property
     def reference(self):
@@ -64,7 +64,7 @@ class Generator():
         return ref
     @reference.setter
     def reference(self, ref):
-        self.inst.write('ROSC:SOUR {}')
+        self.inst.write(':ROSC:SOUR {}'.format(ref))
 
     @property
     def pulse_width(self):
