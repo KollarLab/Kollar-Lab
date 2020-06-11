@@ -12,7 +12,7 @@ from datetime import datetime
 from mplcursors import cursor as datacursor
 
 import userfuncs as uf
-import calibration.mixerIQcal as mixer
+import Calibration.mixerIQcal as mixer
 from SGShelper import HDAWG_clock, SGS_coupling
 
 
@@ -67,12 +67,6 @@ def CWHomodyneStabilityTest(instruments, settings):
 
     ## Misc settings
     savepath = settings['savepath']
-
-    ## HDAWG Settings
-    freqs = [10e6, reference_freq_MHz*1e6]
-    channels = [2,3]
-    amps = [1,2]
-    HDAWG_clock(hdawg, freqs, channels, amps)
     
     logen.power_Off()
     rfgen.power_Off()
@@ -107,14 +101,8 @@ def CWHomodyneStabilityTest(instruments, settings):
     rfgen.set_Amp(rfpower)
     rfgen.mod_Off()
 
-    SGS_coupling(logen, rfgen, reference_signal, reference_freq_MHz, coupling_type, SGS_ref_freq)
-
     rfgen.power_On()
     logen.power_On()
-    
-    # Wait and make sure that the settings have been applied
-    #TO DO: write SGS function to check PLL status to avoid these long waits
-    time.sleep(30)
 
     #################################################
     # Measurement and analysis
@@ -128,6 +116,8 @@ def CWHomodyneStabilityTest(instruments, settings):
     Qs = numpy.zeros(len(timeSpacings)) #array to hold Q data
     Amps = numpy.zeros(len(timeSpacings)) #array to hold amplitude data
     Angles = numpy.zeros(len(timeSpacings)) #array to hold phase data
+#    Idata = numpy.zeros(card.samples)
+#    Qdata = numpy.zeros(card.samples)
     
     plotSpacing = 30
     figure_size = (14,8)
@@ -250,7 +240,7 @@ def CWHomodyneStabilityTest(instruments, settings):
     '''
 
     #Save figure in both .pkl and .png format for easy viewing 
-    uf.savefig(fig1,filename,savepath)
+    #uf.savefig(fig1,filename,savepath)
     uf.savefig(fig1,filename,savepath, png = True)
     
     print("std(angles) = " , numpy.std(Angles))
@@ -258,7 +248,7 @@ def CWHomodyneStabilityTest(instruments, settings):
     rfgen.power_Off()
     logen.power_Off()    
 
-    dataTosave = ['Is','Qs','Amps','Angles', 'actualTimes','xx','yy','Idata, Qdata', 'Iav', 'Qav']
+    dataTosave = ['Is','Qs','Amps','Angles', 'actualTimes','xx','yy','Idata', 'Qdata', 'Iav', 'Qav']
     figsTosave = [fig1]
 
     if settings['save']:    
