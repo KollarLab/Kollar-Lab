@@ -90,7 +90,7 @@ class HDAWG():
             filename (str): full name of file to be loaded (provide full path if not in directory)
         '''
         fullsettings = sT.load_settings(filename)
-        print(settings)
+        print(fullsettings)
         self.settings = fullsettings
 
     ###################################
@@ -224,8 +224,8 @@ class HDAWG():
             print('Invalid channel grouping, must be {}'.format(list(self._groupInt)))
         else:
             self.daq.setInt(node,self._groupInt[val])
-            if val == '1x4':
-                print('AWG settings and programs will be loaded from AWG0 (settings for AWG1 have not been overwriting but will not apply)')
+            #if val == '1x4':
+                #print('AWG settings and programs will be loaded from AWG0 (settings for AWG1 have not been overwriting but will not apply)')
 
     @property
     def referenceClock(self):
@@ -363,8 +363,8 @@ class HDAWGawg:
             # compilation failed, raise an exception
             raise Exception(awgModule.getString('compiler/statusstring'))
             
-        if awgModule.getInt('compiler/status') == 0:
-            print("Compilation successful with no warnings, will upload the program to the instrument.")
+        #if awgModule.getInt('compiler/status') == 0:
+            #print("Compilation successful with no warnings, will upload the program to the instrument.")
         if awgModule.getInt('compiler/status') == 2:
             print("Compilation successful with warnings, will upload the program to the instrument.")
             print("Compiler warning: ", awgModule.getString('compiler/statusstring'))
@@ -376,10 +376,10 @@ class HDAWGawg:
             #print("{} progress: {:.2f}".format(i, awgModule.getDouble('progress')))
             time.sleep(0.001)
             i += 1
-        print("{} progress: {:.2f}".format(i, awgModule.getDouble('progress')))
+        #print("{} progress: {:.2f}".format(i, awgModule.getDouble('progress')))
 
-        if awgModule.getInt('elf/status') == 0:
-            print("Upload to the instrument successful.")
+        #if awgModule.getInt('elf/status') == 0:
+            #print("Upload to the instrument successful.")
         if awgModule.getInt('elf/status') == 1:
             raise Exception("Upload to the instrument failed.")
 
@@ -708,7 +708,7 @@ class HDAWGchannel():
         else:
             self.fullscale = fullscale
             self.AWGamp    = AWGamp
-            print('Manual range configuration')
+            #print('Manual range configuration')
 
         self.delay      = delay
         self.offset     = offset
@@ -775,8 +775,8 @@ class HDAWGchannel():
         return self.fullscale*self.AWGamp
     @amp.setter
     def amp(self,val):
-        if self._notinit:
-            print('Automatically adjusting fullscale and AWGamp values')
+        #if self._notinit:
+            #print('Automatically adjusting fullscale and AWGamp values')
         ranges = [0.2,0.4,0.6,0.8,1.0,2.0,3.0,4.0,5.0]
         for x in ranges:
             if val > x:
@@ -798,7 +798,7 @@ class HDAWGchannel():
         status = self.daq.getInt(node)
         val    = status-self.ID
         output = self._markerInt.inverse[val]   
-        print('Using {} function on marker channel'.format(output))
+        #print('Using {} function on marker channel'.format(output))
         return output
     @marker.setter
     def marker(self,val):
@@ -807,7 +807,7 @@ class HDAWGchannel():
             print('Error, acceptable inputs are {}'.format(list(self._markerInt)))
         else:
             markindex = self.ID+self._markerInt[val]
-            print('Setting marker output to {}'.format(val))
+            #print('Setting marker output to {}'.format(val))
             self.daq.setInt(node,markindex)
             self.configured = True
 
@@ -919,7 +919,7 @@ class HDAWGchannel():
         node = [node1, node2]
         enables = [enables1,enables2]
         for amp in amps:
-            print('Setting amp {}'.format(amp))
+            #print('Setting amp {}'.format(amp))
             self.daq.setDouble(node[i],amp)
             if amp>0:
                 self.daq.setInt(enables[i],1)
@@ -1040,7 +1040,7 @@ class HDAWGosc():
         self.freq = fullsettings['freq']
         for i in range(2):
             sineID = 'Sines{}'.format(i)
-            if sineID in settings.keys():
+            if sineID in fullsettings.keys():
                 self.sines[i].settings = fullsettings[sineID]
 
         self.daq.sync()
@@ -1125,7 +1125,7 @@ class HDAWGsines():
         Arguments:
             settings (dict): contains settings for osc class
         '''
-        for key in settings.keys():
+        for key in fullsettings.keys():
             setattr(self, key, fullsettings[key])
 
         self.daq.sync()
