@@ -13,7 +13,9 @@ class Generator():
     def settings(self):
         fullsettings = {}
         for setting in dir(self):
-            if not setting.startswith('__') and not callable(getattr(self,setting)) and setting!='inst':
+            if setting == 'inst' or setting == 'settings':
+                continue
+            if not setting.startswith('__') and not callable(getattr(self,setting)):
                 fullsettings[setting] = getattr(self,setting)
         return fullsettings
     @settings.setter
