@@ -15,7 +15,6 @@ def GetDefaultSettings():
     settings['ref_freq']      = 10
     settings['SGS_ref_freq']  = 1000
     settings['coupling']      = 'Ref'
-    settings['measure_time']  = 900
     settings['savepath']      = r'C:\Users\Kollarlab\Desktop'
     settings['lopower']       = 12
     settings['rfpower']       = 0
@@ -50,7 +49,7 @@ def pulsedhomodynestability(instruments, settings):
     reference_freq_MHz = settings['ref_freq'] 
     SGS_ref_freq       = settings['SGS_ref_freq'] 
     coupling_type      = settings['coupling'] 
-    carrier_freq       = settings['carrier_frequency']
+    carrier_freq       = settings['carrier_freq']
     rfpower            = settings['rfpower']
     lopower            = settings['lopower']             
 
@@ -102,11 +101,6 @@ def pulsedhomodynestability(instruments, settings):
     hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
-    # Use HDAWG to simulate RB clock
-    freqs    = [10e6, 10e6]
-    channels = [2,3]
-    amps     = [1,2]
-    HDAWG_clock(hdawg, freqs, channels, amps)
 
     ## Generators
     freq_GHz = carrier_freq/1e9
@@ -117,8 +111,6 @@ def pulsedhomodynestability(instruments, settings):
     rfgen.set_Freq(freq_GHz)
     rfgen.set_Amp(rfpower)
     rfgen.mod_On()
-    # Configure coupling between generators
-    SGS_coupling(logen, rfgen, reference_signal, reference_freq_MHz, coupling_type, SGS_ref_freq)
 
     logen.power_On() 
     rfgen.power_On()
@@ -137,7 +129,7 @@ def pulsedhomodynestability(instruments, settings):
     card.clockSource = 'External'
 
     ## Read in the sequencer program we want to use and configure it
-    progFile = open("HDAWG_sequencer_codes/HomodynePulse.cpp",'r')
+    progFile = open("HDAWG_sequencer_codes/PulsePair.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
