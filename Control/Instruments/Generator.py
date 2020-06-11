@@ -9,17 +9,18 @@ class Generator():
         self.inst=rm.open_resource(address)
         self.inst.write('*RST')
 
-    def get_settings(self):
-        settings = {}
+    @property
+    def settings(self):
+        fullsettings = {}
         for setting in dir(self):
             if not setting.startswith('__') and not callable(getattr(self,setting)) and setting!='inst':
-                settings[setting] = getattr(self,setting)
-        return settings
-
-    def set_settings(self, settings):
-        for key in settings.keys():
+                fullsettings[setting] = getattr(self,setting)
+        return fullsettings
+    @settings.setter
+    def settings(self, fullsettings):
+        for key in fullsettings.keys():
             try:
-                setattr(self, key, settings[key])
+                setattr(self, key, fullsettings[key])
             except:
                 print('Unknown attribute {}, ignoring'.format(key))
             

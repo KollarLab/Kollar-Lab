@@ -75,13 +75,13 @@ class HDAWG():
         Arguments:
             filename (str): filename of settings file
         '''
-        sT.save_settings(self.getSettings(),filename)
+        sT.save_settings(self.settings,filename)
     
     def show_keysettings(self):
         '''
         Calls settingTools function to display all key settings
         '''
-        sT.print_settings(self.getSettings())
+        sT.print_settings(self.settings)
 
     def load_settings(self,filename):
         '''
@@ -89,15 +89,15 @@ class HDAWG():
         Arguments:
             filename (str): full name of file to be loaded (provide full path if not in directory)
         '''
-        settings = sT.load_settings(filename)
+        fullsettings = sT.load_settings(filename)
         print(settings)
-        self.setSettings(settings)
+        self.settings = fullsettings
 
     ###################################
     # Settings Methods
     ###################################
-
-    def getSettings(self):
+    @property
+    def settings(self):
         '''
         Function that returns key settings for HDAWG and subclasses (Channels, AWGs)
         Calls getSettings functions for AWGs and Channels respectively
@@ -109,56 +109,56 @@ class HDAWG():
             the user has configured them or they have been set from a settings file/ dictionary 
         '''
         self.daq.sync()
-        settings = {}
-        settings['System']={}
+        fullsettings = {}
+        fullsettings['System']={}
         for key in self.nodepaths.keys():
-            settings['System'][key] = getattr(self,key)
-        settings['AWGs']={}
+            fullsettings['System'][key] = getattr(self,key)
+        fullsettings['AWGs']={}
         if self.channelgrouping == '1x4':
-            settings['AWGs']['AWG0'] = self.AWGs[0].getSettings()
+            fullsettings['AWGs']['AWG0'] = self.AWGs[0].settings
         else:
             for i in range(2):
-                settings['AWGS']['AWG{}'.format(i)] = self.AWGs[i].getSettings()
-        settings['Channels']={}
+                fullsettings['AWGS']['AWG{}'.format(i)] = self.AWGs[i].settings
+        fullsettings['Channels']={}
         for i in range(4):
             if self.Channels[i].configured:
-                settings['Channels']['Channel{}'.format(i)] = self.Channels[i].getSettings()
-        settings['OSCs']={}
+                fullsettings['Channels']['Channel{}'.format(i)] = self.Channels[i].settings
+        fullsettings['OSCs']={}
         for i in range(2):
-            settings['OSCs']['OSC{}'.format(i)] = self.OSCs[i].getSettings()
-        return settings
-
-    def setSettings(self, settings):
+            fullsettings['OSCs']['OSC{}'.format(i)] = self.OSCs[i].settings
+        return fullsettings
+    @settings.setter
+    def settings(self, fullsettings):
         '''
         Function to set settings from a settings dictionary
         Arguments:
-            settings (dict): dictionary structured as follows:
+            fullsettings (dict): dictionary structured as follows:
             'System':{All main HDAWG settings}
             'Channels':{Channel0:{Main channel settings}, Channel1:{Main channel settings},...}
             'AWGs':{AWGs0:{Main AWGs settings}, AWGs1:{Main AWGs settings}}
         Returns:
             Nothing
         '''
-        for key in settings.keys():
+        for key in fullsettings.keys():
             print(key)
             if key == 'System':
-                for setting in settings['System'].keys():
-                    setattr(self, setting, settings['System'][setting])
+                for setting in fullsettings['System'].keys():
+                    setattr(self, setting, fullsettings['System'][setting])
             elif key == 'AWGs':
                 for i in range(2):
                     AWGname = 'AWG{}'.format(i)
-                    if AWGname in settings['AWGs'].keys():
-                        self.AWGs[i].setSettings(settings['AWGs'][AWGname])
+                    if AWGname in fullsettings['AWGs'].keys():
+                        self.AWGs[i].settings = fullsettings['AWGs'][AWGname]
             elif key == 'Channels':
                 for i in range(4):
                     Channelname = 'Channel{}'.format(i)
-                    if Channelname in settings['Channels'].keys():
-                        self.Channels[i].setSettings(settings['Channels'][Channelname])
+                    if Channelname in fullsettings['Channels'].keys():
+                        self.Channels[i].settings = fullsettings['Channels'][Channelname]
             elif key == 'OSCs':
                 for i in range(2):
                     OSCname = 'OSC{}'.format(i)
-                    if OSCname in settings['OSCs'].keys():
-                        self.OSCs[i].setSettings(settings['OSCs'][OSCname])
+                    if OSCname in fullsettings['OSCs'].keys():
+                        self.OSCs[i].settings = fullsettings['OSCs'][OSCname]
             else:
                 print('Unknown key: {}'.format(key))
                 #setattr(self,key,settings['System'][key])
@@ -411,8 +411,8 @@ class HDAWGawg:
     ###################################
     # Settings methods
     ###################################
-
-    def getSettings(self):
+    @property
+    def settings(self):
         '''
         Function to build dictionary from all key settings of AWG object
         Returns:
@@ -421,27 +421,27 @@ class HDAWGawg:
                 'Triggers':{Trigger0:{Key trigger0 settings}, etc.}
         '''
         self.daq.sync()
-        settings = {}
-        settings['samplerate'] = self.samplerate
-        settings['Triggers'] = {}
+        fullsettings = {}
+        fullsettings['samplerate'] = self.samplerate
+        fullsettings['Triggers'] = {}
         for i in range(2):
             trigger = 'Trigger{}'.format(i)
             if self.Triggers[i].configured:
-                settings['Triggers'][trigger]=self.Triggers[i].getSettings()
-        return settings
-    
-    def setSettings(self, settings):
+                fullsettings['Triggers'][trigger] = self.Triggers[i].settings
+        return fullsettings
+    @settings.setter
+    def setSettings(self, fullsettings):
         '''
         Function to set settings on AWG from settings dictionary
         Arguments:
             settings (dict): structured as follows: key AWG settings,'Triggers':{Trigger0:{Key trigger0 settings}, etc.}
         '''
-        self.samplerate = settings['samplerate']
-        if 'Triggers' in settings.keys():
+        self.samplerate = fullsettings['samplerate']
+        if 'Triggers' in fullsettings.keys():
             for i in range(2):
                 trigger = 'Trigger{}'.format(i)
-                if trigger in settings['Triggers'].keys():
-                    self.Triggers[i].setSettings(settings['Triggers'][trigger])
+                if trigger in fullsettings['Triggers'].keys():
+                    self.Triggers[i].settings = fullsettings['Triggers'][trigger]
                 else:
                     continue
         self.daq.sync()
@@ -540,27 +540,27 @@ class HDAWGtrigger():
     ###################################
     # Settings Methods
     ###################################
-
-    def getSettings(self):
+    @property
+    def settings(self):
         '''
         Create dictionary of key trigger settings
         Returns:
             settings (dict) : dictionary of trigger settinsg
         '''
         self.daq.sync()
-        settings={}
+        fullsettings={}
         for key in self.nodepaths.keys():
-            settings[key]=getattr(self,key)
-        return settings
-
-    def setSettings(self,settings):
+            fullsettings[key]=getattr(self,key)
+        return fullsettings
+    @settings.setter
+    def settings(self,fullsettings):
         '''
         Set key trigger attributes from dictionary
         Arguments:
             settings (str) : dictionary of trigger settings 
         '''
-        for key in settings.keys():
-            setattr(self,key,settings[key])
+        for key in fullsettings.keys():
+            setattr(self,key,fullsettings[key])
         self.configured = True
         self.daq.sync()
 
@@ -721,29 +721,29 @@ class HDAWGchannel():
     ###################################
     # Settings Methods
     ###################################
-
-    def getSettings(self):
+    @property
+    def settings(self):
         '''
         Build dictionary from all key channel settings
         Returns:
             settings (dict) : dictionary where keys are attributes of channel object
         '''
         self.daq.sync()
-        settings={}
-        settings['amp'] = getattr(self,'amp')
+        fullsettings={}
+        fullsettings['amp'] = getattr(self,'amp')
         for key in self.nodepaths.keys():
-            settings[key] = getattr(self,key)
-        return settings
-
-    def setSettings(self, settings):
+            fullsettings[key] = getattr(self,key)
+        return fullsettings
+    @settings.setter
+    def settings(self, fullsettings):
         '''
         From settings dictionary, configure channel
         Arguments:
             settings (dict) : dictionary containing key channel settings
             If settings are missing, Channel will keep default values
         '''
-        for key in settings:
-            setattr(self,key,settings[key])
+        for key in fullsettings:
+            setattr(self,key,fullsettings[key])
         self.configured = True
         self.status     = 'On'
         self.daq.sync()
@@ -1014,34 +1014,34 @@ class HDAWGosc():
     ###################################
     # Settings methods
     ###################################
-
-    def getSettings(self):
+    @property
+    def settings(self):
         '''
         Function to build dictionary from all key settings of osc object
         Returns:
             dict with key oscillator settings
         '''
         self.daq.sync()
-        settings = {}
-        settings['freq']  = self.freq
-        settings['Sines'] = {}
+        fullsettings = {}
+        fullsettings['freq']  = self.freq
+        fullsettings['Sines'] = {}
         for i in range(2):
             sineID = 'Sines{}'.format(i)
             if self.sines[i].configured:
-                settings['Sines'][sineID] = self.sines[i].getSettings()
-        return settings
-    
-    def setSettings(self, settings):
+                fullsettings['Sines'][sineID] = self.sines[i].settings
+        return fullsettings
+    @settings.setter
+    def settings(self, fullsettings):
         '''
         Function to set settings on AWG from settings dictionary
         Arguments:
             settings (dict): contains settings for osc class
         '''
-        self.freq = settings['freq']
+        self.freq = fullsettings['freq']
         for i in range(2):
             sineID = 'Sines{}'.format(i)
             if sineID in settings.keys():
-                self.sines[i].setSettings(settings[sineID])
+                self.sines[i].settings = fullsettings[sineID]
 
         self.daq.sync()
         
@@ -1106,27 +1106,27 @@ class HDAWGsines():
     ###################################
     # Settings methods
     ###################################
-
-    def getSettings(self):
+    @property
+    def settings(self):
         '''
         Function to build dictionary from all key settings of osc object
         Returns:
             dict with key oscillator settings
         '''
         self.daq.sync()
-        settings = {}
+        fullsettings = {}
         for key in self.nodepaths.keys():
-            settings[key] = getattr(self, key)
-        return settings
-    
-    def setSettings(self, settings):
+            fullsettings[key] = getattr(self, key)
+        return fullsettings
+    @settings.setter
+    def settings(self, fullsettings):
         '''
         Function to set settings on AWG from settings dictionary
         Arguments:
             settings (dict): contains settings for osc class
         '''
         for key in settings.keys():
-            setattr(self, key, settings[key])
+            setattr(self, key, fullsettings[key])
 
         self.daq.sync()
         
