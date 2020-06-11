@@ -9,6 +9,13 @@ class RFgen():
         self.inst=rm.open_resource(address)
         self.inst.write('*RST')
 
+    @property
+    def settings(self):
+        return {}
+    @settings.setter
+    def settings(self, fullsettings):
+        print('Tried to set SGS settings')
+
     def set_Amp_V(self,amp):
         self.inst.write('SOURce:POWer {} V'.format(amp))
         
