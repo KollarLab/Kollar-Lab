@@ -191,7 +191,7 @@ def loadfig(path):
 def SaveInst(instruments):
     HWsettings = {}
     for inst in instruments.keys():
-        HWsettings[inst] = inst.GetSettings()
+        HWsettings[inst] = instruments[inst].settings
     return HWsettings
 
 def makedict(vars, localdict):
