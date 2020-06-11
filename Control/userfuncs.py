@@ -170,17 +170,20 @@ def savefig(fig, name, path = '', png = False):
     png = boolean for if you want a png copy too
     
     '''
+    
+    if png:
+        saveName = name + '.png'
+        pathStr= os.path.join(path, saveName) 
+        fig.savefig(pathStr, dpi = 200, transparent  = False)
+        return
+    
     if name[-4:] == '.pkl':
         saveName = name
     else:
         saveName = name + '.pkl'
     pathStr= os.path.join(path, saveName) 
     pickle.dump(fig, open(pathStr, 'wb'))
-    
-    if png:
-        saveName = name + '.png'
-        pathStr= os.path.join(path, saveName) 
-        fig.savefig(pathStr, dpi = 200, transparent  = False)
+
     return
 
 def loadfig(path):
