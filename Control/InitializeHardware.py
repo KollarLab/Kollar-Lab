@@ -41,6 +41,7 @@ triggergen.reference = 'Ext'
 triggergen.waveform  = 'SQU'
 triggergen.frequency = '500 Hz'
 triggergen.volts     = '0.5 V'
+triggergen.output    = 'ON'
 
 #syncgen.reference = 'Ext'
 #syncgen.waveform  = 'SIN'
