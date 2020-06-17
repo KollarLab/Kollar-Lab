@@ -44,7 +44,7 @@ class HDAWG():
             self.AWGs.append(HDAWGawg(self.daq,i))
             self.OSCs.append(HDAWGosc(self.daq,i))
         self.channelgrouping = '1x4'
-        self.referenceClock  = 'Internal'
+        self.referenceClock  = 'External'
 
     def fill_paths(self):
         '''
