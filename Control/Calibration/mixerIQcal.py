@@ -46,16 +46,18 @@ def calibrate_mixer_IQ(instruments, settings):
     phases = numpy.linspace(0,360,numPoints)
 
     ## Digitizer card settings 
-    card.triggerSlope = 'Rising'
-    card.triggerLevel = 0.1
-    card.averages = 1 #on-board averages
-    card.segments = 1
+#    card.triggerSlope = 'Rising'
+#    card.triggerLevel = 0.1
+#    card.clockSource = 'External'
+#    card.verbose = False
+    
     card.triggerDelay = 0
     card.activeChannels = [1,2]
-    card.verbose = False
-    card.sampleRate = 2e9
-    card.clockSource = 'External'
     card.channelRange = 0.5
+    card.sampleRate = 2e9
+    
+    card.averages = 1 #on-board averages
+    card.segments = 1
     card.samples = numpy.ceil(measDur*card.sampleRate)
     card.SetParams() #warning. this may round the number of smaples to multiple of 1024
     
