@@ -187,6 +187,7 @@ def pulsedhomodynestability(instruments, settings):
     t0 = time.time()
     for tind in range(0, len(taus)):
         tau = taus[tind]
+        print('Tau: {}'.format(tau))
         finalprog = loadprog
         finalprog = finalprog.replace('_tau_',str(tau))
         hdawg.AWGs[0].load_program(finalprog)

@@ -19,12 +19,12 @@ instruments['RFgen'] = rfgen
 #defaults_mixer['showFig'] = True
 
 #settings = cwhomodyne.GetDefaultSettings()
-#settings['measure_time'] = 31
+#settings['measure_time'] = 36000
 
 defaults_pulsed = pulsedhomodyne.GetDefaultSettings()
 settings = defaults_pulsed
-settings['tau_max'] = 100e-6
-settings['num_points'] = 10
+settings['tau_max'] = 1000e-6
+settings['num_points'] = 99
 settings['save'] = False
 
 

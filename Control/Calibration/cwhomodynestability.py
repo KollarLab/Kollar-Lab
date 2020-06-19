@@ -23,7 +23,7 @@ def GetDefaultSettings():
     settings['SGS_ref_freq']  = 1000
     settings['coupling']      = 'Ref'
     settings['measure_time']  = 900
-    settings['savepath']      = r'C:\Users\Kollarlab\Desktop'
+    settings['savepath']      = r'C:\Users\Kollarlab\Desktop\CWHomodyneData'
     settings['lopower']       = 12
     settings['rfpower']       = 0
     settings['one_shot_time'] = 1e-6
