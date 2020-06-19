@@ -4,7 +4,8 @@ from Instruments.SGS import RFgen
 
 from Calibration import cwhomodynestability as cwhomodyne
 from Calibration import mixerIQcal as mixer
-from Calibration import PulsedHomodyneStability as pulsedhomodyne
+from Calibration import pulsedhomodynestability as pulsedhomodyne
+from Calibration import cwheterodyne
 
 import userfuncs as uf
 
@@ -21,14 +22,18 @@ instruments['RFgen'] = rfgen
 #settings = cwhomodyne.GetDefaultSettings()
 #settings['measure_time'] = 36000
 
-defaults_pulsed = pulsedhomodyne.GetDefaultSettings()
-settings = defaults_pulsed
-settings['tau_max'] = 1000e-6
-settings['num_points'] = 99
-settings['save'] = False
+#defaults_pulsed = pulsedhomodyne.GetDefaultSettings()
+#settings = defaults_pulsed
+#settings['tau_max'] = 1000e-6
+#settings['num_points'] = 99
+#settings['save'] = False
 
-
+settings = cwheterodyne.GetDefaultSettings()
+settings['frequency_IF'] = 1e6
+settings['measure_time'] = 1000
+settings['one_shot_time'] = 10e-6
 ## Example usage:
 #mixer.calibrate_mixer_IQ(instruments, defaults_mixer)
 #cwhomodyne.CWHomodyneStabilityTest(instruments, settings)
-pulsedhomodyne.pulsedhomodynestability(instruments, settings)
+#pulsedhomodyne.pulsedhomodynestability(instruments, settings)
+cwheterodyne.CWHeterodyneStabilityTest(instruments, settings)
