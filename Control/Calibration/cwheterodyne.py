@@ -8,6 +8,7 @@ Created on Fri May  1 11:21:50 2020
 import time
 import numpy
 import pylab
+import scipy
 from datetime import datetime
 from mplcursors import cursor as datacursor
 
@@ -129,8 +130,11 @@ def CWHomodyneStabilityTest(instruments, settings):
 
     #Make a synthetic cos/sin signal and digitally mix down to DC
     digitizertime = scipy.arange(0, card.samples,1.)/card.sampleRate
+    freq = numpy.abs(freq_lo-freq_rf)
     CosPC = numpy.cos(2*numpy.pi()*freq*digitizertime)
     SinPC = numpy.sin(2*numpy.pi()*freq*digitizertime)
+    Idata = numpy.zeros(card.segments)
+    Qdata = numpy.zeros(card.segments)
 
     for tind in range(0, len(timeSpacings)):
         spacing = timeSpacings[tind]
