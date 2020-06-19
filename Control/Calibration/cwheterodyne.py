@@ -24,8 +24,8 @@ def GetDefaultSettings():
     settings['lopower']       = 12
     settings['rfpower']       = 0
     settings['one_shot_time'] = 1e-6
-    settings['frequency_lo']  = 8e9
-    settings['frequency_rf']  = 8.04e9
+    settings['frequency']     = 8e9
+    settings['frequency_IF']  = 40e6
     settings['save']          = True
 
     #Mixer settings
@@ -34,7 +34,7 @@ def GetDefaultSettings():
     #Card settings
     settings['triggerDelay']   = 0
     settings['activeChannels'] = [1,2]
-    settings['channelRange ']  = 0.5
+    settings['channelRange']   = 0.5
     settings['sampleRate']     = 2e9
     
     settings['averages'] = 1 
@@ -42,10 +42,9 @@ def GetDefaultSettings():
     
     return settings
 
-def CWHomodyneStabilityTest(instruments, settings):
+def CWHeterodyneStabilityTest(instruments, settings):
 
     ## Instruments used
-    hdawg = instruments['AWG']
     logen = instruments['LO']
     rfgen = instruments['RFgen']
     card  = instruments['Digitizer']
@@ -53,12 +52,12 @@ def CWHomodyneStabilityTest(instruments, settings):
     ## Measurement parameters
     measure_time = settings['measure_time']
     measDur      = settings['one_shot_time']
-    freq_lo      = settings['frequency_lo']
-    freq_rf      = settings['frequency_rf']
+    freq         = settings['frequency']
+    freq_IF      = settings['frequency_IF']
     rfpower      = settings['rfpower']
     lopower      = settings['lopower']             
-    freq_GHz_lo  = freq_lo/1e9
-    freq_GHz_rf  = freq_rf/1e9
+    freq_GHz     = freq/1e9
+    freq_IF_GHz  = freq_IF/1e9
 
     ## Misc settings
     savepath = settings['savepath']
@@ -91,11 +90,11 @@ def CWHomodyneStabilityTest(instruments, settings):
     card.SetParams() #warning. this may round the number of smaples to multiple of 1024
     
     ## SGS settings
-    logen.set_Freq(freq_GHz_lo)
+    logen.set_Freq(freq_GHz)
     logen.set_Amp(lopower)
     logen.mod_Off()
     
-    rfgen.set_Freq(freq_GHz_rf)
+    rfgen.set_Freq(freq_GHz+freq_IF_GHz)
     rfgen.set_Amp(rfpower)
     rfgen.mod_Off()
 
@@ -122,7 +121,7 @@ def CWHomodyneStabilityTest(instruments, settings):
 
     date  = datetime.now()
     stamp = date.strftime('%Y%m%d_%H%M%S')
-    filename = 'CWHeterodyne{}_{}'.format(measure_time, stamp)
+    filename = 'CWHeterodyneIF{}MHz_{}'.format(freq_IF/1e6, stamp)
     fullpath = savepath+'\\'+filename
     figtitle = 'Heterodyne Stability v. Time\n Total Measure Time: {}s\n Path:{}'.format(measure_time, fullpath)
     
@@ -130,11 +129,10 @@ def CWHomodyneStabilityTest(instruments, settings):
 
     #Make a synthetic cos/sin signal and digitally mix down to DC
     digitizertime = scipy.arange(0, card.samples,1.)/card.sampleRate
-    freq = numpy.abs(freq_lo-freq_rf)
-    CosPC = numpy.cos(2*numpy.pi()*freq*digitizertime)
-    SinPC = numpy.sin(2*numpy.pi()*freq*digitizertime)
-    Idata = numpy.zeros(card.segments)
-    Qdata = numpy.zeros(card.segments)
+    CosPC = numpy.cos(2*numpy.pi*freq_IF*digitizertime)
+    SinPC = numpy.sin(2*numpy.pi*freq_IF*digitizertime)
+    Idata = numpy.zeros((card.segments,card.samples))
+    Qdata = numpy.zeros((card.segments,card.samples))
 
     for tind in range(0, len(timeSpacings)):
         spacing = timeSpacings[tind]
@@ -147,8 +145,8 @@ def CWHomodyneStabilityTest(instruments, settings):
         Ch1, Ch2 = card.ReadAllData()
         
         for i in range(card.segments):
-            Idata[i] = CosPC*Ch1[i,:]
-            Qdata[i] = SinPC*Ch1[i,:]
+            Idata[i,:] = CosPC*Ch1[i,:]
+            Qdata[i,:] = SinPC*Ch1[i,:]
 
         Iav = numpy.mean(Idata)
         Qav = numpy.mean(Qdata)
@@ -159,16 +157,16 @@ def CWHomodyneStabilityTest(instruments, settings):
         Amps[tind] = Amp
         Angles[tind] = Angle
         
-        Is[tind] = Iav
-        Qs[tind] = Qav
+        Is[tind] = 2*Iav
+        Qs[tind] = 2*Qav
         
         actualTimes[tind] = currT - t0
     
         # Every plotspacing iterations, we want to update the figure and on the last iteration
-        if numpy.mod(tind, plotSpacing) == 0 or tind==len(timeSpacings-1):
+        if numpy.mod(tind, plotSpacing) == 0 or tind==len(timeSpacings)-1:
             #fig1 = pylab.figure(1)
             pylab.clf()
-            ax = pylab.subplot(1,2,1)
+            ax = pylab.subplot(1,3,1)
             
             #Plot I/Q data on parameteric plot to show IQ vector
             cVec = actualTimes[0:tind]
@@ -196,25 +194,32 @@ def CWHomodyneStabilityTest(instruments, settings):
             ax.set_ylim([-ymax, ymax])
     
             #Plot phase data on standard phase vs t plot
-            ax = pylab.subplot(1,2,2)
+            ax = pylab.subplot(1,3,2)
             pylab.plot(actualTimes[0:tind], Angles[0:tind], color = 'mediumblue', linestyle = '', marker = 'd', markersize = 3)
             pylab.xlabel('Time (s)')
             pylab.ylabel('Homodyne Phase (degrees)')
+            
+            ax = pylab.subplot(1,3,3)
+            pylab.plot(actualTimes[0:tind], Is[0:tind], color = 'mediumblue', linestyle = '', marker = 'd', markersize = 3)
+            pylab.plot(actualTimes[0:tind], Qs[0:tind], color = 'mediumblue', linestyle = '', marker = 'd', markersize = 3)
+            pylab.xlabel('Time (s)')
+            pylab.ylabel('Homodyne Phase (degrees)')
+            
             pylab.suptitle(figtitle)
             
             fig1.canvas.draw()
             fig1.canvas.flush_events()
     
-    #Save png of figure for easy viewing
-    uf.savefig(fig1,filename,savepath, png = True)
-    
-    print("std(angles) = " , numpy.std(Angles))
-
-    rfgen.power_Off()
-    logen.power_Off()    
-
-    dataTosave = ['Is','Qs','Amps','Angles', 'actualTimes','xx','yy','Idata', 'Qdata', 'Iav', 'Qav']
-    figsTosave = [fig1]
-
-    if settings['save']:    
-        uf.SaveFull(savepath, filename, dataTosave, locals(), settings, instruments, figsTosave) 
+#    #Save png of figure for easy viewing
+#    uf.savefig(fig1,filename,savepath, png = True)
+#    
+#    print("std(angles) = " , numpy.std(Angles))
+#
+#    rfgen.power_Off()
+#    logen.power_Off()    
+#
+#    dataTosave = ['Is','Qs','Amps','Angles', 'actualTimes','xx','yy','Idata', 'Qdata', 'Iav', 'Qav']
+#    figsTosave = [fig1]
+#
+#    if settings['save']:    
+#        uf.SaveFull(savepath, filename, dataTosave, locals(), settings, instruments, figsTosave) 
