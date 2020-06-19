@@ -18,10 +18,6 @@ from SGShelper import HDAWG_clock, SGS_coupling
 
 def GetDefaultSettings():
     settings = {}
-    settings['ref']           = 'HDAWG'
-    settings['ref_freq']      = 10
-    settings['SGS_ref_freq']  = 1000
-    settings['coupling']      = 'Ref'
     settings['measure_time']  = 900
     settings['savepath']      = r'C:\Users\Kollarlab\Desktop\CWHomodyneData'
     settings['lopower']       = 12
@@ -29,7 +25,18 @@ def GetDefaultSettings():
     settings['one_shot_time'] = 1e-6
     settings['frequency']     = 8e9
     settings['save']          = True
+
+    #Mixer settings
     settings['mixerIQcal']    = mixer.GetDefaultSettings()
+
+    #Card settings
+    settings['triggerDelay']   = 0
+    settings['activeChannels'] = [1,2]
+    settings['channelRange ']  = 0.5
+    settings['sampleRate']     = 2e9
+    
+    settings['averages'] = 1 
+    settings['segments'] = 1
     
     return settings
 
@@ -51,12 +58,6 @@ def CWHomodyneStabilityTest(instruments, settings):
     rfgen = instruments['RFgen']
     card  = instruments['Digitizer']
 
-    ## General reference configuration
-    reference_signal   = settings['ref'] 
-    reference_freq_MHz = settings['ref_freq'] 
-    SGS_ref_freq       = settings['SGS_ref_freq'] 
-    coupling_type      = settings['coupling'] 
-    
     ## Measurement parameters
     measure_time = settings['measure_time']
     measDur      = settings['one_shot_time']
@@ -79,18 +80,19 @@ def CWHomodyneStabilityTest(instruments, settings):
     ymax = 1.1 * max(abs(yy))
     
     ## Digitizer card settings 
-#    card.triggerSlope = 'Rising'
-#    card.triggerLevel = 0.1
-#    card.clockSource = 'External'
-#    card.verbose = False
+    card.triggerSlope = 'Rising'
+    card.triggerLevel = 0.1
+    card.clockSource = 'External'
+    card.verbose = False
     
-    card.triggerDelay = 0
-    card.activeChannels = [1,2]
-    card.channelRange = 0.5
-    card.sampleRate = 2e9
+    card.triggerDelay   = settings['triggerDelay']
+    card.activeChannels = settings['activeChannels']
+    card.channelRange   = settings['channelRange']
+    card.sampleRate     = settings['sampleRate']
     
-    card.averages = 1 #on-board averages
-    card.segments = 1
+    card.averages = settings['averages']
+    card.segments = settings['segments']
+
     card.samples = numpy.ceil(measDur*card.sampleRate)
     card.SetParams() #warning. this may round the number of smaples to multiple of 1024
     
@@ -118,8 +120,6 @@ def CWHomodyneStabilityTest(instruments, settings):
     Qs = numpy.zeros(len(timeSpacings)) #array to hold Q data
     Amps = numpy.zeros(len(timeSpacings)) #array to hold amplitude data
     Angles = numpy.zeros(len(timeSpacings)) #array to hold phase data
-#    Idata = numpy.zeros(card.samples)
-#    Qdata = numpy.zeros(card.samples)
     
     plotSpacing = 30
     figure_size = (14,8)
@@ -128,9 +128,9 @@ def CWHomodyneStabilityTest(instruments, settings):
 
     date  = datetime.now()
     stamp = date.strftime('%Y%m%d_%H%M%S')
-    filename = 'CWHomodyne{}{}{}{}_{}'.format(reference_signal, reference_freq_MHz, coupling_type,SGS_ref_freq, stamp)
+    filename = 'CWHomodyne{}_{}'.format(measure_time, stamp)
     fullpath = savepath+'\\'+filename
-    figtitle = 'Homodyne Stability v. Time\n Reference Signal: {}, Ref frequency: {}, Coupling:{}, SGS ref freq:{}\n Path:{}'.format(reference_signal,reference_freq_MHz,coupling_type, SGS_ref_freq, fullpath)
+    figtitle = 'Homodyne Stability v. Time\n Total Measure Time: {}s\n Path:{}'.format(measure_time, fullpath)
     
     t0 = time.time()
     for tind in range(0, len(timeSpacings)):
@@ -198,51 +198,7 @@ def CWHomodyneStabilityTest(instruments, settings):
             fig1.canvas.draw()
             fig1.canvas.flush_events()
     
-    ## Don't need this any more in theory:
-    '''
-    fig1 = pylab.figure(1, figsize=figure_size)
-    pylab.clf()
-    ax = pylab.subplot(1,2,1)
-
-    #Plot I/Q data on parametric plot with mixer ellipse trace underneath
-    cVec = actualTimes
-    cmap = 'cividis'
-    pylab.scatter(Is, Qs, c = cVec, cmap = cmap , marker = 'o', s = 75,
-                  vmin = 0, vmax = sum(timeSpacings), edgecolors = 'midnightblue', zorder = 2)
-    
-    
-    pylab.plot(xx, yy, color = 'firebrick', zorder = 0)
-    cbar = pylab.colorbar()
-    cbar.set_label('elapsed time (s)', rotation=270)
-    
-    # Move left y-axis and bottim x-axis to centre, passing through (0,0)
-    ax.spines['left'].set_position('center')
-    ax.spines['bottom'].set_position('center')
-    # Eliminate upper and right axes
-    ax.spines['right'].set_color('none')
-    ax.spines['top'].set_color('none')
-    # Show ticks in the left and lower axes only
-    ax.xaxis.set_ticks_position('bottom')
-    ax.yaxis.set_ticks_position('left')
-    ax.set_aspect('equal')
-    
-    ax.set_xlim([-xmax, xmax])
-    ax.set_ylim([-ymax, ymax])
-    
-    #Phase vs time plot 
-    ax = pylab.subplot(1,2,2)
-    pylab.plot(actualTimes, Angles, color = 'mediumblue', linestyle = '', marker = 'd', markersize = 3)
-    pylab.xlabel('Time (s)')
-    pylab.ylabel('Homodyne Phase (degrees)')
-    
-    pylab.suptitle(figtitle)
-    
-    fig1.canvas.draw()
-    fig1.canvas.flush_events()
-    '''
-
-    #Save figure in both .pkl and .png format for easy viewing 
-    #uf.savefig(fig1,filename,savepath)
+    #Save png of figure for easy viewing
     uf.savefig(fig1,filename,savepath, png = True)
     
     print("std(angles) = " , numpy.std(Angles))
