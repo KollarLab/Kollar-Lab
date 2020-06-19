@@ -11,27 +11,32 @@ import userfuncs as uf
 
 def GetDefaultSettings():
     settings = {}
-    settings['ref']           = 'HDAWG'
-    settings['ref_freq']      = 10
-    settings['SGS_ref_freq']  = 1000
-    settings['coupling']      = 'Ref'
-    settings['savepath']      = r'C:\Users\Kollarlab\Desktop'
     settings['lopower']       = 12
     settings['rfpower']       = 0
     settings['one_shot_time'] = 1e-6
     settings['carrier_freq']  = 8e9
+    settings['trigger_rate']  = 500
+    #Pulse settings
     settings['pulse_width']   = 200e-9
     settings['pulse_amp']     = 0.5
     settings['ramp_frac']     = 0.1
     settings['IQangle1']      = 0
     settings['IQangle2']      = 0
+    #Tau range settings
     settings['tau_min']       = 1e-6
     settings['tau_max']       = 1000e-6
     settings['num_points']    = 25
     settings['spacing']       = 'Linear'
-    settings['segments']      = 100
-    settings['reads']         = 2  #reads of the card
-    settings['averages']      = 1
+    #Card settings
+    settings['segments']         = 100
+    settings['reads']            = 2
+    settings['averages']         = 1
+    settings['activeChannels']   = [1,2]
+    settings['sampleRate']       = 2e9/8
+    settings['trigger_buffer']   = 0e-6
+    settings['digitizer_buffer'] = 10e-6
+    #Misc settings
+    settings['savepath']      = r'C:\Users\Kollarlab\Desktop'
     settings['save']          = True
 
     return settings
@@ -45,39 +50,27 @@ def pulsedhomodynestability(instruments, settings):
     card  = instruments['Digitizer']
 
     ## General reference configuration
-    reference_signal   = settings['ref'] 
-    reference_freq_MHz = settings['ref_freq'] 
-    SGS_ref_freq       = settings['SGS_ref_freq'] 
-    coupling_type      = settings['coupling'] 
     carrier_freq       = settings['carrier_freq']
     rfpower            = settings['rfpower']
     lopower            = settings['lopower']             
 
     ## Misc settings
     savepath = settings['savepath']
+    periodSteps = 30  #how many periods to compare
 
     ##Experimental parameters
-
+    #Pulse settings
     pulse_width  = settings['pulse_width']
     pulse_amp    = settings['pulse_amp']
     ramp_frac    = settings['ramp_frac']
     IQangle1     = settings['IQangle1']
     IQangle2     = settings['IQangle2']
+    #Tau range settings
     tau_min      = settings['tau_min']
     tau_max      = settings['tau_max']
     num_points   = settings['num_points']
     spacing      = settings['spacing']
     P2_time      = tau_max + 3e-6
-
-    ## Card overall settings
-    digitizer_buffer      = 10e-6
-    digitizer_trig_buffer = 0e-6
-
-    segments = settings['segments']
-    reads    = settings['reads']
-    averages = settings['averages']
-
-    periodSteps = 30  #how many periods to compare
 
     ## Create array of taus and check validity of user provided ranges
     T_min = pulse_width*(1+ramp_frac)
@@ -94,15 +87,14 @@ def pulsedhomodynestability(instruments, settings):
     if spacing == 'Log':
         taus = numpy.logspace(tau_min, tau_max, num_points)
 
-    ##HDAWG Configuration
-    # AWG/ channel configuration
+    ## HDAWG settings
     hdawg.AWGs[0].samplerate = '2.4GHz'
     hdawg.channelgrouping = '1x4'
     hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
 
-    ## Generators
+    ## Generator settings
     freq_GHz = carrier_freq/1e9
     logen.set_Freq(freq_GHz)
     logen.set_Amp(lopower)
@@ -115,18 +107,19 @@ def pulsedhomodynestability(instruments, settings):
     logen.power_On() 
     rfgen.power_On()
 
-    time.sleep(0.05)
-
-    #Data acquisition parameters
+    ## Digitizer settings
+    card.clockSource  = 'External'
     card.triggerSlope = 'Rising'
     card.triggerLevel = 0.1
-    card.averages = averages #on-board averages
-    card.segments = segments
-    card.triggerDelay = digitizer_trig_buffer
-    card.activeChannels = [1,2]
-    card.verbose = False
-    card.sampleRate = 2e9/8
-    card.clockSource = 'External'
+    card.verbose      = False
+
+    reads               = settings['reads']
+    digitizer_buffer    = settings['digitizer_buffer']
+    card.averages       = settings['averages']
+    card.segments       = settings['segments']
+    card.samplerate     = settings['samplerate']
+    card.activeChannels = settings['activeChannels']
+    card.triggerDelay   = settings['trigger_buffer']
 
     ## Read in the sequencer program we want to use and configure it
     progFile = open("HDAWG_sequencer_codes/PulsePair.cpp",'r')
@@ -140,24 +133,22 @@ def pulsedhomodynestability(instruments, settings):
     loadprog = loadprog.replace('_IQangle1_', str(IQangle1))
     loadprog = loadprog.replace('_IQangle2_', str(IQangle2))
 
-
     #set up some houskeeping for the timing
     digitizer_max_time = P2_time + pulse_width*(1+ramp_frac) + digitizer_buffer
     digitizer_min_time = 0
-    digitizer_time = digitizer_max_time - digitizer_min_time
+    digitizer_time     = digitizer_max_time - digitizer_min_time
 
     card.samples = numpy.ceil(digitizer_time*card.sampleRate)
     card.SetParams() #warning. this may round the number of smaples to multiple of 1024
 
     empiricalFudgeFactor = 0.137e-6   #this is a very exact number to be off by!!!!!!
-    #digitizerTimeOffset = tau_max + overflowBuffer + pulselength + empiricalFudgeFactor
-    digitizerTimeOffset = P2_time + empiricalFudgeFactor
+    digitizerTimeOffset  = P2_time + empiricalFudgeFactor
     cardTicks = scipy.arange(0, card.samples, 1.) # time in sample clocks from the digitizers point of view
     cardXaxis = cardTicks /card.sampleRate - digitizerTimeOffset #time in seconds from the digitizers point of view
 
-
-    total_averages = card.averages*card.segments*reads
-
+    ################################################
+    #Array Initialization
+    ################################################
 
     raw_read1 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single readS
     raw_read2 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single read
@@ -173,17 +164,11 @@ def pulsedhomodynestability(instruments, settings):
 
     readTimes = numpy.zeros(len(taus))
 
+    ################################################
+    #Data Collection
+    ################################################
 
-    #pylab.figure(1)
-    #pylab.clf()
-    ##ax1 = pylab.subplot(1,1,1)
-    ###ax2 = pylab.subplot(1,2,2)
-    #
-    #ax1 = pylab.subplot(2,1,1)
-    #ax2 = pylab.subplot(2,1,2)
 
-    #waterfall = 0.1
-    #xshift = 25
     t0 = time.time()
     for tind in range(0, len(taus)):
         tau = taus[tind]
@@ -245,26 +230,11 @@ def pulsedhomodynestability(instruments, settings):
                 phaseMat1[tind,rind, sind] = phase1
                 phaseMat2[tind,rind, sind] = phase2
 
-    #    #done reading. Time to plot
-    #    pylab.sca(ax1)
-    #    pylab.plot(cardXaxis*1e6, dataVec1 + waterfall*tind)
-    ##    pylab.plot(cardXaxis*1e6, dataVec2)
-    #    pylab.xlabel('Time (us)')
-    #    pylab.ylabel('Voltage')
-    #    
-    #    
-    #    pylab.sca(ax2)
-    #    pylab.plot(cardXaxis*1e6, dataVec1)
-    #    pylab.plot(cardXaxis*1e6, dataVec2)
-    #    pylab.xlabel('Time (us)')
-    #    pylab.ylabel('Voltage')
-    #    
-    #    pylab.show()
+    ################################################
+    #Data Processing
+    ################################################
 
-    #process the data
-    ##############
-
-    #first versus tau
+    #Look at phase difference vs tau
     mean_v_tau = numpy.zeros(len(taus))
     std_v_tau = numpy.zeros(len(taus))
     for tind in range(0, len(taus)):
@@ -272,9 +242,7 @@ def pulsedhomodynestability(instruments, settings):
         std_v_tau[tind] = numpy.std(phaseDiff)   
         mean_v_tau[tind] = numpy.mean(phaseDiff)
 
-    #next versus rep rate multiples
-
-
+    #Look at phase difference across repetitions (triggers)
     phaseDiff_v_periods = numpy.zeros(( len(taus), reads, periodSteps, card.segments-periodSteps))
     for tind in range(0, len(taus)):
         #step thtrough the tau values
@@ -282,22 +250,18 @@ def pulsedhomodynestability(instruments, settings):
             #step through the different card reads
             for diff in range(0,periodSteps):
                 phaseDiff = phaseMat2[tind,rind, 0:-periodSteps] - phaseMat2[tind,rind, diff:(-periodSteps+diff)]
-
-    #            noise = numpy.std(phaseDiff)
                 phaseDiff_v_periods[tind, rind, diff,:] = phaseDiff
 
-    trigPeriod = 1/500. ####!!!!!! eventually this should be determined adaptively, not hard coded
+    trigPeriod = 1./settings['trigger_rate']
     period_ints = scipy.arange(0, periodSteps,1.)*trigPeriod
     std_v_period = numpy.zeros(periodSteps)
     for diff in range(0,periodSteps):
         std_v_period[diff] = numpy.std(phaseDiff_v_periods[:,:,diff,:])
 
-
-
-
     angle_std_vs_time_fig = pylab.figure(2)
     pylab.clf()
 
+    #Phase scatter vs tau
     ax = pylab.subplot(2,3,1)
     for tind in range(0, len(taus)):
         ts = taus[tind]*numpy.ones(card.segments*reads)
@@ -307,7 +271,7 @@ def pulsedhomodynestability(instruments, settings):
     pylab.ylabel('phase difference between pulses (degrees)')
     pylab.title('individual phase separations \n single read')
 
-
+    #Phase scatter vs reps 
     ax = pylab.subplot(2,3,2)
     for tind in range(0, len(taus)):
         ts = taus[tind]*numpy.ones(card.segments*reads)
@@ -322,7 +286,7 @@ def pulsedhomodynestability(instruments, settings):
     pylab.ylabel('phase difference between pulses (degrees)')
     pylab.title('individual separations')
 
-
+    #Pulse phases vs absolute time
     ax = pylab.subplot(2,3,3)
     pylab.plot(readTimes, phaseMat1[:,1,1], 'r', linestyle = '', marker = '.', label = 'pulse 1')
     pylab.plot(readTimes, phaseMat2[:,1,1], 'b', linestyle = '', marker = '.', label = 'pulse 2')
@@ -331,14 +295,14 @@ def pulsedhomodynestability(instruments, settings):
     pylab.title('absolute phases of first segments')
     ax.legend(loc = 'upper right')
 
-
+    #Phase stds vs tau
     ax = pylab.subplot(2,3,4)
     pylab.scatter(taus*1e6,std_v_tau, c = 'deepskyblue',s = 15)
     pylab.xlabel('time (us)')
     pylab.ylabel('std of pulse diffs (degrees) \n single read')
     pylab.title('phase separations uncertainties')
 
-
+    #Phase stds vs rep rate
     ax = pylab.subplot(2,3,5)
     pylab.scatter(taus*1e3,std_v_tau, c = 'deepskyblue',s = 7)
     pylab.scatter(period_ints[1:]*1e3,std_v_period[1:], c = 'mediumblue',s = 15)
@@ -346,24 +310,12 @@ def pulsedhomodynestability(instruments, settings):
     pylab.ylabel('std of pulse diffs (degrees)')
     pylab.title('phase separations uncertainties')
 
-    
-    #ax = pylab.subplot(2,3,6)
-    ##stdVec = numpy.zeros(len(taus))
-    ##for tind in range(0, len(taus)):
-    ##    phaseDiff = 180*(phaseMat2[tind,:,:] - phaseMat1[tind,:,:])/numpy.pi
-    ##    stdVec[tind] = numpy.std(phaseDiff)
-    #pylab.scatter(period_ints[1:]*1e3,std_v_period[1:], c = 'b',s = 15)
-    #pylab.xlabel('time (ms)')
-    #pylab.ylabel('std of pulse diffs (degrees)')
-    #pylab.title('phase separations uncertainties')
-
-
     pylab.tight_layout()
     pylab.show()
 
-
-
-
+    ##Histograms of phase differences (vs tau and longer time scales)
+    histograms_phase_separation = pylab.figure(3)
+    pylab.clf()
 
     #long time phase separations 
     temp = phaseDiff_v_periods[:, :, 6,:]
@@ -375,7 +327,6 @@ def pulsedhomodynestability(instruments, settings):
     temp3 = phaseMat2[7,:,:] - phaseMat1[7,:,:]
     temp4 = temp3.reshape(temp3.shape[0]*temp3.shape[1])
     dev3 = numpy.std(temp4)
-
 
     longHist, longBins = numpy.histogram(temp2, bins = 50, range = (-10,10))
     shortHist, shortBins = numpy.histogram(temp4, bins = 50, range = (-10,10))
@@ -389,9 +340,6 @@ def pulsedhomodynestability(instruments, settings):
     longHist = longHist/(len(taus)*reads*card.segments)
     shortHist = shortHist/(reads*card.segments)
 
-    histograms_phase_separation = pylab.figure(3)
-    pylab.clf()
-
     ax = pylab.subplot(1,1,1)
     pylab.bar(plotBins_long, longHist, binWidth_long, color = 'k', facecolor = 'mediumblue', alpha = 0.8, label = 'rep rate')
     pylab.bar(plotBins_short, shortHist, binWidth_short, color = 'k', facecolor = 'deepskyblue', alpha = 0.5, label = 'tau')
@@ -400,23 +348,9 @@ def pulsedhomodynestability(instruments, settings):
     pylab.title('raw histograms')
     ax.legend(loc = 'upper left')
 
-
-    #ax = pylab.subplot(1,2,2)
-    #pylab.bar(plotBins_long, longHist*25, binWidth_long, color = 'k', facecolor = 'mediumblue', alpha = 0.8, label = 'rep rate')
-    #pylab.bar(plotBins_short, shortHist, binWidth_short, color = 'k', facecolor = 'deepskyblue', alpha = 0.5, label = 'tau')
-    #pylab.xlabel('phase diff (degrees)')
-    #pylab.ylabel('scaled counts')
-    #pylab.title('amplitudes scaled')
-    #ax.set_ylim([0, numpy.max(shortHist)*1.2])
-    #ax.legend(loc = 'upper left')
-
     pylab.show()
 
-
-
-
-
-
+    #Raw trace for debugging
     raw_trace_figure = pylab.figure(4)
     pylab.clf()
     ax = pylab.subplot(1,1,1)
@@ -452,71 +386,3 @@ def pulsedhomodynestability(instruments, settings):
     figsTosave = [angle_std_vs_time_fig, histograms_phase_separation, raw_trace_figure]
     if settings['save']:
         uf.SaveFull(savepath, filename, dataTosave, locals(), settings, instruments, figsTosave)
-
-    ##plot testing
-    #from mpldatacursor import datacursor
-    #
-    #pylab.figure(5)
-    #pylab.clf()
-    #ax = pylab.subplot(1,1,1)
-    #pylab.plot(cardXaxis*1e6,dataVec1 )
-    #pylab.plot(cardXaxis*1e6,dataVec2 )
-    #
-    #t0 = cardXaxis[pulse2_range[0]]
-    #t1 = cardXaxis[pulse2_range[1]]
-    #pylab.plot([t0*1e6,t0*1e6], [-0.05,0.05])
-    #pylab.plot([t1*1e6,t1*1e6], [-0.06,0.06])
-    #
-    #t0 = cardXaxis[pulse1_range[0]]
-    #t1 = cardXaxis[pulse1_range[1]]
-    #pylab.plot([t0*1e6,t0*1e6], [-0.05,0.05])
-    #pylab.plot([t1*1e6,t1*1e6], [-0.06,0.06])
-    #
-    #ax.set_xlim([-0.5,0.5])
-    #
-    #pylab.xlabel('time (us)')
-    #pylab.ylabel('voltage')
-    #pylab.title('Single raw trace')
-    #
-    #datacursor()
-    #pylab.show()
-
-    #pylab.hist(temp2, bins = 50, range = (-10,10), color = 'b', alpha = 0.5)
-    #pylab.hist(temp4, bins = 50, range = (-10,10), color = 'r', alpha = 0.5)
-
-
-
-    #pylab.figure(2)
-    #pylab.clf()
-    #
-    #ax = pylab.subplot(1,3,1)
-    #pylab.plot(readTimes, phaseMat1[:,1,1]*180/numpy.pi, 'r', linestyle = '', marker = '.', label = 'pulse 1')
-    #pylab.plot(readTimes, phaseMat2[:,1,1]*180/numpy.pi, 'b', linestyle = '', marker = '.', label = 'pulse 2')
-    #pylab.xlabel('~time from measurement start (S)')
-    #pylab.ylabel('phase (degrees)')
-    #pylab.title('absolute phases')
-    #ax.legend(loc = 'upper right')
-    #
-    #
-    #ax = pylab.subplot(1,3,2)
-    #for tind in range(0, len(taus)):
-    #    ts = taus[tind]*numpy.ones(card.segments*reads)
-    #    phaseDiff = 180*(phaseMat2[tind,:,:] - phaseMat1[tind,:,:])/numpy.pi
-    #    pylab.scatter(ts*1e6, phaseDiff, c = 'b', s = 15)
-    #pylab.xlabel('time (us)')
-    #pylab.ylabel('phase difference between pulses (degrees)')
-    #pylab.title('individual phase separations')
-    #    
-    #ax = pylab.subplot(1,3,3)
-    ##stdVec = numpy.zeros(len(taus))
-    ##for tind in range(0, len(taus)):
-    ##    phaseDiff = 180*(phaseMat2[tind,:,:] - phaseMat1[tind,:,:])/numpy.pi
-    ##    stdVec[tind] = numpy.std(phaseDiff)
-    #pylab.scatter(taus*1e6,std_v_tau, c = 'b',s = 15)
-    #pylab.xlabel('time (us)')
-    #pylab.ylabel('std of pulse diffs (degrees)')
-    #pylab.title('phase separations uncertainties')
-    #pylab.tight_layout()
-    #pylab.show()
-    #    
-    
