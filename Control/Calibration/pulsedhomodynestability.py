@@ -117,7 +117,7 @@ def PulsedHomodyneStability(instruments, settings):
     digitizer_buffer    = settings['digitizer_buffer']
     card.averages       = settings['averages']
     card.segments       = settings['segments']
-    card.samplerate     = settings['samplerate']
+    card.sampleRate     = settings['sampleRate']
     card.activeChannels = settings['activeChannels']
     card.triggerDelay   = settings['trigger_buffer']
 
