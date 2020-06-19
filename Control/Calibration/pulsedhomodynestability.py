@@ -41,7 +41,7 @@ def GetDefaultSettings():
 
     return settings
 
-def pulsedhomodynestability(instruments, settings):
+def PulsedHomodyneStability(instruments, settings):
 
     ## Instruments used
     hdawg = instruments['AWG']
