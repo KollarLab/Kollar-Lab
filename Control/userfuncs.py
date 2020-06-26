@@ -1,4 +1,9 @@
 from functools import wraps
+from scipy.signal import butter,filtfilt
+import numpy as np
+from numpy.linalg import eig, inv
+import pickle
+import os
 
 def freeze(cls):
     cls.__frozen = False
@@ -22,16 +27,9 @@ def freeze(cls):
 
     return cls
 
-
-
-
-
-
 ###############
 #shamelessly stolen and modified elipse fitting functions
 #################
-import numpy as np
-from numpy.linalg import eig, inv
     
 def _fitEllipse(x,y):
     '''This is the raw version that we stole from online, but it has parameter wierdness
@@ -151,15 +149,21 @@ def fitEllipse(Is, Qs, verbose = False):
     
     return axes, center, phi        
         
-###############        
-        
-        
-        
+###############
+    
+##########################
+#Filters
+##########################
+def butter_lowpass_filter(data, cutoff, fs, order):
+    normal_cutoff = cutoff / (fs/2)
+    # Get the filter coefficients 
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    y = filtfilt(b, a, data)
+    return y
+      
 #############
 #figures
 ############       
-import pickle
-import os
 
 def savefig(fig, name, path = '', png = False):
     '''
@@ -201,7 +205,13 @@ def makedict(vars, localdict):
     return {var:localdict[var] for var in vars}
 
 def SaveFull(path, name, variables, localdict, expsettings={}, instruments={}, figures=[]):
-    pathStr               = os.path.join(path,name)
+    
+    if name[-4:] == '.pkl':
+        saveName = name
+    else:
+        saveName = name + '.pkl'
+        
+    pathStr               = os.path.join(path,saveName)
 
     toSave                = {}
     toSave['Data']        = makedict(variables, localdict)
