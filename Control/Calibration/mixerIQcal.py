@@ -53,7 +53,7 @@ def calibrate_mixer_IQ(instruments, settings):
     
     card.triggerDelay = 0
     card.activeChannels = [1,2]
-    card.channelRange = 0.5
+#    card.channelRange = 0.5
     card.sampleRate = 2e9
     
     card.averages = 1 #on-board averages
