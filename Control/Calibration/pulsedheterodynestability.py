@@ -37,7 +37,7 @@ def GetDefaultSettings():
     settings['trigger_buffer']   = 0e-6
     settings['digitizer_buffer'] = 10e-6
     #Misc settings
-    settings['savepath']      = r'C:\Users\Kollarlab\Desktop'
+    settings['savepath']      = r'C:\Users\Kollarlab\Desktop\PulsedHeterodyneData'
     settings['save']          = True
 
     return settings
@@ -58,7 +58,7 @@ def PulsedHeterodyneStability(instruments, settings):
 
     ## Misc settings
     savepath = settings['savepath']
-    periodSteps = 30  #how many periods to compare
+    periodSteps = min(30, settings['segments']) - 1 
 
     ##Experimental parameters
     #Pulse settings
@@ -155,7 +155,7 @@ def PulsedHeterodyneStability(instruments, settings):
 
     raw_read1 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single readS
     raw_read2 = numpy.zeros((card.segments, card.samples)) #store all the raw data from a single read
-
+    
     phaseMat1 = numpy.zeros((len(taus), reads, card.segments))
     phaseMat2 = numpy.zeros((len(taus), reads, card.segments))
 
@@ -164,6 +164,7 @@ def PulsedHeterodyneStability(instruments, settings):
     IMat2 = numpy.zeros((len(taus), reads, card.segments))
     QMat2 = numpy.zeros((len(taus), reads, card.segments))
 
+    raw_traces = numpy.zeros((len(taus), card.samples))
 
     readTimes = numpy.zeros(len(taus))
 
@@ -179,10 +180,11 @@ def PulsedHeterodyneStability(instruments, settings):
     Qdata = numpy.zeros((card.segments,card.samples))
     
     t0 = time.time()
+    
     for tind in range(0, len(taus)):
         tau = taus[tind]
-        print('Tau: {}'.format(tau))
         finalprog = loadprog
+        print('Tau: {}'.format(tau))
         finalprog = finalprog.replace('_tau_',str(tau))
         hdawg.AWGs[0].load_program(finalprog)
         hdawg.AWGs[0].run_loop()
@@ -211,6 +213,7 @@ def PulsedHeterodyneStability(instruments, settings):
 
             dataVec1 = data1[0,:] #first segments is representative data vector
             dataVec2 = data2[0,:]
+            raw_traces[tind] = dataVec1
 
             for sind in range(0, card.segments):
 
@@ -267,18 +270,18 @@ def PulsedHeterodyneStability(instruments, settings):
     for diff in range(0,periodSteps):
         std_v_period[diff] = numpy.std(phaseDiff_v_periods[:,:,diff,:])
 
-    angle_std_vs_time_fig = pylab.figure(2)
+    angle_std_vs_time_fig = pylab.figure(2, figsize = (14,8))
     pylab.clf()
 
     #Phase scatter vs tau
-    ax = pylab.subplot(2,3,1)
+    ax = pylab.subplot(2,5,1)
     for tind in range(0, len(taus)):
         ts = taus[tind]*numpy.ones(card.segments*reads)
         phaseDiff = phaseMat2[tind,:,:] - phaseMat1[tind,:,:]
         pylab.scatter(ts*1e6, phaseDiff, c = 'dodgerblue', s = 15)
     pylab.xlabel('time (us)')
     pylab.ylabel('phase difference between pulses (degrees)')
-    pylab.title('individual phase separations \n single read')
+    pylab.title('individual phase separations \n single read \n IF: {} MHz, Pulse Width: {} ns'.format(IF_freq/1e6, pulse_width/1e-9))
 
     #Phase scatter vs reps 
     ax = pylab.subplot(2,3,2)
@@ -363,8 +366,9 @@ def PulsedHeterodyneStability(instruments, settings):
     raw_trace_figure = pylab.figure(4)
     pylab.clf()
     ax = pylab.subplot(1,1,1)
-    pylab.plot(cardXaxis*1e6,dataVec1 )
-    pylab.plot(cardXaxis*1e6,dataVec2 )
+#    for trace in raw_traces:
+#        pylab.plot(cardXaxis*1e6,trace)
+    pylab.plot(cardXaxis*1e6, dataVec1)
 
     t0 = cardXaxis[pulse2_range[0]]
     t1 = cardXaxis[pulse2_range[1]]
@@ -376,6 +380,8 @@ def PulsedHeterodyneStability(instruments, settings):
     pylab.plot([t0*1e6,t0*1e6], [-0.05,0.05])
     pylab.plot([t1*1e6,t1*1e6], [-0.06,0.06])
 
+#    pylab.plot(cardXaxis*1e6, CosPC*max(dataVec1))
+#    pylab.plot(cardXaxis*1e6, SinPC*max(dataVec1))
     pylab.xlabel('time (us)')
     pylab.ylabel('voltage')
     pylab.title('Single raw trace')
@@ -393,5 +399,11 @@ def PulsedHeterodyneStability(instruments, settings):
     filename = 'PulsedHomodyne{}'.format(stamp)
 
     figsTosave = [angle_std_vs_time_fig, histograms_phase_separation, raw_trace_figure]
+    date  = datetime.now()
+    stamp = date.strftime('%Y%m%d_%H%M%S')
+    filename = 'PulsedHeterodyneIF{}MHz_{}'.format(IF_freq/1e6, stamp)
+    fullpath = savepath+'\\'+filename
+    uf.savefig(angle_std_vs_time_fig, filename, savepath, png = True)
+
     if settings['save']:
         uf.SaveFull(savepath, filename, dataTosave, locals(), settings, instruments, figsTosave)
