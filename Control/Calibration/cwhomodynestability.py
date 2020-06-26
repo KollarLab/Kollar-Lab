@@ -32,7 +32,7 @@ def GetDefaultSettings():
     #Card settings
     settings['triggerDelay']   = 0
     settings['activeChannels'] = [1,2]
-    settings['channelRange ']  = 0.5
+    settings['channelRange']   = 0.5
     settings['sampleRate']     = 2e9
     
     settings['averages'] = 1 
@@ -95,6 +95,10 @@ def CWHomodyneStabilityTest(instruments, settings):
 
     card.samples = numpy.ceil(measDur*card.sampleRate)
     card.SetParams() #warning. this may round the number of smaples to multiple of 1024
+    
+    #card cannot self calibrate with generators on CW at large amplitude
+    card.SelfCalibrate()
+    #should caibrate for the new length here, before the generators turn on
     
     ## SGS settings
     logen.set_Freq(freq_GHz)
