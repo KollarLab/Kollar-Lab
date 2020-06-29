@@ -13,6 +13,7 @@ def GetDefaultSettings():
     return settings
 
 def calibrate_SGS_IQ(instruments, settings):
+
     logen = instruments['LO']
     rfgen = instruments['RFgen']
     card  = instruments['Digitizer'] 
@@ -29,6 +30,11 @@ def calibrate_SGS_IQ(instruments, settings):
     freq_GHz = freq/1e9
     phases = numpy.linspace(0,2*numpy.pi,numPoints)
 
+    ## HDAWG settings
+    hdawg.AWGs[0].samplerate = '2.4GHz'
+    hdawg.channelgrouping = '1x4'
+    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
+    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     progFile = open("HDAWG_sequencer_codes/IQcontrol.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
@@ -97,7 +103,7 @@ def calibrate_SGS_IQ(instruments, settings):
     axes, center, phi = uf.fitEllipse(Is,Qs, verbose = True)
     
     if showFig:
-        xx, yy = uf.make_elipse(axes,  center, phi, 150)
+        xx, yy = uf.make_elipse(axes, center, phi, 150)
         
         fig = pylab.figure(10)
         pylab.clf()
