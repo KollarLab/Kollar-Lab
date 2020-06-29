@@ -49,7 +49,7 @@ def calibrate_SGS_IQ(instruments, settings):
     
     card.triggerDelay = 0
     card.activeChannels = [1,2]
-    card.channelRange = 0.5
+    card.channelRange = 2.5
     card.sampleRate = 2e9
     
     card.averages = 1 #on-board averages
@@ -65,7 +65,7 @@ def calibrate_SGS_IQ(instruments, settings):
     
     rfgen.set_Freq(freq_GHz)
     rfgen.set_Amp(rfpower)
-    rfgen.mod_Off()
+    rfgen.mod_On()
     rfgen.power_On()
 
     ## Wait for settings to percolate
@@ -78,12 +78,13 @@ def calibrate_SGS_IQ(instruments, settings):
     Angles = numpy.zeros(numPoints)
     Is = numpy.zeros(numPoints)
     Qs = numpy.zeros(numPoints)
+    traces = numpy.zeros((numPoints, card.samples))
     
     for tind in range(0, numPoints):
-        finalprog = loadprog.replace('_phase_', str(phases[tind]))
+        finalprog = loadprog.replace('_angle_', str(phases[tind]))
         hdawg.AWGs[0].load_program(finalprog)
         hdawg.AWGs[0].run_loop()
-        time.sleep(0.1)
+        time.sleep(0.05)
         
         card.ArmAndWait()
         Idata, Qdata = card.ReadAllData()
@@ -99,7 +100,8 @@ def calibrate_SGS_IQ(instruments, settings):
         
         Is[tind] = Iav
         Qs[tind] = Qav
-        
+        traces[tind] = Idata
+    
     axes, center, phi = uf.fitEllipse(Is,Qs, verbose = True)
     
     if showFig:
@@ -126,9 +128,11 @@ def calibrate_SGS_IQ(instruments, settings):
         
         
         ax.set_aspect('equal')
-        titleStr = 'Mixer performance '
+        titleStr = 'SGS IQ performance'
         pylab.title(titleStr)
     #    pylab.show(block = False)
         
         fig.canvas.draw()
         fig.canvas.flush_events()
+        
+    return axes, center, phi
