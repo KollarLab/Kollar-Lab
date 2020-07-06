@@ -5,6 +5,8 @@ from numpy.linalg import eig, inv
 import pickle
 import os
 
+from skimage.measure import EllipseModel
+
 def freeze(cls):
     cls.__frozen = False
 
@@ -139,6 +141,7 @@ def fitEllipse(Is, Qs, verbose = False):
 #    yOffset = center[1]
     stigAngle =  180*phi/np.pi #degrees
     stig = (axes[1]-axes[0])/np.mean(axes)
+    ecc = np.sqrt(abs(axes[0]**2-axes[1]**2))/max(axes)
     
     if verbose:
         print("    ")
@@ -146,9 +149,28 @@ def fitEllipse(Is, Qs, verbose = False):
         print("angle of rotation = " + str(np.round( stigAngle, 3)) + ' degrees')
         print("axes = ", np.round(axes,3))
         print("stig = ", np.round(stig,3))
+        print("ecc = ", np.round(ecc,3))
     
     return axes, center, phi        
-        
+
+def fit_ell_martin(Is, Qs, verbose = False):
+    
+    a_points = np.array(list(zip(Is,Qs)))   
+    ell = EllipseModel()
+    ell.estimate(a_points)
+    
+    xc, yc, a, b, theta = ell.params
+    axes = [a,b]
+    center = [xc, yc]
+    phi = theta*180/np.pi
+    ecc = np.sqrt(abs(axes[0]**2-axes[1]**2))/max(axes)
+    if verbose:
+        print("center = ",  np.round(center,3))
+        print("angle of rotation = ",  np.round(phi,3))
+        print("axes = ", np.round(axes,3))
+        print("ecc = ", np.round(ecc,3))
+    return axes, center, phi, ecc
+
 ###############
     
 ##########################
