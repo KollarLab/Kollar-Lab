@@ -102,7 +102,7 @@ def calibrate_mixer_IQ(instruments, settings):
         Is[tind] = Iav
         Qs[tind] = Qav
         
-    axes, center, phi = uf.fitEllipse(Is,Qs, verbose = True)
+    axes, center, phi, ecc = uf.fit_ell_martin(Is,Qs, verbose = False)
     
     if showFig:
         xx, yy = uf.make_elipse(axes,  center, phi, 150)
@@ -136,4 +136,4 @@ def calibrate_mixer_IQ(instruments, settings):
         fig.canvas.flush_events()
     
     
-    return axes, center, phi
+    return Is, Qs, ecc
