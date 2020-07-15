@@ -365,9 +365,9 @@ class HDAWGawg:
             
         #if awgModule.getInt('compiler/status') == 0:
             #print("Compilation successful with no warnings, will upload the program to the instrument.")
-        if awgModule.getInt('compiler/status') == 2:
-            print("Compilation successful with warnings, will upload the program to the instrument.")
-            print("Compiler warning: ", awgModule.getString('compiler/statusstring'))
+#        if awgModule.getInt('compiler/status') == 2:
+#            print("Compilation successful with warnings, will upload the program to the instrument.")
+#            print("Compiler warning: ", awgModule.getString('compiler/statusstring'))
 
         # Wait for the waveform upload to finish
         time.sleep(0.2)
