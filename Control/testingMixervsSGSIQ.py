@@ -12,11 +12,12 @@ import pylab
 import numpy
 from datetime import datetime
 
-instruments = {}
-instruments['AWG'] = hdawg
+instruments              = {}
+instruments['AWG']       = hdawg
 instruments['Digitizer'] = card
-instruments['LO'] = logen
-instruments['RFgen'] = rfgen
+instruments['LO']        = logen
+instruments['RFgen']     = rfgen
+instruments['Trigger']   = triggergen
 
 settings = SGSiq.GetDefaultSettings()
 
@@ -25,7 +26,7 @@ def runIQcal(instruments, settings, angle, imp):
     settings['AngleImp']  = angle
     settings['AmpImp']    = imp
     
-    SGSa,SGSc,SGSp,SGSe = SGSiq.calibrate_SGS_IQ(instruments, settings)
+    SGSa, SGSc, SGSp, SGSe = SGSiq.calibrate_SGS_IQ(instruments, settings)
     
     SGSxx, SGSyy = uf.make_elipse(SGSa, SGSc, SGSp,150)
     
@@ -62,29 +63,46 @@ def IQcal(instruments, settings, angle, imp):
     SGSa, SGSc, SGSp, SGSe = SGSiq.calibrate_SGS_IQ(instruments, settings)
     return SGSe
 
-angles  = numpy.linspace(-0.10,.025,num = 20)
-impairs = numpy.linspace(0.87,.93,num = 20)
+#angles  = numpy.linspace(-0.10,.025,num = 20)
+#impairs = numpy.linspace(0.87,.93,num = 20)
+#
+#ecc = numpy.zeros((len(angles), len(impairs)))
+#for i in range(len(angles)):
+#    print('{} out of {} angle measurements, {} amp measures per setting'.format(i, len(angles), len(impairs)))
+#    for j in range(len(impairs)):
+#        if j%5 == 0:
+#            print('{} measurements completed'.format(j))
+#        ecc[i,j] = IQcal(instruments, settings, angles[i], impairs[j])
+#
+#saveMe = pylab.figure(1)
+#pylab.imshow(ecc, origin = 'lower', extent = [impairs[0], impairs[-1], angles[0], angles[-1]])
+#pylab.colorbar()
+#ax = pylab.gca()
+#ax.set_ylabel('Angles')
+#ax.set_xlabel('Amplitudes')
+#ax.set_title('Eccentricity vs angle impairement and amplitude impairement')
+#
+#date  = datetime.now()
+#stamp = date.strftime('%Y%m%d_%H%M%S')
+#
+#filename = 'IQcal_{}points_{}'.format(len(angles)*len(impairs),stamp)
+#path = r'C:\Users\Kollarlab\Desktop\IQcal'
+#uf.SaveFull(path, filename, 'ecc', locals(), settings, instruments, saveMe)
+#uf.savefig(saveMe, filename, path, png=True)
+    
+settings['NumPoints'] = 20
+settings['MinAngle'] = -0.2
+settings['MaxAngle'] = 0.2
+settings['AngleNum'] = 1
+settings['Amp_points'] = 10
 
-ecc = numpy.zeros((len(angles), len(impairs)))
-for i in range(len(angles)):
-    print('{} out of {} angle measurements, {} amp measures per setting'.format(i, len(angles), len(impairs)))
-    for j in range(len(impairs)):
-        if j%5 == 0:
-            print('{} measurements completed'.format(j))
-        ecc[i,j] = IQcal(instruments, settings, angles[i], impairs[j])
-
-saveMe = pylab.figure(1)
+ecc = SGSiq.calibrate_SGS_IQ_fast(instruments, settings)
+impairs = [0.8,1.2]
+angles  = [settings['MinAngle'], settings['MaxAngle']]
+pylab.figure()
 pylab.imshow(ecc, origin = 'lower', extent = [impairs[0], impairs[-1], angles[0], angles[-1]])
 pylab.colorbar()
 ax = pylab.gca()
 ax.set_ylabel('Angles')
 ax.set_xlabel('Amplitudes')
 ax.set_title('Eccentricity vs angle impairement and amplitude impairement')
-
-date  = datetime.now()
-stamp = date.strftime('%Y%m%d_%H%M%S')
-
-filename = 'IQcal_{}points_{}'.format(len(angles)*len(impairs),stamp)
-path = r'C:\Users\Kollarlab\Desktop\IQcal'
-uf.SaveFull(path, filename, 'ecc', locals(), settings, instruments, saveMe)
-uf.savefig(saveMe, filename, path, png=True)
