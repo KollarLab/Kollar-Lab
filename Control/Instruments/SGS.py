@@ -65,7 +65,17 @@ class RFgen():
     def mod_Off(self):
         self.inst.write(':SOURce:IQ:STATe OFF')
         
+    def imp_Off(self):
+        self.inst.write(':SOURce:IQ:IMPairment OFF')
         
+    def imp_On(self):
+        self.inst.write(':SOURce:IQ:IMPairment ON')
+        
+    def leak_I(self, ileak):
+        self.inst.write(':SOURce:IQ:IMPairment:LEAKage:I {}'.format(ileak))
+        
+    def leak_Q(self, qleak):
+        self.inst.write(':SOURce:IQ:IMPairment:LEAKage:Q {}'.format(qleak))     
 
     def send_cmd(self,cmd):
         self.inst.write(cmd)
