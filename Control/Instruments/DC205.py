@@ -5,9 +5,9 @@ Created on Tue Sep  8 17:10:29 2020
 @author: Kollarlab
 """
 
-from Instruments.RFsource import RFsource
+from Instruments.SCPIinst import SCPIinst
 
-class DC205(RFsource):
+class DC205(SCPIinst):
     commandlist = {}
     commandlist['core'] = {}
     
