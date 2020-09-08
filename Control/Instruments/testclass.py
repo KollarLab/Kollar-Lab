@@ -1,42 +1,38 @@
 class test(object):
-    names = {}
-    names['prop'] = 'wer'
-    names['number'] = 5
-    names['list'] = ['asd','qwe','zxc']
-    names['subobj'] = 'asd'
-
-    def __init__(self, prop):
-        self.prop = prop
-        self.subobj = testsub('def')
+    def __init__(self, name, cmds):
+        self.prop = name
+        self.subobj = testsub('subObj')
+        self.commandset = cmds
         print('Initialized')
+        for key in cmds.keys():
+            if key == 'core':
+                continue
+            else:
+                setattr(self, key, testsub(key))
     def __getattr__(self,name):
         print('Called getattribute1')
-        if name in self.names.keys():
-            print(name, object.__getattribute__(self,name))
+        cmds = self.__dict__['commandset']['core']
+        if name in cmds.keys():
+            print(name, cmds[name])
         else:
             print('No attribute of that name exists')
     def __setattr__(self, name, value):
         print('Called setattribute1')
-        if name in self.names.keys():
-            object.__setattr__(self, name, value)
-        else:
-            return
+        try:
+            cmds = self.__dict__['commandset']['core']
+            if name in cmds.keys():
+                print('Name: {}, value {}'.format(name, value))
+            else:
+                super().__setattr__(name, value)
+        except:
+            super().__setattr__(name, value)
 
 class testsub(object):
-    names ={}
-    names['subname'] = 'sdf'
 
     def __init__(self,subname):
         self.subname = subname
     def __getattr__(self,name):
         print('Called getattribute2')
-        if name in self.names.keys():
-            print(name, object.__getattribute__(self,name))
-        else:
-            print('No attribute of that name exists')
     def __setattr__(self, name, value):
         print('Called setattribute2')
-        if name in self.names.keys():
-            object.__setattr__(self, name, value)
-        else:
-            return
+        super().__setattr__(name, value)

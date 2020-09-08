@@ -9,12 +9,16 @@ class RFsource(object):
         self.inst.write('*RST')
         self.commandset = commands
     
-    def __getattribute__(self, name):
-        if name in self.commandset.keys():
-            return self.inst.query(self.commandset[name])
+    def __getattr__(self, name):
+        cmds = self.__dict__['commandset']
+        if name in cmds.keys():
+            return self.inst.query(cmds[name])
         else:
             print('Setting not defined: {}'.format(name))
     
     def __setattr__(self, name, value):
-        if name in self.commandset.keys():
-            self.inst.write(self.commandset[name])
+        cmds = self.__dict__['commandset']
+        if name in cmds.keys():
+            self.inst.write(cmds['self'])
+        else:
+            super(RFsource, self).__setattr__(name, value)
