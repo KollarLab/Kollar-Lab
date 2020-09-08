@@ -1,6 +1,47 @@
-#import visa
 import pyvisa
+from Instruments.SPCIinst import SCPIinst
 
+class SGS(SPCIinst):
+    commandlist = {}
+    commandlist['core']   = {}
+    commandlist['IQ']     = {}
+    commandlist['Ref']    = {}
+    commandlist['LO']     = {}
+    commandlist['RefOut'] = {}
+    
+    core = {}
+    core['RFout']  = 'OUTPut:STATe'
+    core['Power']  = 'SOURce:POWer'
+    core['Phase']  = 'SOURce:PHASe'
+    core['Freq']   = 'SOURce:FREQuency:CW'
+    core['Offset'] = 'SOURce:FREQuency:OFFSet'
+    
+    IQ = {}
+    IQ['Mod']   = 'SOURce:IQ:STATe'
+    IQ['Imp']   = 'SOURce:IQ:IMPairment'
+    IQ['Ileak'] = 'SOURce:IQ:IMPairment:LEAKage:I'
+    IQ['Qleak'] = 'SOURce:IQ:IMPairment:LEAKage:Q'
+    
+    Ref = {}
+    Ref['Source']    = 'SOURce:ROSCillator:SOURce'
+    Ref['Frequency'] = 'SOURce:ROSCillator:EXTernal:FREQuency'
+    
+    LO = {}
+    LO['Source'] = 'SOURce:LOSCillator:SOURce'
+    
+    RefOut = {}
+    RefOut['Source']    = 'CONNector:REFLo:OUTPut'
+    RefOut['Frequency'] = 'SOURce:ROSCillator:OUTPut:FREQuency'
+    
+    commandlist['core']   = core
+    commandlist['IQ']     = IQ
+    commandlist['Ref']    = Ref
+    commandlist['LO']     = LO
+    commandlist['RefOut'] = RefOut
+
+    def __init__(self, address):
+        super().__init__(address, self.commandlist) 
+       
 class RFgen():
 
     def __init__(self, address):
