@@ -15,7 +15,7 @@ class VNA():
     
     def getErrors(self):
         (code,string) = eval(self.error)
-        while code is not 0:
+        while code != 0:
             print('{},{}'.format(code,string))
             (code,string) = eval(self.error)
         print('{},{}'.format(code,string))
