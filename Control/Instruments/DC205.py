@@ -6,18 +6,63 @@ Created on Tue Sep  8 17:10:29 2020
 """
 
 from Instruments.SCPIinst import SCPIinst
+from bidict import bidict
 
 class DC205(SCPIinst):
+    LEXE = bidict({
+            0:'No exec error',
+            1:'Illegal value',
+            2:'Wrong token',
+            3:'Invalid bit',
+            4:'Queue full',
+            5:'Not compatible'
+            })
+    LCME = bidict({
+            0:'No exec error',
+            1:'Illegal command',
+            2:'Undefined command',
+            3:'Illegal query',
+            4:'Illegal set',
+            5:'Missing parameter',
+            6:'Extra parameter',
+            7:'Null parameter',
+            8:'Parameter buffer overflow',
+            9:'Bad floating-point',
+            10:'Bad integer',
+            11:'Bad integer token',
+            12:'Bad token value',
+            13:'Bad hex block',
+            14:'Unknown token'
+            })
+    SOUT = bidict({
+            0:'Off',
+            1:'On'
+            })
+    RNGE = bidict({
+            0:'1 V',
+            1:'10 V',
+            2:'100 V'
+            })
+    ISOL = bidict({
+            0:'Ground',
+            1:'Float'
+            })
+    
     commandlist = {}
+    errcmds     = {}
+    core        = {}
+    
     commandlist['core'] = {}
     
-    core = {}
-    core['Volt'] = 'VOLT'
-    core['Output'] = 'SOUT'
-    core['Range'] = 'RNGE'
-    core['Ground'] = 'ISOL'
+    errcmds['LCME'] = ['LCME?', LCME]
+    errcmds['LEXE'] = ['LEXE?', LEXE]
+    
+    core['Volt']   = 'VOLT'
+    core['Output'] = ['SOUT', SOUT]
+    core['Range']  = ['RNGE', RNGE]
+    core['Ground'] = ['ISOL', ISOL]
     
     commandlist['core'] = core
     
     def __init__(self, address):
-        super().__init__(address, self.commandlist)
+        super().__init__(address, self.commandlist, self.errcmds)
