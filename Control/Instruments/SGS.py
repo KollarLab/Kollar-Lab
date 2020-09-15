@@ -1,7 +1,7 @@
 import pyvisa
-from Instruments.SPCIinst import SCPIinst
+from Instruments.SCPIinst import SCPIinst
 
-class SGS(SPCIinst):
+class SGS(SCPIinst):
     commandlist = {}
     commandlist['core']   = {}
     commandlist['IQ']     = {}
@@ -15,6 +15,7 @@ class SGS(SPCIinst):
     core['Phase']  = 'SOURce:PHASe'
     core['Freq']   = 'SOURce:FREQuency:CW'
     core['Offset'] = 'SOURce:FREQuency:OFFSet'
+    core['Errors'] = 'SYST:ERR'
     
     IQ = {}
     IQ['Mod']   = 'SOURce:IQ:STATe'
