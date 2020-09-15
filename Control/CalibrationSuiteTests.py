@@ -16,26 +16,39 @@ instruments['LO'] = logen
 instruments['RFgen'] = rfgen
 
 
-#defaults_mixer = mixer.GetDefaultSettings()
-#defaults_mixer['showFig'] = True
-#mixer.calibrate_mixer_IQ(instruments, defaults_mixer)
+defaults_mixer = mixer.GetDefaultSettings()
+defaults_mixer['showFig'] = True
+mixer.calibrate_mixer_IQ(instruments, defaults_mixer)
 
+settings = cwhomodyne.GetDefaultSettings()
+settings['measure_time'] = 35
+settings['channelRange'] = 2.5
+settings['save'] = False
+cwhomodyne.CWHomodyneStabilityTest(instruments, settings)
 
-#settings = cwhomodyne.GetDefaultSettings()
-#settings['measure_time'] = 35
-#settings['channelRange'] = 2.5
-#cwhomodyne.CWHomodyneStabilityTest(instruments, settings)
+defaults_pulsed = pulsedhomodyne.GetDefaultSettings()
+settings = defaults_pulsed
+settings['tau_max'] = 100e-6
+settings['num_points'] = 30
+settings['save'] = False
+pulsedhomodyne.PulsedHomodyneStability(instruments, settings)
 
-#defaults_pulsed = pulsedhomodyne.GetDefaultSettings()
-#settings = defaults_pulsed
-#settings['tau_max'] = 1000e-6
-#settings['num_points'] = 99
-#settings['save'] = False
+settings = cwheterodyne.GetDefaultSettings()
+settings['frequency_IF'] = 1e6
+settings['measure_time'] = 30
+settings['one_shot_time'] = 10e-6
+settings['save'] = False
+cwheterodyne.CWHeterodyneStabilityTest(instruments, settings)
 
-#settings = cwheterodyne.GetDefaultSettings()
-#settings['frequency_IF'] = 1e6
-#settings['measure_time'] = 1000
-#settings['one_shot_time'] = 10e-6
+settings = pulsedheterodyne.GetDefaultSettings()
+settings['IF_freq'] = 1.1e6
+settings['pulse_width'] = 1./settings['IF_freq']
+settings['tau_max'] = 15e-6
+settings['num_points']  = 17
+settings['tau_min'] = 11e-6
+settings['segments'] = 20
+settings['save'] = False
+pulsedheterodyne.PulsedHeterodyneStability(instruments, settings)
 
 #pplots = numpy.linspace(1.,2.,10, endpoint = False)
 #
@@ -59,14 +72,3 @@ instruments['RFgen'] = rfgen
 #
 #pylab.tight_layout()
 #pylab.show()
-
-settings = pulsedheterodyne.GetDefaultSettings()
-settings['IF_freq'] = 1.1e6
-settings['pulse_width'] = 1./settings['IF_freq']
-settings['tau_max'] = 15e-6
-settings['num_points']  = 17
-settings['tau_min'] = 11e-6
-settings['segments'] = 20
-settings['save'] = False
-
-phaseDiff,ts = pulsedheterodyne.PulsedHeterodyneStability(instruments, settings)

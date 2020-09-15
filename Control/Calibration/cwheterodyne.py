@@ -10,12 +10,9 @@ import numpy
 import pylab
 import scipy
 from datetime import datetime
-from mplcursors import cursor as datacursor
 
 import userfuncs as uf
 import Calibration.mixerIQcal as mixer
-from SGShelper import HDAWG_clock, SGS_coupling
-
 
 def GetDefaultSettings():
     settings = {}
@@ -34,7 +31,7 @@ def GetDefaultSettings():
     #Card settings
     settings['triggerDelay']   = 0
     settings['activeChannels'] = [1,2]
-    settings['channelRange']   = 0.5
+    settings['channelRange']   = 2.5
     settings['sampleRate']     = 2e9
     
     settings['averages'] = 1 
@@ -56,18 +53,17 @@ def CWHeterodyneStabilityTest(instruments, settings):
     freq_IF      = settings['frequency_IF']
     rfpower      = settings['rfpower']
     lopower      = settings['lopower']             
-    freq_GHz     = freq/1e9
-    freq_IF_GHz  = freq_IF/1e9
 
     ## Misc settings
     savepath = settings['savepath']
     
-    logen.power_Off()
-    rfgen.power_Off()
+    rfgen.Output = 'Off'
+    logen.Output = 'Off'
     time.sleep(0.5) #Making sure that the settings have been applied
     
     ## Calibrate the mixer for reference
-    mixerAxes, mixerCenter, mixerPhi = mixer.calibrate_mixer_IQ(instruments, settings['mixerIQcal'])
+    Is, Qs, ecc = mixer.calibrate_mixer_IQ(instruments, settings['mixerIQcal'])
+    mixerAxes, mixerCenter, mixerPhi, ecc = uf.fit_ell_martin(Is,Qs, verbose = False)
     xx, yy = uf.make_elipse(mixerAxes,  mixerCenter, mixerPhi, 150)
     xmax = 1.1 * max(abs(xx))
     ymax = 1.1 * max(abs(yy))
@@ -90,16 +86,16 @@ def CWHeterodyneStabilityTest(instruments, settings):
     card.SetParams() #warning. this may round the number of smaples to multiple of 1024
     
     ## SGS settings
-    logen.set_Freq(freq_GHz)
-    logen.set_Amp(lopower)
-    logen.mod_Off()
+    logen.Freq   = freq
+    logen.Power  = lopower
+    logen.IQ.Mod = 'Off'
     
-    rfgen.set_Freq(freq_GHz+freq_IF_GHz)
-    rfgen.set_Amp(rfpower)
-    rfgen.mod_Off()
+    rfgen.Freq = freq+freq_IF
+    rfgen.Power = rfpower
+    rfgen.IQ.Mod = 'Off'
 
-    rfgen.power_On()
-    logen.power_On()
+    rfgen.Output = 'On'
+    logen.Output = 'On'
 
     #################################################
     # Measurement and analysis
@@ -209,7 +205,7 @@ def CWHeterodyneStabilityTest(instruments, settings):
             
             fig1.canvas.draw()
             fig1.canvas.flush_events()
-    
+            
 #    #Save png of figure for easy viewing
 #    uf.savefig(fig1,filename,savepath, png = True)
 #    

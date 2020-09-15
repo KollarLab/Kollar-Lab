@@ -300,7 +300,6 @@ def calibrate_SGS_IQ_basic(instruments, settings, corrections):
     showFig   = settings['showFig']
     verbose   = settings['verbose']
     
-    freq_GHz = freq/1e9
     phases = numpy.linspace(0,2*numpy.pi,numPoints)
 
     ## HDAWG settings
@@ -336,15 +335,15 @@ def calibrate_SGS_IQ_basic(instruments, settings, corrections):
     card.SetParams() #warning. this may round the number of smaples to multiple of 1024
     
     ## SGS unit settings
-    logen.set_Freq(freq_GHz)
-    logen.set_Amp(lopower)
-    logen.mod_Off()
-    logen.power_On() 
+    logen.Freq   = freq
+    logen.Power  = lopower
+    logen.IQ.Mod = 'Off'
+    logen.Output = 'On'
     
-    rfgen.set_Freq(freq_GHz)
-    rfgen.set_Amp(rfpower)
-    rfgen.mod_On()
-    rfgen.power_On()
+    rfgen.Freq   = freq
+    rfgen.Power  = rfpower
+    rfgen.IQ.Mod = 'On'
+    rfgen.Output = 'On'
 
     ## Wait for settings to percolate
     time.sleep(0.5)

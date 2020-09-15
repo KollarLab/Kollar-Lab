@@ -64,17 +64,18 @@ def CWHomodyneStabilityTest(instruments, settings):
     freq         = settings['frequency']
     rfpower      = settings['rfpower']
     lopower      = settings['lopower']             
-    freq_GHz     = freq/1e9
+    freq_GHz     = freq
 
     ## Misc settings
     savepath = settings['savepath']
     
-    logen.power_Off()
-    rfgen.power_Off()
+    logen.Output = 'Off'
+    rfgen.Output = 'Off'
     time.sleep(0.5) #Making sure that the settings have been applied
     
     ## Calibrate the mixer for reference
-    mixerAxes, mixerCenter, mixerPhi = mixer.calibrate_mixer_IQ(instruments, settings['mixerIQcal'])
+    Is, Qs, ecc = mixer.calibrate_mixer_IQ(instruments, settings['mixerIQcal'])
+    mixerAxes, mixerCenter, mixerPhi, ecc = uf.fit_ell_martin(Is,Qs, verbose = False)
     xx, yy = uf.make_elipse(mixerAxes,  mixerCenter, mixerPhi, 150)
     xmax = 1.1 * max(abs(xx))
     ymax = 1.1 * max(abs(yy))
@@ -101,16 +102,16 @@ def CWHomodyneStabilityTest(instruments, settings):
     #should caibrate for the new length here, before the generators turn on
     
     ## SGS settings
-    logen.set_Freq(freq_GHz)
-    logen.set_Amp(lopower)
-    logen.mod_Off()
+    logen.Freq   = freq
+    logen.Power  = lopower
+    logen.IQ.Mod = 'Off'
     
-    rfgen.set_Freq(freq_GHz)
-    rfgen.set_Amp(rfpower)
-    rfgen.mod_Off()
+    rfgen.Freq   = freq
+    rfgen.Power  = rfpower
+    rfgen.IQ.Mod = 'Off'
 
-    rfgen.power_On()
-    logen.power_On()
+    logen.Output = 'On'
+    rfgen.Output = 'On'
 
     #################################################
     # Measurement and analysis
@@ -207,8 +208,8 @@ def CWHomodyneStabilityTest(instruments, settings):
     
     print("std(angles) = " , numpy.std(Angles))
 
-    rfgen.power_Off()
-    logen.power_Off()    
+    logen.Output = 'Off'
+    rfgen.Output = 'Off'   
 
     dataTosave = ['Is','Qs','Amps','Angles', 'actualTimes','xx','yy','Idata', 'Qdata', 'Iav', 'Qav']
     figsTosave = [fig1]

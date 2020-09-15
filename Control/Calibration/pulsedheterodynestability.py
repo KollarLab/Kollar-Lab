@@ -97,18 +97,18 @@ def PulsedHeterodyneStability(instruments, settings):
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
 
     ## Generator settings
-    freq_GHz    = carrier_freq/1e9
-    IF_freq_GHz = IF_freq/1e9
-    logen.set_Freq(freq_GHz)
-    logen.set_Amp(lopower)
-    logen.mod_Off()
+#    freq_GHz    = carrier_freq/1e9
+#    IF_freq_GHz = IF_freq/1e9
+    logen.Freq   = carrier_freq
+    logen.Power  = lopower
+    logen.IQ.Mod = 'Off'
 
-    rfgen.set_Freq(freq_GHz+IF_freq_GHz)
-    rfgen.set_Amp(rfpower)
-    rfgen.mod_On()
+    rfgen.Freq   = carrier_freq+IF_freq
+    rfgen.Power  = rfpower
+    rfgen.IQ.Mod = 'On'
 
-    logen.power_On() 
-    rfgen.power_On()
+    logen.Output = 'On'
+    rfgen.Output = 'On'
 
     ## Digitizer settings
     card.clockSource  = 'External'
@@ -387,8 +387,8 @@ def PulsedHeterodyneStability(instruments, settings):
     pylab.title('Single raw trace')
     pylab.show()
 
-    rfgen.power_Off()
-    logen.power_Off()
+    rfgen.Output = 'Off'
+    logen.Output = 'Off'
 
     dataTosave = ['IMat1', 'IMat2', 'QMat1', 'QMat2', 'phaseMat1', 'phaseMat2', 'dataVec1', 'dataVec2',
         'cardXaxis', 'pulse1_range', 'pulse2_range', 'readTimes', 'mean_v_tau', 'std_v_tau', 'std_v_period',

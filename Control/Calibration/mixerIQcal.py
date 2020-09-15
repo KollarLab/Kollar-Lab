@@ -42,7 +42,6 @@ def calibrate_mixer_IQ(instruments, settings):
     verbose   = settings['verbose']
     showFig   = settings['showFig']
 
-    freq_GHz = freq/1e9
     phases = numpy.linspace(0,360,numPoints)
 
     ## Digitizer card settings 
@@ -53,7 +52,7 @@ def calibrate_mixer_IQ(instruments, settings):
     
     card.triggerDelay = 0
     card.activeChannels = [1,2]
-#    card.channelRange = 0.5
+    card.channelRange = 2.5
     card.sampleRate = 2e9
     
     card.averages = 1 #on-board averages
@@ -62,15 +61,15 @@ def calibrate_mixer_IQ(instruments, settings):
     card.SetParams() #warning. this may round the number of smaples to multiple of 1024
     
     ## SGS unit settings
-    logen.set_Freq(freq_GHz)
-    logen.set_Amp(lopower)
-    logen.mod_Off()
-    logen.power_On() 
+    logen.Freq   = freq
+    logen.Power  = lopower
+    logen.IQ.Mod = 'Off'
+    logen.Output = 'On' 
     
-    rfgen.set_Freq(freq_GHz)
-    rfgen.set_Amp(rfpower)
-    rfgen.mod_Off()
-    rfgen.power_On()
+    rfgen.Freq   = freq
+    rfgen.Power  = rfpower
+    rfgen.IQ.Mod = 'Off'
+    rfgen.Output = 'On' 
 
     ## Wait for settings to percolate
     time.sleep(0.5)
@@ -84,7 +83,7 @@ def calibrate_mixer_IQ(instruments, settings):
     Qs = numpy.zeros(numPoints)
     
     for tind in range(0, numPoints):
-        logen.set_Phase(phases[tind])
+        logen.Phase = phases[tind]
         time.sleep(0.05)
         
         card.ArmAndWait()
@@ -137,3 +136,4 @@ def calibrate_mixer_IQ(instruments, settings):
     
     
     return Is, Qs, ecc
+#    return axes, center, phi
