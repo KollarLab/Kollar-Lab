@@ -97,6 +97,32 @@ class VNA():
 #    Average mode:
 #        inst.write('SENS1:AVER:MODE AUTO' )
 #    
+#        
+            
+Spec command list:
+    vna.inst.write('FREQ:STAR 1 MHz; STOP 40MHz')
+    vna.inst.write('SWE:POIN 501')
+    vna.inst.write('SOUR:POW -11')
+    Port 1 (RF):
+        vna.inst.write('SOUR:POW1:PERM ON')
+    Port 2 (measure):
+        vna.inst.write('SOUR:POW2:STATE OFF')
+        vna.inst.write('SOUR:FREQ2:CONV:ARB:IFR 1, 1, 60E+6, FIX')
+    Port 3 (LO):
+        vna.inst.write('SOUR:POW3:PERM ON')
+        vna.inst.write('SOUR:FREQ3:CONV:ARB:IFR 1, 1, 60E+6, FIX')
+        vna.inst.write('SOUR:POW3:OFFS -5, ONLY')
+        
+#Frequency span control:
+        inst.write('FREQ:STAR 1 MHz')
+        inst.write('FREQ:STOP 40 MHz')
+        inst.write('SWE:POIN 501')
+        inst.query('SWE:TIME?')
+# Physical port control:
+        inst.write('SOUR<Channel>:FREQ<Port>:CONV:ARB:IFR num,denom, offset, FIX')
+        inst.write('SOUR<Channel>:POW<Port>:STATE ON') turn RF on/off
+        inst.write('SOUR<Channel>:POW<Port>:PERM ON') turn 'gen' on/off 
+        inst.write('SOUR<Channel>:POW<Port>:OFFS offset, ONLY')
 ##Other useful stuff:
 #    
 #    Bandwidth:
