@@ -8,6 +8,7 @@ class VNA():
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
         self.inst.write('*RST')
+        self.inst.write('OUTP OFF')
     
     @property
     def error(self):
@@ -63,6 +64,102 @@ class VNA():
         for i in range(4):
             l = int(len(sdat)/4)
             pylab.plot(sdat[i*l:(i+1)*l])
+            
+    def SpecDefaultSettings(self):
+        settings = {}
+        
+        settings['channel'] = 1
+        settings['averages'] = 100
+        settings['measurement'] = 'S23'
+        settings['meas_form'] = 'MLOG'
+        settings['start'] = '1 MHz'
+        settings['stop'] = '40 MHz'
+        settings['sweep_points'] = 501
+        settings['RFpower'] = -10
+        settings['RFport'] = 1
+        settings['Mport'] = 2
+        settings['CAVport'] = 3
+        settings['CAVpower'] = -5
+        settings['CAVfreq'] = '60 MHz'
+        
+        return settings
+    
+    def SpecMeas(self, settings):
+        
+        channel      = settings['channel']
+        averages     = settings['averages']
+        measurement  = settings['measurement']
+        meas_format  = settings['meas_form']
+        start        = settings['start']
+        stop         = settings['stop']
+        sweep_points = settings['sweep_points']
+        RFpower      = settings['RFpower']
+        RFport       = settings['RFport']
+        Mport        = settings['Mport']
+        CAVport      = settings['CAVport']
+        CAVpower     = settings['CAVpower']
+        CAVfreq      = settings['CAVfreq']
+        
+    #    Turn off output and switch to single sweep mode instead of continuous sweeps
+        self.inst.write('OUTP OFF')
+        self.inst.write('INIT:CONT OFF')
+        
+    #    Configure averaging
+        self.inst.write('SENS{}:AVER ON'.format(channel))
+        self.inst.write('SENS{}:AVER:COUN {}'.format(channel, averages)) #set the number of averages
+        self.inst.write('SENS{}:AVER:CLE'.format(channel)) #clear old average data
+        self.inst.write('SENS{}:SWE:COUN {}'.format(channel, averages)) #set the number of sweeps
+        self.inst.query('*OPC?')
+        
+    #    Clear old traces on channels and define a new trace to measure 'S23'
+        self.inst.write('CALC{}:PAR:DEL:ALL'.format(channel))
+        self.inst.write('CALC{}:PAR:SDEF "Ch1Tr1", "{}"'.format(channel, measurement)) #make a new trace to measure 'S23'
+        self.inst.write('CALC{}:FORM {}'.format(channel, meas_format))
+        self.inst.write('DISP:WIND1:TRAC1:FEED "Ch1Tr1"') #display trace in window
+        self.inst.query('*OPC?')
+        
+    #    Configure frequency sweep and RF power 
+        self.inst.write('SENS{}:FREQ:STAR {}; STOP {}'.format(channel, start, stop)) #set the frequency range of the sweep
+        self.inst.write('SENS{}:SWE:POIN {}'.format(channel, sweep_points)) #set the number of points in sweep
+        self.inst.write('SOUR{}:POW {}'.format(channel, RFpower)) #set base output power (for RF)
+        self.inst.query('*OPC?')
+        
+    #    Configure ports
+    #    RF
+        self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, RFport)) #configures Ch1 to always be on during measurements
+    #    Measure
+        self.inst.write('SOUR{}:POW{}:STATE OFF'.format(channel, Mport)) #configure to only receive 
+        self.inst.write('SOUR{}:FREQ{}:CONV:ARB:IFR 1, 1, {}, FIX'.format(channel, Mport, CAVfreq)) #only look at what is happening at 60MHz
+    #    LO
+        self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, CAVport)) #always keep ch3 on during measurements
+        self.inst.write('SOUR{}:FREQ{}:CONV:ARB:IFR 1, 1, {}, FIX'.format(channel, CAVport, CAVfreq)) #only output at 60MHz
+        self.inst.write('SOUR{}:POW{}:OFFS {}, ONLY'.format(channel, CAVport, CAVpower)) #fixed power of -5dBm (ignores the power level of Ch1)    
+        self.inst.query('*OPC?')
+        
+        self.getErrors()
+        
+        sweep_time = eval(self.inst.query('SENS{}:SWE:TIME?'.format(channel)))
+        
+        #    Turn on output and wait until sweep is complete to autoscale the trace
+        self.inst.write('OUTP ON')
+        self.inst.write('INIT{}:IMM; *OPC'.format(channel))
+        
+        opc = 0
+        auto_scale = True
+        t1 = time()
+        while not (opc&1):
+            t2 = time()
+            print('waiting for command to complete, elapsed time:{}, total time est. {}'.format(t2-t1, 2.5*averages*sweep_time))
+            opc = eval(self.inst.query('*ESR?').rstrip())
+            sleep(min(max(sweep_time*0.2*averages,5),2.5*averages*sweep_time))
+            if auto_scale:
+                self.inst.write('DISP:WIND1:TRAC1:Y:AUTO ONCE')
+                auto_scale = False
+                
+        self.inst.write('DISP:WIND1:TRAC1:Y:AUTO ONCE')
+    
+    def close(self):
+        self.inst.close()
     
 
 ##Basic commands:
@@ -96,40 +193,24 @@ class VNA():
 #        inst.write('SENS1:AVER:COUN 15')
 #    Average mode:
 #        inst.write('SENS1:AVER:MODE AUTO' )
-#    
 #        
-            
-Spec command list:
-    vna.inst.write('FREQ:STAR 1 MHz; STOP 40MHz')
-    vna.inst.write('SWE:POIN 501')
-    vna.inst.write('SOUR:POW -11')
-    Port 1 (RF):
-        vna.inst.write('SOUR:POW1:PERM ON')
-    Port 2 (measure):
-        vna.inst.write('SOUR:POW2:STATE OFF')
-        vna.inst.write('SOUR:FREQ2:CONV:ARB:IFR 1, 1, 60E+6, FIX')
-    Port 3 (LO):
-        vna.inst.write('SOUR:POW3:PERM ON')
-        vna.inst.write('SOUR:FREQ3:CONV:ARB:IFR 1, 1, 60E+6, FIX')
-        vna.inst.write('SOUR:POW3:OFFS -5, ONLY')
-        
-#Frequency span control:
-        inst.write('FREQ:STAR 1 MHz')
-        inst.write('FREQ:STOP 40 MHz')
-        inst.write('SWE:POIN 501')
-        inst.query('SWE:TIME?')
-# Physical port control:
-        inst.write('SOUR<Channel>:FREQ<Port>:CONV:ARB:IFR num,denom, offset, FIX')
-        inst.write('SOUR<Channel>:POW<Port>:STATE ON') turn RF on/off
-        inst.write('SOUR<Channel>:POW<Port>:PERM ON') turn 'gen' on/off 
-        inst.write('SOUR<Channel>:POW<Port>:OFFS offset, ONLY')
-##Other useful stuff:
-#    
-#    Bandwidth:
-#        inst.write('SENS1:BAND:RES 1')
-#        inst.write('SENS1:BAND:RES:SEL NORM')
-#    
-#    Electrical delay:
-#        inst.write('SENS2:CORR:EDEL:AUTO ONCE')
-#        inst.write('SENS2:CORR:LOSS:AUTO ONCE') (loss and edelay)
-#        inst.write('SENS2:CORR:OFFS:COMP ON') (toggle compensation)
+##Frequency span control:
+#        inst.write('FREQ:STAR 1 MHz')
+#        inst.write('FREQ:STOP 40 MHz')
+#        inst.write('SWE:POIN 501')
+#        inst.query('SWE:TIME?')
+## Physical port control:
+#        inst.write('SOUR<Channel>:FREQ<Port>:CONV:ARB:IFR num,denom, offset, FIX')
+#        inst.write('SOUR<Channel>:POW<Port>:STATE ON') turn RF on/off
+#        inst.write('SOUR<Channel>:POW<Port>:PERM ON') turn 'gen' on/off 
+#        inst.write('SOUR<Channel>:POW<Port>:OFFS offset, ONLY')
+###Other useful stuff:
+##    
+##    Bandwidth:
+##        inst.write('SENS1:BAND:RES 1')
+##        inst.write('SENS1:BAND:RES:SEL NORM')
+##    
+##    Electrical delay:
+##        inst.write('SENS2:CORR:EDEL:AUTO ONCE')
+##        inst.write('SENS2:CORR:LOSS:AUTO ONCE') (loss and edelay)
+##        inst.write('SENS2:CORR:OFFS:COMP ON') (toggle compensation)
