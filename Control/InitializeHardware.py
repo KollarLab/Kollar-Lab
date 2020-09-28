@@ -11,6 +11,7 @@ from Instruments.Acqiris import Acqiris
 from Instruments.SGS import SGS100A
 from Instruments.Generator import Keysight33500B
 from Instruments.DC205 import DC205
+from Instruments.VNA import VNA
 
 from SGShelper import SGS_coupling, HDAWG_clock
 
@@ -39,3 +40,5 @@ triggergen.Volt       = '2 V'
 triggergen.Output     = 'ON'
 
 SRS = DC205('ASRL3::INSTR')
+
+vna = VNA('TCPIP0::192.168.1.15::inst0::INSTR')
