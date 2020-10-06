@@ -100,37 +100,37 @@ class VNA():
         CAVpower     = settings['CAVpower']
         CAVfreq      = settings['CAVfreq']
         
-    #    Turn off output and switch to single sweep mode instead of continuous sweeps
+        #Turn off output and switch to single sweep mode instead of continuous sweeps
         self.inst.write('OUTP OFF')
         self.inst.write('INIT:CONT OFF')
         
-    #    Configure averaging
+        #Configure averaging
         self.inst.write('SENS{}:AVER ON'.format(channel))
         self.inst.write('SENS{}:AVER:COUN {}'.format(channel, averages)) #set the number of averages
         self.inst.write('SENS{}:AVER:CLE'.format(channel)) #clear old average data
         self.inst.write('SENS{}:SWE:COUN {}'.format(channel, averages)) #set the number of sweeps
         self.inst.query('*OPC?')
         
-    #    Clear old traces on channels and define a new trace to measure 'S23'
+        #Clear old traces on channels and define a new trace to measure 'S23'
         self.inst.write('CALC{}:PAR:DEL:ALL'.format(channel))
         self.inst.write('CALC{}:PAR:SDEF "Ch1Tr1", "{}"'.format(channel, measurement)) #make a new trace to measure 'S23'
         self.inst.write('CALC{}:FORM {}'.format(channel, meas_format))
         self.inst.write('DISP:WIND1:TRAC1:FEED "Ch1Tr1"') #display trace in window
         self.inst.query('*OPC?')
         
-    #    Configure frequency sweep and RF power 
+        #Configure frequency sweep and RF power 
         self.inst.write('SENS{}:FREQ:STAR {}; STOP {}'.format(channel, start, stop)) #set the frequency range of the sweep
         self.inst.write('SENS{}:SWE:POIN {}'.format(channel, sweep_points)) #set the number of points in sweep
         self.inst.write('SOUR{}:POW {}'.format(channel, RFpower)) #set base output power (for RF)
         self.inst.query('*OPC?')
         
-    #    Configure ports
-    #    RF
+         #    Configure ports
+         #    RF
         self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, RFport)) #configures Ch1 to always be on during measurements
-    #    Measure
+        #    Measure
         self.inst.write('SOUR{}:POW{}:STATE OFF'.format(channel, Mport)) #configure to only receive 
         self.inst.write('SOUR{}:FREQ{}:CONV:ARB:IFR 1, 1, {}, FIX'.format(channel, Mport, CAVfreq)) #only look at what is happening at 60MHz
-    #    LO
+        #    LO
         self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, CAVport)) #always keep ch3 on during measurements
         self.inst.write('SOUR{}:FREQ{}:CONV:ARB:IFR 1, 1, {}, FIX'.format(channel, CAVport, CAVfreq)) #only output at 60MHz
         self.inst.write('SOUR{}:POW{}:OFFS {}, ONLY'.format(channel, CAVport, CAVpower)) #fixed power of -5dBm (ignores the power level of Ch1)    
@@ -157,6 +157,84 @@ class VNA():
                 auto_scale = False
                 
         self.inst.write('DISP:WIND1:TRAC1:Y:AUTO ONCE')
+    
+    def wait_complete(self, channel, averages):
+        sweep_time = eval(self.inst.query('SENS{}:SWE:TIME?'.format(channel)))
+        
+        #    Turn on output and wait until sweep is complete to autoscale the trace
+        self.inst.write('OUTP ON')
+        self.inst.write('INIT{}:IMM; *OPC'.format(channel))
+        
+        opc = 0
+        auto_scale = True
+        t1 = time()
+        while not (opc&1):
+            t2 = time()
+            print('waiting for command to complete, elapsed time:{}, total time est. {}'.format(t2-t1, 2.5*averages*sweep_time))
+            opc = eval(self.inst.query('*ESR?').rstrip())
+            sleep(min(max(sweep_time*0.2*averages,5),2.5*averages*sweep_time))
+            if auto_scale:
+                self.inst.write('DISP:WIND1:TRAC1:Y:AUTO ONCE')
+                auto_scale = False
+
+    def TransDefaultSettings(self):
+
+        settings = {}
+
+        settings['channel'] = 1
+        settings['averages'] = 100
+        settings['measurment'] = 'S21'
+        settings['start'] = '1 MHz'
+        settings['stop'] = '40 MHz'
+        settings['sweep_points'] = 501
+        settings['RFpower'] = -10
+
+        return settings
+    
+    def TransMeas(self, settings):
+        channel      = settings['channel']
+        averages     = settings['averages']
+        measurement  = settings['measurement']
+        start        = settings['start']
+        stop         = settings['stop']
+        sweep_points = settings['sweep_points']
+        RFpower      = settings['RFpower']
+
+        #Turn off output and switch to single sweep mode instead of continuous sweeps
+        self.inst.write('OUTP OFF')
+        self.inst.write('INIT:CONT OFF')
+        
+        #Configure averaging
+        self.inst.write('SENS{}:AVER ON'.format(channel))
+        self.inst.write('SENS{}:AVER:COUN {}'.format(channel, averages)) #set the number of averages
+        self.inst.write('SENS{}:AVER:CLE'.format(channel)) #clear old average data
+        self.inst.write('SENS{}:SWE:COUN {}'.format(channel, averages)) #set the number of sweeps
+        self.inst.query('*OPC?')
+        
+        #Clear old traces on channels and define a new trace to measure 'S21'
+        self.inst.write('CALC{}:PAR:DEL:CALL'.format(channel))
+        self.inst.write('CALC{}:PAR:SDEF "mag", "{}"'.format(channel, measurement)) #make a new trace to measure 'S21'
+        self.inst.write('CALC{}:FORM {}'.format(channel, 'MLOG'))
+        self.inst.write('CALC{}:PAR:SDEF "phase", "{}"'.format(channel, measurement)) #make a new trace to measure 'S21'
+        self.inst.write('CALC{}:FORM {}'.format(channel, 'UPH'))
+        self.inst.write('DISP:WIND1:STAT ON')
+        self.inst.write('DISP:WIND2:STAT ON')
+        self.inst.write('DISP:WIND1:TRAC1:FEED "mag"') #display trace in window
+        self.inst.write('DISP:WIND2:TRAC2:FEED "phase"') #display trace in window
+        self.inst.query('*OPC?')
+        
+        #Configure frequency sweep and RF power 
+        self.inst.write('SENS{}:FREQ:STAR {}; STOP {}'.format(channel, start, stop)) #set the frequency range of the sweep
+        self.inst.write('SENS{}:SWE:POIN {}'.format(channel, sweep_points)) #set the number of points in sweep
+        self.inst.write('SOUR{}:POW {}'.format(channel, RFpower)) #set base output power (for RF)
+        self.inst.query('*OPC?')
+
+        self.wait_complete(channel, averages)
+        mag = self.inst.query_ascii_values("CALC{}:DATA:TRAC 'mag',FDAT".format(channel))
+        phase = self.inst.query_ascii_values("CALC{}:DATA:TRAC 'phase',FDAT".format(channel))
+
+        return mag, phase
+
     
     def close(self):
         self.inst.close()
