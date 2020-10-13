@@ -27,7 +27,7 @@ hdawg = HDAWG('dev8163')
 rm = pyvisa.ResourceManager()
 rm.close()
 
-logen = SGS100A('TCPIP0::rssgs100a110738::inst0::INSTR')
+logen = SGS100A('TCPIP0::rssgs100a110425::inst0::INSTR')
 rfgen = SGS100A('TCPIP0::rssgs100a110739::inst0::INSTR')
 SGS_coupling(logen,rfgen)
 
