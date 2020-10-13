@@ -183,7 +183,7 @@ class VNA():
 
         settings['channel'] = 1
         settings['averages'] = 100
-        settings['measurment'] = 'S21'
+        settings['measurement'] = 'S21'
         settings['start'] = '1 MHz'
         settings['stop'] = '40 MHz'
         settings['sweep_points'] = 501
@@ -230,10 +230,11 @@ class VNA():
         self.inst.query('*OPC?')
 
         self.wait_complete(channel, averages)
-        mag = self.inst.query_ascii_values("CALC{}:DATA:TRAC 'mag',FDAT".format(channel))
-        phase = self.inst.query_ascii_values("CALC{}:DATA:TRAC 'phase',FDAT".format(channel))
+        mag = self.inst.query_ascii_values("CALC{}:DATA:TRAC? 'mag',FDAT".format(channel))
+        phase = self.inst.query_ascii_values("CALC{}:DATA:TRAC? 'phase',FDAT".format(channel))
 
         return mag, phase
+#        return mag
 
     
     def close(self):
