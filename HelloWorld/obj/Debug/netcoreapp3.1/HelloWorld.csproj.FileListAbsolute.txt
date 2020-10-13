@@ -1,4 +1,0 @@
-C:\Users\kollarlab\Kollar-Lab\HelloWorld\obj\Debug\netcoreapp3.1\HelloWorld.csprojAssemblyReference.cache
-C:\Users\kollarlab\Kollar-Lab\HelloWorld\obj\Debug\netcoreapp3.1\HelloWorld.csproj.CoreCompileInputs.cache
-C:\Users\kollarlab\Kollar-Lab\HelloWorld\obj\Debug\netcoreapp3.1\HelloWorld.AssemblyInfoInputs.cache
-C:\Users\kollarlab\Kollar-Lab\HelloWorld\obj\Debug\netcoreapp3.1\HelloWorld.AssemblyInfo.cs
