@@ -4,6 +4,7 @@ import numpy as np
 from numpy.linalg import eig, inv
 import pickle
 import os
+from datetime import datetime
 
 from skimage.measure import EllipseModel
 
@@ -252,3 +253,8 @@ def LoadFull(path):
     data        = fullData['Data']
 
     return [data, expsettings, hwsettings, figures]
+
+def timestamp():
+    date  = datetime.now()
+    stamp = date.strftime('%Y%m%d_%H%M%S')
+    return stamp
