@@ -258,3 +258,20 @@ def timestamp():
     date  = datetime.now()
     stamp = date.strftime('%Y%m%d_%H%M%S')
     return stamp
+
+def reset_local_vars(local_dict, global_dict, vars_to_save):
+    
+    save_list = vars_to_save
+    
+    for name in list(global_dict):
+        if name in save_list:
+            continue
+        else:
+            try:
+                del global_dict[name]
+            except:
+                pass
+            try:
+                del local_dict[name]
+            except:
+                pass
