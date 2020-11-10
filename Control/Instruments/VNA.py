@@ -8,6 +8,9 @@ from time import sleep, time
 import numpy
 import pyvisa
 
+
+import matplotlib.pyplot as plt
+
 class VNA():
     '''
     Class representing RS VNA instrument
@@ -80,6 +83,20 @@ class VNA():
         '''
         self.inst.write('SOUR:POW {}'.format(power))
 
+    @property
+    def ifBW(self):
+        '''Return IF bandwidth'''
+        return float(self.inst.query('SENS:BAND?'))
+    @ifBW.setter
+    def ifBW(self, ifBW):
+        '''
+        Set IF bandwidth
+        Argument:
+            ifBW(str/float): IF BW to use, can be a string ('1 kHz') of a float (1e3)
+            the VNA will auto round to 1,1.5,2,3,5,7 in the nearest decade
+        '''
+        self.inst.write('SENS:BAND {}'.format(ifBW))
+        
     def get_errors(self):
         '''Print out all errors and clear queue'''
         code, *string = self.error
@@ -132,6 +149,7 @@ class VNA():
         cav_port     = settings['CAVport']
         cav_power    = settings['CAVpower']
         cav_freq     = settings['CAVfreq']
+        ifBW         = settings['ifBW']
 
         #Turn off output and switch to single sweep mode instead of continuous sweeps
         self.output = 'OFF'
@@ -141,11 +159,13 @@ class VNA():
         self.configure_averages(channel, averages)
 
         #Clear old traces on channels and define a new trace to measure 'S23'
-        self.configure_trace(channel, 'spec', measurement, meas_format)
+        self.configure_trace(channel, 'spec', measurement, 'MLOG')
+        self.configure_trace(channel, 'phase', measurement, 'PHAS')
 
         #Configure frequency sweep and RF power
         self.configure_frequency(channel, start, stop, sweep_points)
         self.power = rf_power
+        self.ifBW = ifBW
 
         #Configure ports
         #RF
@@ -180,7 +200,7 @@ class VNA():
             averages (int): number of traces the instrument is set to average
         '''
         sweep_time = float(self.inst.query('SENS{}:SWE:TIME?'.format(channel)))
-        total_time = 2.5*averages*sweep_time
+        total_time = averages*sweep_time
 
         #Turn on output and wait until sweep is complete to autoscale the trace
         self.output = 'ON'
@@ -193,6 +213,8 @@ class VNA():
             t2 = time()
             print('waiting for command to complete, elapsed time:{}, total time est. {}'.format(t2-t1, total_time))
             opc = int(self.inst.query('*ESR?').strip("\n'"))
+            if opc&1:
+                break
             sleep(min(max(sweep_time*0.2*averages, 5), total_time))
             if auto_scale:
                 self.autoscale()
@@ -260,6 +282,74 @@ class VNA():
 
         return mag, phase, freqs
 
+    def power_sweep(self, settings, powers):
+
+        channel = settings['channel']
+        ifBW = settings['ifBW']
+        sweep_points = settings['sweep_points']
+        averages = settings['averages']
+        freq = settings['frequency']
+        span = settings['span']
+        
+        self.ifBW = ifBW
+        
+        self.configure_trace(channel, 'Trc1', 'S21', 'MLOG')
+        self.configure_trace(channel, 'Trc2', 'S21', 'UPH')
+        self.display_trace('Trc1',1,1)
+        self.display_trace('Trc2',2,1)
+        
+        self.configure_frequency(channel, center=freq, span=span, sweep_points=sweep_points)
+        
+        mags = []
+        phases = []
+        axes = []
+        
+        for power in powers:
+            self.output = 'OFF'
+            self.inst.write('INIT:CONT OFF')
+            self.power = power
+            self.configure_averages(channel, averages)
+            self.wait_complete(channel, averages)
+            mag = self.get_trace(channel, 'Trc1')
+            phase = self.get_trace(channel, 'Trc2')
+            freq = self.get_channel_axis(channel)
+            mags.append(mag)
+            phases.append(phase)
+            axes.append(freq)
+        
+        return mags, phases, axes
+    
+    def meas_lines(self, freqs, spans, settings):
+        
+        power = settings['RFpower']
+        channel = settings['channel']
+        ifBW = settings['ifBW']
+        sweep_points = settings['sweep_points']
+        averages = settings['averages']
+        
+        self.power = power
+        self.ifBW = ifBW
+        
+        self.configure_trace(channel, 'Trc1', 'S21', 'MLOG')
+        self.display_trace('Trc1',1,1)
+        
+        mags = []
+        axes = []
+
+        for freq, span in list(zip(freqs, spans)):
+            print('{},{}'.format(freq, span))
+            self.output = 'OFF'
+            self.inst.write('INIT:CONT OFF')
+            self.configure_frequency(channel, center=freq, span=span, sweep_points=sweep_points)
+            self.configure_averages(channel, averages)
+            self.wait_complete(channel, averages)
+            mag = self.get_trace(channel, 'Trc1')
+            freq = self.get_channel_axis(channel)
+            mags.append(mag)
+            axes.append(freq)
+        
+        return mags, axes
+            
     def autoscale(self, window=1, ref_trace=None):
         '''Autoscale window to match ref_trace range'''
         tracestr = ''
@@ -271,21 +361,35 @@ class VNA():
         '''Set up channel to measure averages traces'''
         self.inst.write('SENS{}:AVER ON'.format(channel))
         self.inst.write('SENS{}:AVER:COUN {}'.format(channel, averages))
-        self.inst.write('SENS{}:AVER:CLE'.format(channel))
         self.inst.write('SENS{}:SWE:COUN {}'.format(channel, averages))
+        self.clear_averages(channel)
         self.inst.query('*OPC?')
-
-    def configure_frequency(self, channel, start, stop, sweep_points):
+    
+    def clear_averages(self, channel):
+        '''Clear averages on channel'''
+        self.inst.write('SENS{}:AVER:CLE'.format(channel))
+        
+    def configure_frequency(self, channel, start=None, stop=None, sweep_points=None, center=None, span=None):
         '''
         Set up frequency axis
         Arguments:
             channel(int): channel number, channel must have been created beforehand
-            start(float/str): frequency of sweep start ('10 MHz' or 10e6)
-            stop(float/str): frequency of sweep end ('100 MHz' or 100e6)
+            if specified:
+                start(float/str): frequency of sweep start ('10 MHz' or 10e6)
+                stop(float/str): frequency of sweep end ('100 MHz' or 100e6)
+            if specified:
+                center(float/str): center of frequency sweep
+                span(float/str): span of frequency sweep
             sweep_points(int): number of points in sweep
         '''
-        self.inst.write('SENS{}:FREQ:STAR {}; STOP {}'.format(channel, start, stop))
-        self.inst.write('SENS{}:SWE:POIN {}'.format(channel, sweep_points))
+        if sweep_points is None:
+            sweep_points = 501
+        if start is not None and stop is not None:
+            self.inst.write('SENS{}:FREQ:STAR {}; STOP {}'.format(channel, start, stop))
+            self.inst.write('SENS{}:SWE:POIN {}'.format(channel, sweep_points))
+        if center is not None and span is not None:
+            self.inst.write('SENS{}:FREQ:CENT {}; SPAN {}'.format(channel, center, span))
+            self.inst.write('SENS{}:SWE:POIN {}'.format(channel, sweep_points))
         self.inst.query('*OPC?')
 
     def clear_all_traces(self):
@@ -370,32 +474,6 @@ class VNA():
 #            inst.write("DISP:WIND:TRAC2:FEED 'Ch2_SG_S11'")
 #    Read data from s param group:
 #        sdat = inst.query("CALC2:DATA:SGR? FDAT")
-#    Run single sweep:
-#        inst.write('INIT2:CONT OFF')
-#        inst.write('INIT2:IMM')
-#
-##Averaging stuff:
-#
-#    Enable/disable:
-#        inst.write('SENS1:AVER ON')
-#    Clear average:
-#        inst.write('SENS1:AVER:CLE')
-#    Number of averages:
-#        inst.write('SENS1:AVER:COUN 15')
-#    Average mode:
-#        inst.write('SENS1:AVER:MODE AUTO' )
-#
-##Frequency span control:
-#        inst.write('FREQ:STAR 1 MHz')
-#        inst.write('FREQ:STOP 40 MHz')
-#        inst.write('SWE:POIN 501')
-#        inst.query('SWE:TIME?')
-
-## Physical port control:
-#        inst.write('SOUR<Channel>:FREQ<Port>:CONV:ARB:IFR num,denom, offset, FIX')
-#        inst.write('SOUR<Channel>:POW<Port>:STATE ON') turn RF on/off
-#        inst.write('SOUR<Channel>:POW<Port>:PERM ON') turn 'gen' on/off
-#        inst.write('SOUR<Channel>:POW<Port>:OFFS offset, ONLY')
 
 ##Other useful stuff:
 #
