@@ -46,6 +46,7 @@ class VNA():
         '''
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
+        self.ext_ref = 'EXT'
         if reset:
             self.reset()
 
@@ -96,6 +97,19 @@ class VNA():
             the VNA will auto round to 1,1.5,2,3,5,7 in the nearest decade
         '''
         self.inst.write('SENS:BAND {}'.format(ifBW))
+        
+    @property
+    def ext_ref(self):
+        '''Return reference source'''
+        return self.inst.query('ROSC?').strip()
+    @ext_ref.setter
+    def ext_ref(self, source):
+        '''
+        Set reference source
+        Argument:
+            source(str): 'EXT' or 'INT' for external or internal freq reference
+        '''
+        self.inst.write('ROSC {}'.format(source))
         
     def get_errors(self, verbose = True):
         '''Print out all errors and clear queue'''
