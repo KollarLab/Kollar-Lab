@@ -40,14 +40,14 @@ class VNA():
             tracenum
         close(): close VISA connection with instrument
     '''
-    def __init__(self, address):
+    def __init__(self, address, reset = True):
         '''
         Initialize connection with instrument, reset it and clear all errors
         '''
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
-        self.inst.write('*RST; *CLS')
-        self.inst.write('OUTP OFF')
+        if reset:
+            self.reset()
 
     @property
     def error(self):
@@ -97,33 +97,43 @@ class VNA():
         '''
         self.inst.write('SENS:BAND {}'.format(ifBW))
         
-    def get_errors(self):
+    def get_errors(self, verbose = True):
         '''Print out all errors and clear queue'''
         code, *string = self.error
         while int(code) != 0:
             print('{},{}'.format(code, string))
             code, *string = self.error
-        print('{},{}'.format(code, string))
+        if verbose:
+            print('{},{}'.format(code, string))
         self.inst.write('*CLS')
 
+    def reset(self):
+        self.inst.write('*RST; *CLS')
+        self.inst.write('OUTP OFF')
+    
+    def close(self):
+        '''Close VISA connection'''
+        self.inst.close()
+    
+    ### User functions (spec, trans, powersweep etc.)     
     def spec_default_settings(self):
         '''Return default settings for spec measurement'''
         settings = {}
 
-        settings['channel'] = 1
-        settings['averages'] = 100
-        settings['measurement'] = 'S23'
-        settings['meas_form'] = 'MLOG'
-        settings['start'] = '1 MHz'
-        settings['stop'] = '40 MHz'
+        settings['channel']      = 1
+        settings['avg_time']     = 10
+        settings['measurement']  = 'S21'
+        settings['start']        = '3 GHz'
+        settings['stop']         = '6 GHz'
         settings['sweep_points'] = 501
-        settings['RFpower'] = -10
-        settings['RFport'] = 1
-        settings['Mport'] = 2
-        settings['CAVport'] = 3
-        settings['CAVpower'] = -5
-        settings['CAVfreq'] = '60 MHz'
-
+        settings['RFpower']      = -10
+        settings['RFport']       = 3
+        settings['Mport']        = 2
+        settings['CAVport']      = 1
+        settings['CAVpower']     = -5
+        settings['CAVfreq']      = '7 GHz'
+        settings['ifBW']         = 1e3
+        
         return settings
 
     def spec_meas(self, settings):
@@ -137,9 +147,8 @@ class VNA():
         Currently just plots data on VNA
         '''
         channel      = settings['channel']
-        averages     = settings['averages']
+        time         = settings['avg_time']
         measurement  = settings['measurement']
-        meas_format  = settings['meas_form']
         start        = settings['start']
         stop         = settings['stop']
         sweep_points = settings['sweep_points']
@@ -156,12 +165,11 @@ class VNA():
         self.inst.write('INIT:CONT OFF')
 
         #Configure averaging
-        self.configure_averages(channel, averages)
+        self.configure_averages(channel, 1e4)
 
-        #Clear old traces on channels and define a new trace to measure 'S23'
-        self.configure_trace(channel, 'spec', measurement, 'MLOG')
-        self.configure_trace(channel, 'phase', measurement, 'PHAS')
-
+        #Clear old traces on channels and define a new trace to measure 'S21'
+        self.configure_measurement(channel, measurement)
+  
         #Configure frequency sweep and RF power
         self.configure_frequency(channel, start, stop, sweep_points)
         self.power = rf_power
@@ -185,52 +193,27 @@ class VNA():
         self.inst.write('SOUR{}:POW{}:OFFS {}, ONLY'.format(channel, cav_port, cav_power))
         self.inst.query('*OPC?')
 
-        self.get_errors()
+        self.get_errors(verbose = False)
+        self.avg_time(channel, time)
+        self.autoscale(window=1)
 
-        self.wait_complete(channel, averages)
-
-        self.autoscale(window=1, ref_trace='spec')
-
-    def wait_complete(self, channel, averages):
-        '''
-        Block execution until instrument has completed measurement
-        Will estimate the sweep time and update the user periodically on progress
-        Arguments:
-            channel (int): channel number
-            averages (int): number of traces the instrument is set to average
-        '''
-        sweep_time = float(self.inst.query('SENS{}:SWE:TIME?'.format(channel)))
-        total_time = averages*sweep_time
-
-        #Turn on output and wait until sweep is complete to autoscale the trace
-        self.output = 'ON'
-        self.inst.write('INIT{}:IMM; *OPC'.format(channel))
-
-        opc = 0
-        auto_scale = True
-        t1 = time()
-        while not opc&1:
-            t2 = time()
-            print('waiting for command to complete, elapsed time:{}, total time est. {}'.format(t2-t1, total_time))
-            opc = int(self.inst.query('*ESR?').strip("\n'"))
-            if opc&1:
-                break
-            sleep(min(max(sweep_time*0.2*averages, 5), total_time))
-            if auto_scale:
-                self.autoscale()
-                auto_scale = False
+        data = self.get_channel_data(channel)
+        self.output = 'Off'
+        
+        return data
 
     def trans_default_settings(self):
         '''Return default settings for trans measurement'''
         settings = {}
 
-        settings['channel'] = 1
-        settings['averages'] = 100
-        settings['measurement'] = 'S21'
-        settings['start'] = '1 MHz'
-        settings['stop'] = '40 MHz'
+        settings['channel']      = 1
+        settings['avg_time']     = 10
+        settings['measurement']  = 'S21'
+        settings['start']        = '3 GHz'
+        settings['stop']         = '9 GHz'
         settings['sweep_points'] = 501
-        settings['RFpower'] = -10
+        settings['RFpower']      = -20
+        settings['ifBW']         = 1e3
 
         return settings
 
@@ -244,43 +227,35 @@ class VNA():
             freqs: x axis for channel (frequency here)
         '''
         channel      = settings['channel']
-        averages     = settings['averages']
+        time         = settings['avg_time']
         measurement  = settings['measurement']
         start        = settings['start']
         stop         = settings['stop']
         sweep_points = settings['sweep_points']
-        rf_power      = settings['RFpower']
+        rf_power     = settings['RFpower']
+        ifBW         = settings['ifBW']
 
         #Turn off output and switch to single sweep mode instead of continuous sweeps
         self.output = 'OFF'
         self.inst.write('INIT:CONT OFF')
 
         #Configure averaging
-        self.configure_averages(channel, averages)
-
-        #Clear old traces on channels and define a new trace to measure 'S21'
-        self.configure_trace(channel, 'mag', measurement, 'MLOG')
-        self.configure_trace(channel, 'phase', measurement, 'UPH')
-        self.display_trace(trace='mag', tracenum=1, window=1)
-        self.display_trace(trace='phase', tracenum=2, window=1)
+        self.configure_averages(channel, 1e4) #high number so that VNA keeps averaging regardless of user averaging time
+        self.configure_measurement(channel, measurement)
 
         #Configure frequency sweep and RF power
         self.configure_frequency(channel, start, stop, sweep_points)
         self.power = rf_power
+        self.ifBW = ifBW
 
-        self.get_errors()
+        self.get_errors(verbose = False)
 
-        #Query instrument until operation is complete
-        self.wait_complete(channel, averages)
+        self.avg_time(channel, time)
 
-        self.autoscale(window=1, ref_trace='mag')
-        self.autoscale(window=1, ref_trace='phase')
-
-        mag   = self.get_trace(channel, 'mag')
-        phase = self.get_trace(channel, 'phase')
-        freqs = self.get_channel_axis(channel)
-
-        return mag, phase, freqs
+        data = self.get_channel_data(channel)
+        self.output = 'Off'
+        
+        return data
 
     def power_sweep(self, settings, powers):
 
@@ -325,15 +300,20 @@ class VNA():
         channel = settings['channel']
         ifBW = settings['ifBW']
         sweep_points = settings['sweep_points']
-        averages = settings['averages']
+        time = settings['avg_time']
         
         self.power = power
         self.ifBW = ifBW
         
-        self.configure_trace(channel, 'Trc1', 'S21', 'MLOG')
-        self.display_trace('Trc1',1,1)
+#        self.configure_trace(channel, 'Trc1', 'S21', 'MLOG')
+#        self.configure_trace(channel, 'Trc2', 'S21', 'UPH')
+#        self.display_trace('Trc2',2,1)
+#        self.display_trace('Trc1',1,1)
+        self.configure_measurement(channel, 'S21')
+        
         
         mags = []
+        phases = []
         axes = []
 
         for freq, span in list(zip(freqs, spans)):
@@ -341,22 +321,62 @@ class VNA():
             self.output = 'OFF'
             self.inst.write('INIT:CONT OFF')
             self.configure_frequency(channel, center=freq, span=span, sweep_points=sweep_points)
-            self.configure_averages(channel, averages)
-            self.wait_complete(channel, averages)
-            mag = self.get_trace(channel, 'Trc1')
-            freq = self.get_channel_axis(channel)
+            self.configure_averages(channel, 10e3)
+#            self.wait_complete(channel, averages)
+            self.avg_time(1, time)
+            data = self.get_channel_data(channel)
+            mag = data['mag']
+            phase = data['phase']
+            freq = data['xaxis']
             mags.append(mag)
+            phases.append(phase)
             axes.append(freq)
         
-        return mags, axes
-            
+        return mags, phases, axes
+    
+    ### Helpers and utility functions
     def autoscale(self, window=1, ref_trace=None):
         '''Autoscale window to match ref_trace range'''
         tracestr = ''
         if ref_trace is not None:
             tracestr = ",'{}'".format(ref_trace)
-        self.inst.write("DISP:WIND{}:TRAC:Y:AUTO ONCE{}".format(window, tracestr))
+            self.inst.write("DISP:WIND{}:TRAC:Y:AUTO ONCE{}".format(window, tracestr))
+        if ref_trace is None:
+            traces = self.get_channel_traces(1)[::2]
+            for trace in traces:
+                tracestr = ",'{}'".format(trace)
+                self.inst.write("DISP:WIND{}:TRAC:Y:AUTO ONCE{}".format(window, tracestr))
+                
+    def avg_time(self, channel, time):
+        '''
+        Set the instrument to measure for 'time' seconds. The instrument will
+        autoscale after 20% of the time has elapsed so that the traces can be
+        examined on the VNA
+        Arguments:
+            channel (int): channel being used for the measurement
+            time (int): time in seconds that the instrument will measure
+        '''
+        self.clear_averages(channel)
+        self.output = 'On'
+        self.inst.write('INIT{}:IMM'.format(channel))
+        sleep(time/5)
+        self.autoscale()
+        sleep(4*time/5)
+        
+    def clear_all_traces(self):
+        '''Clear all traces defined on instrument'''
+        self.inst.write('CALC:PAR:DEL:ALL')
+        self.inst.query('*OPC?')
+        
+    def clear_averages(self, channel):
+        '''Clear averages on channel'''
+        self.inst.write('SENS{}:AVER:CLE'.format(channel))
 
+    def clear_channel_traces(self, channel):
+        '''Clear all traces defined in channel'''
+        self.inst.write('CALC{}:PAR:DEL:CALL'.format(channel))
+        self.inst.query('*OPC?')
+        
     def configure_averages(self, channel, averages):
         '''Set up channel to measure averages traces'''
         self.inst.write('SENS{}:AVER ON'.format(channel))
@@ -364,10 +384,6 @@ class VNA():
         self.inst.write('SENS{}:SWE:COUN {}'.format(channel, averages))
         self.clear_averages(channel)
         self.inst.query('*OPC?')
-    
-    def clear_averages(self, channel):
-        '''Clear averages on channel'''
-        self.inst.write('SENS{}:AVER:CLE'.format(channel))
         
     def configure_frequency(self, channel, start=None, stop=None, sweep_points=None, center=None, span=None):
         '''
@@ -391,29 +407,27 @@ class VNA():
             self.inst.write('SENS{}:FREQ:CENT {}; SPAN {}'.format(channel, center, span))
             self.inst.write('SENS{}:SWE:POIN {}'.format(channel, sweep_points))
         self.inst.query('*OPC?')
-
-    def clear_all_traces(self):
-        '''Clear all traces defined on instrument'''
-        self.inst.write('CALC:PAR:DEL:ALL')
-        self.inst.query('*OPC?')
-
-    def clear_channel_traces(self, channel):
-        '''Clear all traces defined in channel'''
-        self.inst.write('CALC{}:PAR:DEL:CALL'.format(channel))
-        self.inst.query('*OPC?')
-
-    def display_trace(self, trace, tracenum, window):
+    
+    def configure_measurement(self, channel, measurement, window = 1):
         '''
-        Display trace in window assigning it the tracenum number
+        Set up a basic 'Sij' measurement configuring traces for magnitude and 
+        phase. If the traces already exist, the code will ignore the clearing
+        commands and return without doing anything
         Arguments:
-            trace (str): name of trace to be displayed
-            tracenum (int): number to assign to trace in window
-            window (int): window to display trace in (will create a new one if needed)
+            channel (int): channel number for measurement
+            measurement (string): measurement to be performed (e.g 'S21')
+            window (int): window to display the traces in (default 1)
         '''
-        self.inst.write('DISP:WIND{}:STAT ON'.format(window))
-        self.inst.query('*OPC?')
-        self.inst.write('DISP:WIND{}:TRAC{}:FEED "{}"'.format(window, tracenum, trace))
-        self.inst.query('*OPC?')
+        traces = self.get_channel_traces(channel)
+        reinit = True
+        if 'mag' in traces and 'phase' in traces:
+            reinit = False
+        if reinit:
+            self.clear_channel_traces(channel)
+            self.configure_trace(channel, 'mag', measurement, 'MLOG')
+            self.configure_trace(channel, 'phase', measurement, 'PHAS')
+            self.display_trace('mag',tracenum=1, window=window)
+            self.display_trace('phase',tracenum=2, window=window)
 
     def configure_trace(self, channel, name, meastype, measformat):
         '''
@@ -427,17 +441,39 @@ class VNA():
         self.inst.write("CALC{}:PAR:SDEF '{}', '{}'".format(channel, name, meastype))
         self.inst.write("CALC{}:FORM {}".format(channel, measformat))
         self.inst.query('*OPC?')
-
-    def get_channel_traces(self, channel):
-        '''Return list of traces defined in channel'''
-        instresp  = self.inst.query('CALC{}:PAR:CAT?'.format(channel))
-        tracelist = instresp.strip("\n'").split(',')
-        return tracelist
+    
+    def display_trace(self, trace, tracenum, window):
+        '''
+        Display trace in window assigning it the tracenum number
+        Arguments:
+            trace (str): name of trace to be displayed
+            tracenum (int): number to assign to trace in window
+            window (int): window to display trace in (will create a new one if needed)
+        '''
+        self.inst.write('DISP:WIND{}:STAT ON'.format(window))
+        self.inst.query('*OPC?')
+        self.inst.write('DISP:WIND{}:TRAC{}:FEED "{}"'.format(window, tracenum, trace))
+        self.inst.query('*OPC?')
 
     def get_channel_axis(self, channel):
         '''Return numpy array of channel x-axis'''
         xaxis = self.inst.query_ascii_values("CALC{}:DATA:STIM?".format(channel))
         return numpy.asarray(xaxis)
+    
+    def get_channel_data(self, channel):
+        '''Return dictionary with all the data from a channel'''
+        traces = self.get_channel_traces(channel)[::2]
+        data = {}
+        for trace in traces:
+            data[trace] = self.get_trace(channel, trace)
+        data['xaxis'] = self.get_channel_axis(channel)
+        return data
+    
+    def get_channel_traces(self, channel):
+        '''Return list of traces defined in channel'''
+        instresp  = self.inst.query('CALC{}:PAR:CAT?'.format(channel))
+        tracelist = instresp.strip("\n'").split(',')
+        return tracelist
 
     def get_trace(self, channel, name):
         '''
@@ -452,10 +488,36 @@ class VNA():
             return numpy.zeros(1000)
         data = self.inst.query_ascii_values("CALC{}:DATA:TRAC? '{}',FDAT".format(channel, name))
         return numpy.asarray(data)
+    
+    ####Legacy functions/ unused functions
+    def wait_complete(self, channel, averages):
+        '''
+        Block execution until instrument has completed measurement
+        Will estimate the sweep time and update the user periodically on progress
+        Arguments:
+            channel (int): channel number
+            averages (int): number of traces the instrument is set to average
+        '''
+        sweep_time = float(self.inst.query('SENS{}:SWE:TIME?'.format(channel)))
+        total_time = averages*sweep_time
 
-    def close(self):
-        '''Close VISA connection'''
-        self.inst.close()
+        #Turn on output and wait until sweep is complete to autoscale the trace
+        self.output = 'ON'
+        self.inst.write('INIT{}:IMM; *OPC'.format(channel))
+
+        opc = 0
+        auto_scale = True
+        t1 = time()
+        while not opc&1:
+            t2 = time()
+            print('waiting for command to complete, elapsed time:{}, total time est. {}'.format(t2-t1, total_time))
+            opc = int(self.inst.query('*ESR?').strip("\n'"))
+            if opc&1:
+                break
+            sleep(min(max(sweep_time*0.2*averages, 5), total_time))
+            if auto_scale:
+                self.autoscale()
+                auto_scale = False
 
 
 ##Basic commands:
