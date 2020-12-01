@@ -13,17 +13,17 @@ example code for reading traces from the VNA.
 
 """
 
-init_dir = dir()
+#init_dir = dir()
 
 import pylab
 import userfuncs
 
-finished_imports = dir()
-
-import_list = [imp for imp in finished_imports if imp not in set(init_dir+['init_dir'])]
-
-vars_to_save = vars_to_save + import_list
-userfuncs.reset_local_vars(locals(), globals(), vars_to_save+import_list)
+#finished_imports = dir()
+#
+#import_list = [imp for imp in finished_imports if imp not in set(init_dir+['init_dir'])]
+#
+#vars_to_save = vars_to_save + import_list
+#userfuncs.reset_local_vars(locals(), globals(), vars_to_save+import_list)
 
 ##########
 #save location
@@ -38,17 +38,17 @@ name = 'Output3'
 filename = name + '_' + stamp
 
 
-settings = vna.TransDefaultSettings()
+settings = vna.trans_default_settings()
 
 
 settings['start'] = 1e9
-settings['stop'] = 15e9
+settings['stop'] = 5e9
 settings['sweep_points'] = 2001
-settings['RFpower'] = -20
-settings['averages'] = 10
+settings['RFpower'] = 0
+settings['averages'] = 100
 settings['measurement'] = 'S21'
 
-mag, phase, freqs = vna.TransMeas(settings)
+mag, phase, freqs = vna.trans_meas(settings)
 
 vna.output = 'OFF'
 
@@ -74,7 +74,7 @@ pylab.show()
 #try to save
 #####
 
-varsToSave = ['mag', 'phase', 'freqs','filename','fig']
+#varsToSave = ['mag', 'phase', 'freqs','filename','fig']
 #figsToSave = [fig]
 
 #userfuncs.SaveFull( saveDir, filename, varsToSave, locals(), expsettings = settings)
@@ -122,21 +122,3 @@ varsToSave = ['mag', 'phase', 'freqs','filename','fig']
 #
 #pylab.tight_layout()
 #pylab.show()
-
-
-
-
-
-#    #Save png of figure for easy viewing
-#    uf.savefig(fig1,filename,savepath, png = True)
-#    
-#    print("std(angles) = " , numpy.std(Angles))
-#
-#    rfgen.power_Off()
-#    logen.power_Off()    
-#
-#    dataTosave = ['Is','Qs','Amps','Angles', 'actualTimes','xx','yy','Idata', 'Qdata', 'Iav', 'Qav']
-#    figsTosave = [fig1]
-#
-#    if settings['save']:    
-#        uf.SaveFull(savepath, filename, dataTosave, locals(), settings, instruments, figsTosave)
