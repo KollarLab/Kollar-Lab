@@ -27,9 +27,9 @@ hdawg = HDAWG('dev8163')
 rm = pyvisa.ResourceManager()
 rm.close()
 
-logen = SGS100A('TCPIP0::rssgs100a110425::inst0::INSTR')
-rfgen = SGS100A('TCPIP0::rssgs100a110739::inst0::INSTR')
-SGS_coupling(logen,rfgen)
+qubitgen = SGS100A('TCPIP0::rssgs100a110425::inst0::INSTR')
+cavitygen = SGS100A('TCPIP0::rssgs100a110739::inst0::INSTR')
+SGS_coupling(qubitgen,cavitygen)
 
 triggergen  = Keysight33500B('USB0::0x0957::0x2507::MY58000681::0::INSTR')
 
@@ -39,9 +39,9 @@ triggergen.Freq       = '500 Hz'
 triggergen.Volt       = '2 V'
 triggergen.Output     = 'ON'
 
-SRS = DC205('ASRL3::INSTR')
-
+#SRS = DC205('ASRL3::INSTR')
+#
 vna = VNA('TCPIP0::192.168.1.11::inst0::INSTR')
-
-vars_to_save = dir()
-vars_to_save += ['vars_to_save']
+#
+#vars_to_save = dir()
+#vars_to_save += ['vars_to_save']
