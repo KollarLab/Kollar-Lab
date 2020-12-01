@@ -828,7 +828,7 @@ class Acqiris(object):
         self.triggerSource = 'External1'
         self.triggerMode = 'Edge' #this thing should maybe go away.
         self.triggerLevel = 0
-        self.triggerSlope = 'Falling'
+        self.triggerSlope = 'Rising'
         self.triggerDelay = 0
         self.triggerCoupling = 1 #1 for DC, 0 for AC. I think it must always be DC, at least on external
         
