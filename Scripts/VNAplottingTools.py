@@ -32,7 +32,7 @@ def base_power_plot(fig, ax, freqs, ydata, powers, scanname, scanformat, HWatten
         
     plt.xlabel("Frequency (GHz)")
     plt.ylabel(r"Power (dBm)")
-    plt.title('S21 {}'.format(scanformat, scanname))  
+    plt.title('S21 {}'.format(scanformat))  
     
     plt.show()
 
@@ -65,7 +65,7 @@ def base_power_plot_spec(fig, ax, freqs, ydata, powers, scanname, scanformat, HW
     plt.ylabel(r"Freq (GHz)")
     plt.title('Voltage {}, {}'.format(scanformat, scanname))  
     
-#    ax = plt.gca()
+    #ax = plt.gca()
     ax.xaxis.set_major_locator(plt.MaxNLocator(5))
     ax.yaxis.set_major_locator(plt.MaxNLocator(5))
     axins = inset_axes(ax,
@@ -110,7 +110,7 @@ def base_raw_time_plot_spec(fig, ax, times, ydata, ys, scanname, scanformat):
     plt.ylabel(r"control param")
     plt.title('Voltage {}, {}'.format(scanformat, scanname))  
     
-#    ax = plt.gca()
+    #ax = plt.gca()
     ax.xaxis.set_major_locator(plt.MaxNLocator(5))
     ax.yaxis.set_major_locator(plt.MaxNLocator(5))
     axins = inset_axes(ax,
@@ -126,7 +126,6 @@ def base_raw_time_plot_spec(fig, ax, times, ydata, ys, scanname, scanformat):
     axins.tick_params(labelsize=9)
     
     plt.show()
-    
     
 def power_plot(freqs, mags, phases, powers, scanname, HWattenuation = 0):
     fig = plt.figure(figsize=(13,8))
@@ -176,4 +175,3 @@ def get_peaks(freqs, mags, window, polyorder, height, width, show_plot = False):
         plt.title('Peaks in signal')
     
     return [freqs[peaks], mags[peaks]]
-    
