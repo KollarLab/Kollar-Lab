@@ -11,34 +11,36 @@ import numpy as np
 import VNAplottingTools as VNAplots
 import matplotlib.pyplot as plt
 
-saveDir = r'Z:\Data\HouckTaTransmon\Spec\20201120'
+saveDir = r'Z:\Data\HouckQuadTransmon\Spec\20201203'
 
 stamp = userfuncs.timestamp()
 
-name = 'finequbitscan'
+name = 'q4specscan'
 
 scanname = name + '_' + stamp
 
 settings = vna.spec_default_settings()
 
+CAV_Attenuation = 30
+
 settings['channel'] = 1
-settings['avg_time'] = 120
+settings['avg_time'] = 30
 settings['measurement'] = 'S21'
-settings['start'] = 5.10706e9
-settings['stop'] = 5.13706e9
+settings['start'] = 3.5e9
+settings['stop'] = 4.5e9
 settings['sweep_points'] = 501
 settings['RFpower'] = -25
 settings['RFport'] = 3
 settings['Mport'] = 2
 settings['CAVport'] = 1
-settings['CAVpower'] = -18
-settings['CAVfreq'] = 7.173073e9
-settings['ifBW'] = 100
+settings['CAVpower'] = -55 + CAV_Attenuation
+settings['CAVfreq'] = 8.12555e9
+settings['ifBW'] = 2e2
 
 HWattenuation = -10
-numPowers = 20
-startpower = -30
-stoppower = -6
+numPowers = 21
+startpower = -40
+stoppower = 0
 
 powers = np.linspace(startpower, stoppower, numPowers)
 

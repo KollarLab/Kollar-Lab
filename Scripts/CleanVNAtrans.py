@@ -11,29 +11,29 @@ import os
 import VNAplottingTools as VNAplots
 import matplotlib.pyplot as plt
 
-saveDir = r'Z:\Data\HouckTaTransmon\Trans\20201120'
+saveDir = r'Z:\Data\HouckQuadTransmon\Trans\20201203'
 
 stamp = userfuncs.timestamp()
 
-name = 'cavityscan'
+name = 'powersweep'
 
 scanname = name + '_' + stamp
 
 settings = vna.trans_default_settings()
 
 settings['channel'] = 1
-settings['avg_time'] = 30
+settings['avg_time'] = 10
 settings['measurement'] = 'S21'
-settings['start'] = 7.165e9
-settings['stop'] = 7.174e9
-settings['sweep_points'] = 1001
-settings['RFpower'] = -20
+settings['start'] = 8.05e9
+settings['stop'] = 8.15e9
+settings['sweep_points'] = 2001
+settings['RFpower'] = -30
 settings['ifBW'] = 1e3
 
 HWattenuation = -30
-numPowers = 10
-startpower = -18
-stoppower = -18.1
+numPowers = 21
+startpower = -15
+stoppower = 10
 
 powers = np.linspace(startpower, stoppower, numPowers)
 

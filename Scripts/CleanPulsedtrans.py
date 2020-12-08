@@ -9,15 +9,15 @@ import userfuncs
 from Instruments.Acqiris import Acqiris
 from Instruments.SGS import SGS100A
 
-saveDir = r'Z:\Data\HouckTaTransmon\PulseTrans\20201123'
+saveDir = r'Z:\Data\HouckQuadTransmon\PulsedTrans\20201206'
 
 settings = {}
 
 ###########################################
-settings['scanname'] = 'quickcheck_sweep'
+settings['scanname'] = 'quickcheck_sweep_q4'
 
-settings['start_freq']      = 7.1725*1e9  
-settings['stop_freq']       = 7.178*1e9 
+settings['start_freq']      = 8.05e9  
+settings['stop_freq']       = 8.15*1e9 
 settings['freq_points']     = 30 
 
 settings['start_power']     = -20
@@ -32,9 +32,6 @@ settings['averages']         = 1*1e3
 settings['activeChannels']   = [1,2]
 settings['sampleRate']       = 2e9/8
 settings['trigger_buffer']   = 0e-6
-
-settings['CAVpower']        = -18
-settings['CAV_freq']        = 7.173073e9
 
 settings['freqs']           = numpy.round(numpy.linspace(settings['start_freq'],settings['stop_freq'] , settings['freq_points'] ),-3)
 settings['powers']          = numpy.round(numpy.linspace(settings['start_power'],settings['stop_power'] , settings['power_points'] ),2)
@@ -62,9 +59,8 @@ card.samples        = 1e5   #eventually determine from settings['measDur']
 card.channelRange   = 0.5
 card.SetParams()
 
-vna.inst.write('ROSC EXT')
-vna.inst.write('SENS:SWE:TYPE CW')
-vna.inst.write('SOUR:POW 12') 
+SMB.Ref.Source = 'EXT'
+SMB.Power = 12
   
 data_window = int(100e-6*card.sampleRate) #for 100us measurement pulses 
 
@@ -118,8 +114,8 @@ for powerind in range(len(powers)):
         if powerind == 0 and find == 0:
             tstart = time.time()
         cavitygen.Freq = freq
-        vna.inst.write('SOUR:FREQ:CW {}'.format(freq))
-        vna.output = 'On'
+        SMB.Freq = freq
+        SMB.Output = 'On'
         time.sleep(0.2)
         
         card.ArmAndWait()

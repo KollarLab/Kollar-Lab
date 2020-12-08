@@ -9,7 +9,7 @@ import userfuncs
 from Instruments.Acqiris import Acqiris
 from Instruments.SGS import SGS100A
 
-saveDir = r'Z:\Data\HouckTaTransmon\PulseSpec\20201123'
+saveDir = r'Z:\Data\HouckQuadTransmon\PulsedSpec\20201206'
 
 #cavitygen = SGS100A('TCPIP0::rssgs100a110739::inst0::INSTR')
 #qubitgen = SGS100A('TCPIP0::rssgs100a110425::inst0::INSTR')
@@ -19,28 +19,29 @@ saveDir = r'Z:\Data\HouckTaTransmon\PulseSpec\20201123'
 settings = {}
 
 ###########################################
-settings['scanname'] = 'initial_test'
+settings['scanname'] = 'initial_power_scan_q4'
 
 
-settings['start_freq']      = 5.095*1e9  
-settings['stop_freq']       = 5.155*1e9 
-settings['freq_points']     = 300
+settings['start_freq']      = 4.15*1e9  
+settings['stop_freq']       = 4.25*1e9 
+settings['freq_points']     = 50
 
-settings['start_power']     = -10
-settings['stop_power']      = 20
+settings['start_power']     = -20
+settings['stop_power']      = 10
 settings['power_points']    = 31
 
 
 #Card settings
 settings['segments']         = 1
 settings['reads']            = 1
-settings['averages']         = 1*1e3
+settings['averages']         = 5e3
 settings['activeChannels']   = [1,2]
 settings['sampleRate']       = 2e9/8
 settings['trigger_buffer']   = 0e-6
+settings['meas_window']      = 10e-6
 
 settings['CAVpower']        = -18
-settings['CAV_freq']        = 7.173069e9
+settings['CAV_freq']        = 8.126e9
 
 settings['freqs']           = numpy.round(numpy.linspace(settings['start_freq'],settings['stop_freq'] , settings['freq_points'] ),-3)
 settings['powers']          = numpy.round(numpy.linspace(settings['start_power'],settings['stop_power'] , settings['power_points'] ),2)
@@ -70,24 +71,30 @@ qubitgen.IQ.Mod = 'On'
 cavitygen.Output = 'On'
 qubitgen.Output = 'On'
 
+meas_samples = settings['sampleRate']*settings['meas_window']
+
 card.averages       = settings['averages']
 card.segments       = settings['segments']
 card.sampleRate     = settings['sampleRate']
 card.activeChannels = settings['activeChannels']
 card.triggerDelay   = settings['trigger_buffer']
 card.timeout        = 30
-card.samples        = 1e5   #eventually determine from settings['measDur']
+card.samples        = int(meas_samples*1.5)
 card.channelRange   = 0.5
 card.SetParams()
 
 
-vna.inst.write('ROSC EXT')
-vna.inst.write('SENS:SWE:TYPE CW')
-vna.inst.write('SOUR:POW 12')
-vna.inst.write('SOUR:FREQ:CW {}'.format(CAV_freq))
-vna.output = 'On' 
+#vna.inst.write('ROSC EXT')
+#vna.inst.write('SENS:SWE:TYPE CW')
+#vna.inst.write('SOUR:POW 12')
+#vna.inst.write('SOUR:FREQ:CW {}'.format(CAV_freq))
+#vna.output = 'On' 
+SMB.Ref.Source = 'EXT'
+SMB.Power = 12
+SMB.Freq = CAV_freq
+SMB.Output = 'On'
   
-data_window = int(100e-6*card.sampleRate) #for 100us measurement pulses 
+data_window = int(meas_samples) #for 100us measurement pulses 
 
 xaxis = (numpy.array(range(card.samples))/card.sampleRate)
 xaxis_us = xaxis*1e6
@@ -159,10 +166,10 @@ for powerind in range(len(powers)):
         fig = plt.figure(1)
         plt.clf()
         ax = plt.subplot(1,2,1)
-        base_power_plot(fig, ax, freqs, powerdat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'mag', HWattenuation = -30)  
+        base_power_plot(fig, ax, freqs, powerdat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'mag', HWattenuation = -10)  
         
         ax = plt.subplot(1,2,2)
-        base_power_plot(fig, ax, freqs, phasedat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'phase', HWattenuation = -30)
+        base_power_plot(fig, ax, freqs, phasedat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'phase', HWattenuation = -10)
         
         plt.suptitle(filename)
         fig.canvas.draw()
@@ -183,10 +190,10 @@ if len(powers) > 1:
     fig = plt.figure(1)
     plt.clf()
     ax = plt.subplot(1,2,1)
-    base_power_plot(fig, ax, freqs, powerdat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'mag', HWattenuation = -30)  
+    base_power_plot(fig, ax, freqs, powerdat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'mag', HWattenuation = -10)  
     
     ax = plt.subplot(1,2,2)
-    base_power_plot(fig, ax, freqs, phasedat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'phase', HWattenuation = -30)
+    base_power_plot(fig, ax, freqs, phasedat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'phase', HWattenuation = -10)
     
     plt.suptitle(filename)
     plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
