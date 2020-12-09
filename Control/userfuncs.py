@@ -5,7 +5,7 @@ from numpy.linalg import eig, inv
 import pickle
 import os
 from datetime import datetime
-
+from datetime import date
 from skimage.measure import EllipseModel
 
 def freeze(cls):
@@ -258,6 +258,15 @@ def timestamp():
     date  = datetime.now()
     stamp = date.strftime('%Y%m%d_%H%M%S')
     return stamp
+
+def saveDir(project_dir, meas_type):
+    today = date.today().strftime('%Y%m%d')
+    fullpath = os.path.join(project_dir, meas_type, today)
+    try:
+        os.makedirs(fullpath)
+    except:
+        print('Dir already exists')
+    return fullpath
 
 def reset_local_vars(local_dict, global_dict, vars_to_save):
     
