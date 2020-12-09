@@ -4,25 +4,30 @@ Created on Sun Nov  8 18:31:45 2020
 
 @author: Kollarlab
 """
-import userfuncs
 import time
 import os
 import numpy as np
-import VNAplottingTools as VNAplots
 import matplotlib.pyplot as plt
 
-saveDir = r'Z:\Data\HouckQuadTransmon\Spec\20201203'
+import userfuncs
+import VNAplottingTools as VNAplots
 
-stamp = userfuncs.timestamp()
+project_dir = r'Z:\Data\HouckQuadTransmon'
+meas_type = 'Spec'
+save_Dir = userfuncs.saveDir(project_dir, meas_type)
 
 name = 'q4specscan'
-
+stamp = userfuncs.timestamp()
 scanname = name + '_' + stamp
 
-settings = vna.spec_default_settings()
-
 CAV_Attenuation = 30
+Qbit_Attenuation = -10
 
+start_power = -40
+stop_power = 0
+power_points = 21
+
+settings = vna.spec_default_settings()
 settings['channel'] = 1
 settings['avg_time'] = 30
 settings['measurement'] = 'S21'
@@ -37,12 +42,7 @@ settings['CAVpower'] = -55 + CAV_Attenuation
 settings['CAVfreq'] = 8.12555e9
 settings['ifBW'] = 2e2
 
-HWattenuation = -10
-numPowers = 21
-startpower = -40
-stoppower = 0
-
-powers = np.linspace(startpower, stoppower, numPowers)
+powers = np.linspace(start_power, stop_power, power_points)
 
 mags = np.zeros((len(powers), settings['sweep_points']))
 phases = np.zeros((len(powers), settings['sweep_points']))
@@ -70,7 +70,7 @@ print('Elapsed time: {}'.format(t2-t0))
   
 freqs = data['xaxis']
 
-VNAplots.power_plot(freqs, mags, phases, powers, scanname, HWattenuation)
+VNAplots.power_plot(freqs, mags, phases, powers, scanname, CAV_Attenuation)
 
-userfuncs.SaveFull(saveDir, scanname, ['mags', 'phases', 'freqs', 'powers', 'HWattenuation'], locals(), expsettings=settings)
-plt.savefig(os.path.join(saveDir, scanname+'.png'), dpi = 150)
+userfuncs.SaveFull(save_Dir, scanname, ['mags', 'phases', 'freqs', 'powers', 'Qbit_Attenuation', 'CAV_Attenuation'], locals(), expsettings=settings)
+plt.savefig(os.path.join(save_Dir, scanname+'.png'), dpi = 150)
