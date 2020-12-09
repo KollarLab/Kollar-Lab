@@ -1,7 +1,7 @@
 //Used .cpp extension to get nice syntax highlighting 
 
 //Configure 
-const qbitTime = 80e-9;
+const qbitTime = _qwidth_;
 const measTime = _meas_window_;
 
 //Timing control 

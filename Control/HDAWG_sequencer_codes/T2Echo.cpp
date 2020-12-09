@@ -1,7 +1,7 @@
 //Used .cpp extension to get nice syntax highlighting 
 
 //Configure 
-const qbitTime = _qwidth_;
+const qbitTime = 80e-9;
 const measTime = _meas_window_;
 const piAmp    = 1;
 //Timing control 
@@ -44,7 +44,7 @@ for (i=0; i<qbit_samples;i++){
 }
 
 const init_wait_cycles = round((max_time-wait_time-tau-qbitTime*2)*sequencerRate);
-const pulse_sep_cycles = round(tau*sequencerRate);
+const pulse_sep_cycles = round((tau/2-qbitTime)*sequencerRate/2);
 const meas_wait_cycles = round(wait_time*sequencerRate);
 
 while(true){
@@ -55,11 +55,17 @@ while(true){
   playWave(blank, piAmp/2*qbit_clean);
   waitWave();
   wait(pulse_sep_cycles);
+  playWave(blank, piAmp*qbit_clean);
+  waitWave();
+  wait(pulse_sep_cycles);
+  playWave(blank, piAmp*qbit_clean);
+  waitWave();
+  wait(pulse_sep_cycles);
   //pi/2 pulse
   playWave(blank, piAmp/2*qbit_clean);
   waitWave();
   wait(meas_wait_cycles);
-  //Measurement tone
+  //Measurement ton
   playWave(rise_clean);
   waitWave();
   wait(meas_samples);
