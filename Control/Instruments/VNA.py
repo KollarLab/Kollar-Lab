@@ -70,7 +70,14 @@ class VNA():
             state(str/int): desired state, can be a string ('ON') or an int (1)
         '''
         self.inst.write('OUTP {}'.format(state))
-
+    
+    @property
+    def freq(self):
+        return float(self.inst.query('FREQ:CW?'))
+    @freq.setter
+    def freq(self, freq):
+        self.inst.write('FREQ:CW {}'.format(freq))
+        
     @property
     def power(self):
         '''Return output RF power'''
