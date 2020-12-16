@@ -8,10 +8,11 @@ from time import sleep, time
 import numpy
 import pyvisa
 
-
 import matplotlib.pyplot as plt
 
-class VNA():
+from Instruments.SCPIinst import SCPIinst
+
+class VNA(SCPIinst):
     '''
     Class representing RS VNA instrument
     Attributes:
@@ -40,15 +41,39 @@ class VNA():
             tracenum
         close(): close VISA connection with instrument
     '''
+    errcmds           = {}
+    errcmds['error']  = 'SYST:ERR?'
+    errcmds['serror'] = 'SYST:SERR?'
+    
+    commandlist = {}
+    commandlist['core']   = {}
+    commandlist['Ref']    = {}
+    
+    core = {}
+    core['Output'] = 'OUTPut:STATe'
+    core['Power']  = 'SOURce:POWer'
+    core['SweepType'] = 'SENS:SWE:TYPE'
+    core['Freq']   = 'SOURce:FREQuency:CW'
+    core['ifBW']   = 'SENS:BAND'
+    Ref = {}
+    Ref['Source']    = 'ROSCillator'
+    Ref['Frequency'] = 'ROSCillator:EXTernal:FREQuency'
+    
+    commandlist['core']   = core
+    commandlist['Ref']    = Ref
+
+
     def __init__(self, address, reset = True):
         '''
         Initialize connection with instrument, reset it and clear all errors
         '''
-        rm = pyvisa.ResourceManager()
-        self.inst = rm.open_resource(address)
+        super().__init__(address, self.commandlist, self.errcmds, reset) 
+        #rm = pyvisa.ResourceManager()
+        #self.inst = rm.open_resource(address)
         self.ext_ref = 'EXT'
-        if reset:
-            self.reset()
+        self.Output = 'Off'
+        #if reset:
+        #    self.reset()
 
     @property
     def error(self):

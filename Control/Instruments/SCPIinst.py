@@ -2,10 +2,11 @@ import pyvisa
 
 class SCPIinst(object):
 
-    def __init__(self, address, commands, errcmd):
+    def __init__(self, address, commands, errcmd, reset = True):
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
-        self.inst.write('*RST; *CLS')
+        if reset:
+            self.inst.write('*RST; *CLS')
         self.errcmd = errcmd
         self.modules = []
         for key in commands.keys():
