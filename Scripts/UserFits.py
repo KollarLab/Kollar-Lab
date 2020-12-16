@@ -23,11 +23,11 @@ def fit_T1(taus, amps, fit_guess):
     fit_out, pcov = curve_fit(expff, taus, amps, p0 = fit_guess)
     
     fit_curve = expff(ts, fit_out[0], fit_out[1], fit_out[2])
-    plt.plot(taus*1e6, amps, 'x')
-    plt.plot(ts*1e6, fit_curve)
+    plt.plot(taus, amps, 'x')
+    plt.plot(ts, fit_curve)
     
-    plt.title('T1 fit, T1: {}us'.format(round(fit_out[0]*1e6, 2)))
-    plt.xlabel('Tau (us)')
+    plt.title('T1 fit, T1: {}s'.format(round(fit_out[0], 2)))
+    plt.xlabel('Tau (s)')
     plt.ylabel('Amp')
     
     return fit_out[0]
