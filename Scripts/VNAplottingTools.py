@@ -82,7 +82,7 @@ def base_power_plot_spec(fig, ax, freqs, ydata, powers, scanname, scanformat, HW
     
     plt.show()
     
-def base_raw_time_plot_spec(fig, ax, times, ydata, ys, scanname, scanformat):
+def base_raw_time_plot_spec(fig, ax, times, ydata, ys, ylabel, zlabel, scanname, scanformat):
     ''' 
     times is the values of the time axis of raw daa plots
     please give this already in us so that the plot and the axis have the same units
@@ -106,8 +106,8 @@ def base_raw_time_plot_spec(fig, ax, times, ydata, ys, scanname, scanformat):
     XX2,YY2 = np.meshgrid(times2,ys2)
     im = plt.pcolormesh(XX2,YY2,mags2, shading = 'nearest')
         
-    plt.xlabel("Time (us?)")
-    plt.ylabel(r"control param")
+    plt.xlabel("Time (us)")
+    plt.ylabel(ylabel)
     plt.title('Voltage {}, {}'.format(scanformat, scanname))  
     
     #ax = plt.gca()
@@ -121,7 +121,7 @@ def base_raw_time_plot_spec(fig, ax, times, ydata, ys, scanname, scanformat):
                         bbox_transform=ax.transAxes,
                         borderpad=0,)
     cbar = fig.colorbar(im,cax=axins,orientation="horizontal",ticks=plt.MaxNLocator(2))
-    cbar.set_label(r"Volts",labelpad = -10,y=1,x=-0.35)
+    cbar.set_label(zlabel,labelpad = -10,y=1,x=-0.35)
     axins.xaxis.set_ticks_position("top")
     axins.tick_params(labelsize=9)
     
@@ -140,23 +140,21 @@ def power_plot(freqs, mags, phases, powers, scanname, HWattenuation = 0):
     
     plt.suptitle('Filename: {}, HWattenuation: {}dB'.format(scanname, HWattenuation))
 
-def pulsed_debug(freqs, mags, phases, time, amp, phase, scanname, power):
-    fig = plt.figure(figsize=(13,8))
-    plt.clf()
+def pulsed_debug(fig, freqs, powers, mags, phases, amp, phase, scanname, power):
     
     ax = plt.subplot(2,2,1)
-    labels = ['Time (us)', 'Frequency (GHz)', 'Voltage (mag)']
-    base_power_plot_imshow(fig, ax, time, freqs, mags, labels)
+    labels = ['Frequency (GHz)', 'Power (dBm)', 'Voltage (mag)']
+    base_power_plot_imshow(fig, ax, freqs/1e9, powers, mags, labels)
     ax = plt.subplot(2,2,2)
-    labels = ['Time (us)', 'Frequency (GHz)', 'Voltage (phase)']
-    base_power_plot_imshow(fig, ax, time, freqs, phases, labels)
+    labels = ['Frequency (GHz)', 'Power (dBm)', 'Voltage (phase)']
+    base_power_plot_imshow(fig, ax, freqs/1e9, powers, phases, labels)
     ax = plt.subplot(2,2,3)
-    plt.plot(time, amp)
-    plt.xlabel('Time (us)')
+    plt.plot(freqs/1e9, amp)
+    plt.xlabel('Freq (GHz)')
     plt.ylabel('Amp (V)')
     ax = plt.subplot(2,2,4)
-    plt.plot(time, amp)
-    plt.xlabel('Time (us)')
+    plt.plot(freqs/1e9, phase)
+    plt.xlabel('Freq (GHz)')
     plt.ylabel('Phase (deg)')
     
     plt.suptitle('Filename: {}, Power: {}dB'.format(scanname, power))
