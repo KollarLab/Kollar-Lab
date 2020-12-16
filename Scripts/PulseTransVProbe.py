@@ -159,6 +159,7 @@ def PulsedTransVProbe(instruments, settings):
         time.sleep(0.2)
         
         amps = numpy.zeros((len(freqs), len(xaxis) ))
+
         phases = numpy.zeros((len(freqs),len(xaxis) ))
         
         Is = numpy.zeros((len(freqs), len(xaxis) ))
