@@ -156,6 +156,7 @@ class VNA(SCPIinst):
     def reset(self):
         self.inst.write('*RST; *CLS')
         self.inst.write('OUTP OFF')
+        self.ext_ref = 'EXT'
     
     def close(self):
         '''Close VISA connection'''
@@ -227,12 +228,12 @@ class VNA(SCPIinst):
         self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, rf_port))
         #Measure
         #configure to only receive
-        self.inst.write('SOUR{}:POW{}:STATE OFF'.format(channel, m_port))
+#        self.inst.write('SOUR{}:POW{}:STATE OFF'.format(channel, m_port))
         #only look at what is happening at cav_freq
         self.inst.write('SOUR{}:FREQ{}:CONV:ARB:IFR 1, 1, {}, FIX'.format(channel, m_port, cav_freq))
         #LO
         #always keep cav_port on during measurements
-        self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, cav_port))
+#        self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, cav_port))
         #only output at 60MHz
         self.inst.write('SOUR{}:FREQ{}:CONV:ARB:IFR 1, 1, {}, FIX'.format(channel, cav_port, cav_freq))
         #fixed power of cav_power (ignores the power level of Ch1)
@@ -244,7 +245,7 @@ class VNA(SCPIinst):
         self.autoscale(window=1)
 
         data = self.get_channel_data(channel)
-        self.output = 'Off'
+#        self.output = 'Off'
         
         return data
 
@@ -284,7 +285,9 @@ class VNA(SCPIinst):
         #Turn off output and switch to single sweep mode instead of continuous sweeps
         self.output = 'OFF'
         self.inst.write('INIT:CONT OFF')
-
+        
+#        self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, 1))
+#        self.inst.write('SOUR{}:POW{}:STATE OFF'.format(channel, 2))
         #Configure averaging
         self.configure_averages(channel, 1e4) #high number so that VNA keeps averaging regardless of user averaging time
         self.configure_measurement(channel, measurement)
@@ -299,7 +302,7 @@ class VNA(SCPIinst):
         self.avg_time(channel, time)
 
         data = self.get_channel_data(channel)
-        self.output = 'Off'
+#        self.output = 'Off'
         
         return data
 
@@ -408,6 +411,7 @@ class VNA(SCPIinst):
         sleep(time/5)
         self.autoscale()
         sleep(4*time/5)
+#        self.inst.write('SENS:CORR:EDEL:AUTO ONCE')
         
     def clear_all_traces(self):
         '''Clear all traces defined on instrument'''
