@@ -10,6 +10,179 @@ import numpy as np
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from scipy.signal import find_peaks, savgol_filter
 
+
+
+#def general_VNAplot(xaxis, mags, phases, yaxis, scanname, HWattenuation = 0, 
+#                 xlabel = 'Frequency (GHz)', ylabel = 'Power (dBm)', identifier = '', 
+#                 fig_num = ''):
+#    if fig_num == '':
+#        fig = plt.figure(figsize=(13,8))
+#    else:
+#        fig = plt.figure(fig_num, figsize=(13,8))
+#    plt.clf()
+#    
+#    ax = plt.subplot(1,2,1)
+#    labels = [xlabel,ylabel, 'S21 mag']
+#    base_power_plot_imshow(fig, ax, xaxis, yaxis, mags, labels, HWattenuation)
+#    ax = plt.subplot(1,2,2)
+#    labels = [xlabel,ylabel, 'S21 phase']
+#    base_power_plot_imshow(fig, ax, xaxis, yaxis, phases, labels, HWattenuation)
+#    
+#    plt.suptitle('Filename: {}, {}'.format(scanname, identifier))
+#    
+#    fig.canvas.draw()
+#    fig.canvas.flush_events()
+#    return
+
+
+def general_VNAplot(xaxis, mags, phases, yaxis, scanname, HWattenuation = 0, 
+                 xlabel = 'Frequency (GHz)', ylabel = 'Power (dBm)', identifier = '', 
+                 fig_num = ''):
+    if fig_num == '':
+        fig = plt.figure(figsize=(13,8))
+    else:
+        fig = plt.figure(fig_num, figsize=(13,8))
+    plt.clf()
+    
+    ax = plt.subplot(1,2,1)
+    general_colormap_subplot(ax,xaxis, yaxis-HWattenuation, mags)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title('S21 mag')
+    
+    ax = plt.subplot(1,2,2)
+    general_colormap_subplot(ax,xaxis, yaxis-HWattenuation, phases)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title('S21 phase')
+    
+    
+    plt.suptitle('Filename: {}, {}'.format(scanname, identifier))
+    
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    return
+
+def spec_fluxscanplot(transdata, specdata, singledata, yaxis, scanname, trans_labels, spec_labels, identifier, fig_num = ''):
+    if fig_num == '':
+        fig = plt.figure(figsize=(13,8))
+    else:
+        fig = plt.figure(fig_num, figsize=(13,8))
+    plt.clf()
+    
+    ax = plt.subplot(3,2,1)
+    general_colormap_subplot(ax,transdata['xaxis'], yaxis, transdata['mags'])
+    plt.xlabel(trans_labels[0])
+    plt.ylabel(trans_labels[1])
+    plt.title('Trans mag')
+    
+    ax = plt.subplot(3,2,2)
+    general_colormap_subplot(ax,transdata['xaxis'], yaxis, transdata['phases'])
+    plt.xlabel(trans_labels[0])
+    plt.ylabel(trans_labels[1])
+    plt.title('Trans phase')
+    
+    ax = plt.subplot(3,2,3)
+    general_colormap_subplot(ax,specdata['xaxis'], yaxis, specdata['mags'])
+    plt.xlabel(spec_labels[0])
+    plt.ylabel(spec_labels[1])
+    plt.title('Spec mag')
+    
+    ax = plt.subplot(3,2,4)
+    general_colormap_subplot(ax,specdata['xaxis'], yaxis, specdata['phases'])
+    plt.xlabel(spec_labels[0])
+    plt.ylabel(spec_labels[1])
+    plt.title('Spec phase')
+    
+    ax = plt.subplot(3,2,5)
+    plt.plot(singledata['xaxis'], singledata['mag'])
+    plt.xlabel(spec_labels[0])
+    plt.title('Single shot spec mag')
+    
+    ax = plt.subplot(3,2,6)
+    plt.plot(singledata['xaxis'], singledata['phase'])
+    plt.xlabel(spec_labels[0])
+    plt.title('Single shot spec mag')
+    
+    
+    plt.suptitle('Filename: {}, {}'.format(scanname, identifier))
+    
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    return
+
+def general_colormap_subplot(ax,xaxis, yaxis, data):
+    '''given a subplot object, it should make a decent imshow plot of the data.
+    
+    You have to handle subtracting out any attenuation and do the labeling after.
+    
+    Trying to make this the most generic function possible.'''
+    
+    plt.sca(ax)
+    
+    #this version will handle the color plot if there is only one row.
+    if (type(xaxis) == list) or (type(xaxis) == np.ndarray):
+        if (len(xaxis) == 1): 
+            xlimits = [xaxis[0]-1e-3, xaxis[0]+1e-3]
+        else:
+            xlimits = [xaxis[0], xaxis[-1]]
+    else:
+        xlimits =  [xaxis-1e-3, xaxis+1e-3]
+        
+    if (type(yaxis) == list) or (type(yaxis) == np.ndarray):
+        if (len(yaxis)) == 1:
+            ylimits = [yaxis[0]-1e-3, yaxis[0]+1e-3]
+        else:
+            ylimits = [yaxis[0], yaxis[-1]]  
+    else:
+        ylimits = [yaxis-1e-3, yaxis+1e-3]
+        
+    limits = np.concatenate((xlimits, ylimits))
+    
+    plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap='jet_r')
+    plt.colorbar()
+        
+    return
+    
+
+
+def base_power_plot_imshow(fig, ax, xdata, ydata, zdata, labels, attenuation=0):
+#    limits = [xdata[0], xdata[-1], ydata[0] + attenuation, ydata[-1] + attenuation]
+    
+    #this version will handle the color plot if there is only one row.
+    if (type(xdata) == list) or (type(xdata) == np.ndarray):
+        if (len(xdata) == 1): 
+            xlimits = [xdata[0]-1e-3, xdata[0]+1e-3]
+        else:
+            xlimits = [xdata[0], xdata[-1]]
+    else:
+        xlimits =  [xdata-1e-3, xdata+1e-3]
+        
+    if (type(ydata) == list) or (type(ydata) == np.ndarray):
+        if (len(ydata)) == 1:
+            ylimits = [ydata[0]+ attenuation-1e-3, ydata[0]+ attenuation+1e-3]
+        else:
+            ylimits = [ydata[0] +attenuation, ydata[-1]+ attenuation]  
+    else:
+        ylimits = [ydata+attenuation-1e-3, ydata+attenuation+1e-3]
+        
+        
+    limits = np.concatenate((xlimits, ylimits))
+    
+    pos = ax.imshow(zdata, extent = limits, origin='lower', aspect='auto', cmap='viridis')
+    ax.set_xlabel(labels[0])
+    ax.set_ylabel(labels[1])
+    ax.set_title(labels[2])
+    
+    fig.colorbar(pos, ax = ax)
+    
+    
+    
+
+
+
+
+
 def base_power_plot(fig, ax, freqs, ydata, powers, scanname, scanformat, HWattenuation):
     mags2 = np.asarray(ydata)
     freqs2 = np.zeros(len(freqs) + 1)
@@ -36,14 +209,7 @@ def base_power_plot(fig, ax, freqs, ydata, powers, scanname, scanformat, HWatten
     
     plt.show()
 
-def base_power_plot_imshow(fig, ax, xdata, ydata, zdata, labels, attenuation=0):
-    limits = [xdata[0], xdata[-1], ydata[0] + attenuation, ydata[-1] + attenuation]
-    pos = ax.imshow(zdata, extent = limits, origin='lower', aspect='auto', cmap='viridis')
-    ax.set_xlabel(labels[0])
-    ax.set_ylabel(labels[1])
-    ax.set_title(labels[2])
-    
-    fig.colorbar(pos, ax = ax)
+
     
 def base_power_plot_spec(fig, ax, freqs, ydata, powers, scanname, scanformat, HWattenuation):
     mags2 = np.asarray(ydata)
@@ -139,6 +305,16 @@ def power_plot(freqs, mags, phases, powers, scanname, HWattenuation = 0):
     base_power_plot_imshow(fig, ax, freqs, powers, phases, labels, HWattenuation)
     
     plt.suptitle('Filename: {}, HWattenuation: {}dB'.format(scanname, HWattenuation))
+    
+    
+    
+    
+
+    
+    
+    
+    
+    
 
 def pulsed_debug(fig, freqs, powers, mags, phases, amp, phase, scanname, power):
     
