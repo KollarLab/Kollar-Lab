@@ -7,6 +7,8 @@ Created on Tue Sep  8 17:10:29 2020
 
 from Instruments.SCPIinst import SCPIinst
 from bidict import bidict
+import numpy as np
+import time
 
 class DC205(SCPIinst):
     LEXE = bidict({
@@ -66,3 +68,12 @@ class DC205(SCPIinst):
     
     def __init__(self, address):
         super().__init__(address, self.commandlist, self.errcmds)
+    
+    def voltage_ramp(self, newV, step_size = 0.005, step_time = 0.001):
+        deltaV = newV - self.Volt
+        numSteps = np.max(2, int(np.abs(np.ceil(deltaV/step_size))))
+        vsteps = np.linspace(self.Volt, newV, numSteps)
+        for vstep in vsteps:
+            self.Volt = np.round(vstep,6)
+            time.sleep(step_time)
+        return
