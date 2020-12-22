@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-import VNAplottingTools as VNAplots
+import plotting_tools as plots
 
 def get_default_settings():
 
@@ -48,6 +48,9 @@ def vna_trans(instruments, settings):
     stamp = userfuncs.timestamp()
     filename = settings['scanname'] + '_' + stamp
 
+    CAV_Attenuation = settings['CAV_attenuation']
+    scanname = settings['scanname']
+
     start_power = settings['start_power']
     stop_power = settings['stop_power']
     power_points = settings['power_points']
@@ -80,36 +83,45 @@ def vna_trans(instruments, settings):
 
     freqs = data['xaxis']   
 
-    scanname = settings['scanname']
-    CAV_Attenuation = settings['CAV_attenuation']
+    full_data = {}
+    full_data['xaxis'] = freqs
+    full_data['mags'] = mags
+    full_data['phases'] = phases
 
-    ##Martin's power plot version
-    VNAplots.power_plot(freqs, mags, phases, powers, scanname, -CAV_Attenuation)
+    single_data = {}
+    single_data['xaxis'] = freqs
+    single_data['mag'] = mags[-1]
 
-    ###Alicia's general plot version
-    VNAplots.general_VNAplot(freqs, mags, phases, powers, scanname, 
-                                     xlabel = 'Frequency (GHz)', ylabel = 'Power (dB)', identifier = '',
-                                     HWattenuation = CAV_Attenuation,
-                                     fig_num = 2)
+    labels = ['Freq (GHz)', 'Power (dBm)']
+    yaxis = powers
+    plots.simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=2)
+    ###Martin's power plot version
+    #VNAplots.power_plot(freqs, mags, phases, powers, scanname, -CAV_Attenuation)
 
-    ###manual plotting example
-    fig = plt.figure(1,figsize=(13,8))
-    fig.clf()
+    ####Alicia's general plot version
+    #VNAplots.general_VNAplot(freqs, mags, phases, powers, scanname, 
+    #                                 xlabel = 'Frequency (GHz)', ylabel = 'Power (dB)', identifier = '',
+    #                                 HWattenuation = CAV_Attenuation,
+    #                                 fig_num = 2)
 
-    ax = plt.subplot(1,2,1)
-    VNAplots.general_colormap_subplot(ax,freqs, powers-CAV_Attenuation, mags)
-    plt.xlabel('Frequency (GHz)')
-    plt.ylabel('Power (dB)')
-    plt.title('S21 mag')
+    ####manual plotting example
+    #fig = plt.figure(1,figsize=(13,8))
+    #fig.clf()
 
-    ax = plt.subplot(1,2,2)
-    VNAplots.general_colormap_subplot(ax,freqs, powers-CAV_Attenuation, phases)
-    plt.xlabel('Frequency (GHz)')
-    plt.ylabel('Power (dB)')
-    plt.title('S21 phase')
+    #ax = plt.subplot(1,2,1)
+    #VNAplots.general_colormap_subplot(ax,freqs, powers-CAV_Attenuation, mags)
+    #plt.xlabel('Frequency (GHz)')
+    #plt.ylabel('Power (dB)')
+    #plt.title('S21 mag')
 
-    plt.suptitle('Filename: {}'.format(scanname))
-    plt.show()
+    #ax = plt.subplot(1,2,2)
+    #VNAplots.general_colormap_subplot(ax,freqs, powers-CAV_Attenuation, phases)
+    #plt.xlabel('Frequency (GHz)')
+    #plt.ylabel('Power (dB)')
+    #plt.title('S21 phase')
 
-    userfuncs.SaveFull(saveDir, scanname, ['mags', 'phases', 'freqs', 'powers'], locals(), expsettings=settings)
-    plt.savefig(os.path.join(saveDir, scanname+'.png'), dpi = 150)
+    #plt.suptitle('Filename: {}'.format(scanname))
+    #plt.show()
+
+    userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers'], locals(), expsettings=settings)
+    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
