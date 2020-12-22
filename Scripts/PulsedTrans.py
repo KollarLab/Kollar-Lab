@@ -5,16 +5,10 @@ import matplotlib.pyplot as plt
 
 import userfuncs
 from VNAplottingTools import base_power_plot, base_raw_time_plot_spec, pulsed_debug
+from ellipse_fitting import remove_IQ_ellipse
 
 
 pi = numpy.pi
-
-def remove_IQ_ellipse(Is, Qs, axes, center, phi):
-   
-    Isprime = numpy.cos(phi)*(Is-center[0]) + numpy.sin(phi)*(Qs-center[1]) + center[0]
-    Qsprime = -numpy.sin(phi)*(Is-center[0]) + numpy.cos(phi)*(Qs-center[1]) 
-    Qsprime = Qsprime*axes[0]/axes[1] + center[1]
-    return Isprime, Qsprime
 
 center = [0.027, -0.034]
 phi = 0.044*2*pi/180
@@ -202,27 +196,6 @@ def PulsedTrans(instruments, settings):
         
         ###plot the full power dependent data 
         if len(powers) > 1:
-#            fig = plt.figure(1)
-#            plt.clf()
-#            ax = plt.subplot(2,2,1)
-#            base_power_plot(fig, ax, freqs, powerdat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'mag', HWattenuation = -30)  
-#            
-#            ax = plt.subplot(2,2,2)
-#            base_power_plot(fig, ax, freqs, phasedat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'phase', HWattenuation = -30)
-#            
-#            #plot the last row as a trace.
-#            ax = plt.subplot(2,2,3)
-#            plt.plot(freqs/1e9, powerslice)
-#            plt.xlabel('freqs (GHz)')
-#            plt.ylabel('spec voltage')
-#            
-#            #plot the last row as a trace.
-#            ax = plt.subplot(2,2,4)
-#            plt.plot(freqs/1e9, phaseslice)
-#            plt.xlabel('freqs (GHz)')
-#            plt.ylabel('spec phase')
-#    
-#            plt.suptitle(filename)
             fig = plt.figure(1, figsize=(13,8))
             plt.clf()
             pulsed_debug(fig, freqs, powers[0:powerind+2], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
@@ -241,26 +214,6 @@ def PulsedTrans(instruments, settings):
     
     ###plot the full power dependent data 
     if len(powers) > 1:
-#        fig = plt.figure(1)
-#        plt.clf()
-#        ax = plt.subplot(2,2,1)
-#        base_power_plot(fig, ax, freqs, powerdat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'mag', HWattenuation = -30)  
-#        
-#        ax = plt.subplot(2,2,2)
-#        base_power_plot(fig, ax, freqs, phasedat[0:powerind+1,:], powers[0:powerind+1], 'Freq sweep', 'phase', HWattenuation = -30)
-#        
-#        ax = plt.subplot(2,2,3)
-#        plt.plot(freqs/1e9, powerslice)
-#        plt.xlabel('freqs (GHz)')
-#        plt.ylabel('spec voltage')
-#        
-#        #plot the last row as a trace.
-#        ax = plt.subplot(2,2,4)
-#        plt.plot(freqs/1e9, phaseslice)
-#        plt.xlabel('freqs (GHz)')
-#        plt.ylabel('spec phase')
-#            
-#        plt.suptitle(filename)
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
         pulsed_debug(fig, freqs, powers[0:powerind+1], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
@@ -283,22 +236,6 @@ def PulsedTrans(instruments, settings):
     
     ax = plt.subplot(1,2,2)
     base_raw_time_plot_spec(fig, ax, times = xaxis_us, ydata = phases, ys = freqs/1e9, ylabel = 'Freq (GHz)', zlabel = 'Phase (deg)', scanname = 'Raw trace amps', scanformat = '')
-    
-    
-    
-#    #plot the last row as a trace.
-#    ax = plt.subplot(2,2,3)
-#    plt.plot(freqs/1e9, powerslice)
-#    plt.xlabel('freqs (GHz)')
-#    plt.ylabel('spec voltage')
-#    
-#    #plot the last row as a trace.
-#    ax = plt.subplot(2,2,4)
-#    plt.plot(freqs/1e9, phaseslice)
-#    plt.xlabel('freqs (GHz)')
-#    plt.ylabel('spec phase')
-    
-    #datatip()
     
     plt.suptitle(filename)
     plt.savefig(os.path.join(saveDir, filename+'_singleRawData.png'), dpi = 150)
