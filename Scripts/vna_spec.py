@@ -10,7 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-import VNAplottingTools as VNAplots
+#import VNAplottingTools as VNAplots
+import plotting_tools as plots
 
 def get_default_settings():
     settings = {}
@@ -54,6 +55,10 @@ def vna_spec(instruments, settings):
     stamp = userfuncs.timestamp()
     filename = settings['scanname'] + '_' + stamp
 
+    CAV_Attenuation = settings['CAV_Attenuation']
+    Qbit_Attenuation = settings['Qbit_Attenuation']
+    scanname = settings['scanname']
+
     start_power = settings['start_power']
     stop_power = settings['stop_power']
     power_points = settings['power_points']
@@ -86,7 +91,17 @@ def vna_spec(instruments, settings):
     
     freqs = data['xaxis']
 
-    VNAplots.power_plot(freqs, mags, phases, powers, filename, settings['CAV_Attenuation'])
+    full_data = {}
+    full_data['xaxis'] = freqs
+    full_data['mags'] = mags
+    full_data['phases'] = phases
+
+    single_data = data
+    yaxis = powers
+    labels = ['Freq (GHz)', 'Powers (dBm)']
+
+    plots.simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=1)
+    #VNAplots.power_plot(freqs, mags, phases, powers, filename, settings['CAV_Attenuation'])
 
     userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers'], locals(), expsettings=settings)
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
