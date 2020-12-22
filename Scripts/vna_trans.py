@@ -22,7 +22,7 @@ def get_default_settings():
     settings['project_dir'] = r'Z:\Data\HouckQuadTransmon'
     
     #Sweep parameter
-    settings['CAV_attenuation'] = 30
+    settings['CAV_Attenuation'] = 30
 
     settings['start_power']  = -20
     settings['stop_power']   = 10
@@ -53,8 +53,8 @@ def vna_trans(instruments, settings):
     power_points = settings['power_points']
     powers = np.linspace(start_power, stop_power, power_points)
 
-    mags = np.zeros((len(powers), settings['sweep_points']))
-    phases = np.zeros((len(powers), settings['sweep_points']))
+    mags = np.zeros((len(powers), settings['freq_points']))
+    phases = np.zeros((len(powers), settings['freq_points']))
 
     t0 = time.time()
     for powerind in range(len(powers)):
