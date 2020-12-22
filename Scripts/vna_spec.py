@@ -43,6 +43,8 @@ def get_default_settings():
     settings['CAVfreq'] = 8.12555e9
     settings['ifBW'] = 2e2
 
+    return settings
+
 def vna_spec(instruments, settings):
     #Instruments used
     vna = instruments['VNA']
