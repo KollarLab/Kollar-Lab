@@ -5,7 +5,7 @@ Created on Thu Dec 10 16:29:44 2020
 @author: Kollarlab
 """
 
-from CleanPulsedtrans import GetDefaultSettings, PulsedTrans
+from pulsed_trans import get_default_settings, pulsed_trans
 
 instruments = {}
 instruments['cavitygen'] = cavitygen
@@ -39,4 +39,4 @@ settings['timeout']          = 30
 settings['meas_pos']    = 16e-6
 settings['meas_window'] = 140e-6
 
-PulsedTrans(instruments, settings)
+pulsed_trans(instruments, settings)
