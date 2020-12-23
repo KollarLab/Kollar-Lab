@@ -4,7 +4,6 @@ import os
 import matplotlib.pyplot as plt
 
 import userfuncs
-#from VNAplottingTools import base_power_plot, base_raw_time_plot_spec, pulsed_debug
 from ellipse_fitting import remove_IQ_ellipse
 from plotting_tools import simplescan_plot
 
@@ -224,19 +223,6 @@ def pulsed_trans(instruments, settings):
         time_labels = ['Time (us)', 'Freq (GHz)']
         identifier = 'Power: {}dBm'.format(power)
         simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier, fig_num=2)
-        ###plot the full power dependent data 
-        #if len(powers) > 1:
-        #    fig = plt.figure(1, figsize=(13,8))
-        #    plt.clf()
-        #    pulsed_debug(fig, freqs, powers[0:powerind+2], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
-        #    fig.canvas.draw()
-        #    fig.canvas.flush_events()
-    #   #     plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-        #else:
-        #    if powerind == 1:
-        #        fig = plt.figure(1)
-        #        plt.clf()
-        
     
     t2 = time.time()
     
@@ -248,31 +234,3 @@ def pulsed_trans(instruments, settings):
     plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
 
     userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us'], locals(), expsettings=settings)
-    
-    ####plot the full power dependent data 
-    #if len(powers) > 1:
-    #    fig = plt.figure(1, figsize=(13,8))
-    #    plt.clf()
-    #    pulsed_debug(fig, freqs, powers[0:powerind+1], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
-    #    fig.canvas.draw()
-    #    fig.canvas.flush_events()
-    #        
-    #    plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-    #else:
-    #    fig = plt.figure(1)
-    #    plt.clf()
-    
-    
-    ##plot the raw data at (the last?) power
-    #fig = plt.figure(2, figsize=(13,8))
-    #plt.clf()
-    #ax = plt.subplot(1,2,1)
-    #base_raw_time_plot_spec(fig, ax, times = xaxis_us, ydata = amps, ys = freqs/1e9, ylabel = 'Freq (GHz)', zlabel = 'Volts', scanname = 'Raw trace amps', scanformat = '')
-    #
-    #
-    #
-    #ax = plt.subplot(1,2,2)
-    #base_raw_time_plot_spec(fig, ax, times = xaxis_us, ydata = phases, ys = freqs/1e9, ylabel = 'Freq (GHz)', zlabel = 'Phase (deg)', scanname = 'Raw trace amps', scanformat = '')
-    #
-    #plt.suptitle(filename)
-    #plt.savefig(os.path.join(saveDir, filename+'_singleRawData.png'), dpi = 150)
