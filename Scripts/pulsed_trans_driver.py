@@ -14,7 +14,7 @@ instruments['LO'] = vna
 instruments['card'] = card
 instruments['AWG'] = hdawg
 
-settings = GetDefaultSettings()
+settings = get_default_settings()
 settings['scanname'] = 'F4_138p4mT_cavity_30mK'
 settings['project_dir']  = r'C:\Users\Kollarlab\Desktop\Data\PhosporusDopedSilicon'
 
