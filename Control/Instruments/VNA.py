@@ -170,9 +170,9 @@ class VNA(SCPIinst):
         settings['channel']      = 1
         settings['avg_time']     = 10
         settings['measurement']  = 'S21'
-        settings['start']        = '3 GHz'
-        settings['stop']         = '6 GHz'
-        settings['sweep_points'] = 501
+        settings['start_freq']   = '3 GHz'
+        settings['stop_freq']    = '6 GHz'
+        settings['freq_points'] = 501
         settings['RFpower']      = -10
         settings['RFport']       = 3
         settings['Mport']        = 2
@@ -196,9 +196,9 @@ class VNA(SCPIinst):
         channel      = settings['channel']
         time         = settings['avg_time']
         measurement  = settings['measurement']
-        start        = settings['start']
-        stop         = settings['stop']
-        sweep_points = settings['sweep_points']
+        start        = settings['start_freq']
+        stop         = settings['stop_freq']
+        sweep_points = settings['freq_points']
         rf_power     = settings['RFpower']
         rf_port      = settings['RFport']
         m_port       = settings['Mport']
@@ -256,9 +256,9 @@ class VNA(SCPIinst):
         settings['channel']      = 1
         settings['avg_time']     = 10
         settings['measurement']  = 'S21'
-        settings['start']        = '3 GHz'
-        settings['stop']         = '9 GHz'
-        settings['sweep_points'] = 501
+        settings['start_freq']        = '3 GHz'
+        settings['stop_freq']         = '9 GHz'
+        settings['freq_points'] = 501
         settings['RFpower']      = -20
         settings['ifBW']         = 1e3
 
@@ -276,9 +276,9 @@ class VNA(SCPIinst):
         channel      = settings['channel']
         time         = settings['avg_time']
         measurement  = settings['measurement']
-        start        = settings['start']
-        stop         = settings['stop']
-        sweep_points = settings['sweep_points']
+        start        = settings['start_freq']
+        stop         = settings['stop_freq']
+        sweep_points = settings['freq_points']
         rf_power     = settings['RFpower']
         ifBW         = settings['ifBW']
 
