@@ -91,6 +91,7 @@ def vna_trans(instruments, settings):
     single_data = {}
     single_data['xaxis'] = freqs
     single_data['mag'] = mags[-1]
+    single_data['phase'] = phases[-1]
 
     labels = ['Freq (GHz)', 'Power (dBm)']
     yaxis = powers
