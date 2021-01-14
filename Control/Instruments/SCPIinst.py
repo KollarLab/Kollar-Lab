@@ -1,8 +1,11 @@
 import pyvisa
 
 class SCPIinst(object):
-
+    
     def __init__(self, address, commands, errcmd, reset = True):
+        
+        self.init = True
+            
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
         if reset:
@@ -15,53 +18,71 @@ class SCPIinst(object):
             elif isinstance(commands[key],dict):
                 setattr(self,key,Module(self.inst, commands[key], errcmd))
                 self.modules.append(key)
+        
+        self.init = False
     
     def __getattr__(self, name):
-        cmds = self.__dict__['commandset']
-        if name in cmds.keys():
-            if isinstance(cmds[name], list):
-                val = self.inst.query(cmds[name][0]+'?').rstrip()
-                try:
-                    val = eval(val)
-                    strings = cmds[name][1]
-                    return strings[val]
-                except:
-                    return val
-            else:
-                val = self.inst.query(cmds[name]+'?').rstrip()
-                try:
-                    return eval(val)
-                except:
-                    return val
-        else:
+        initializing = self.__dict__['init']
+        if initializing:
             super().__getattribute__(self, name)
+        else:
+            cmds = self.__dict__['commandset']
+            if name in cmds.keys():
+                if isinstance(cmds[name], list):
+                    val = self.inst.query(cmds[name][0]+'?').rstrip()
+                    try:
+                        val = eval(val)
+                        strings = cmds[name][1]
+                        return strings[val]
+                    except:
+                        return val
+                else:
+                    val = self.inst.query(cmds[name]+'?').rstrip()
+                    try:
+                        return eval(val)
+                    except:
+                        return val
+            else:
+#                super().__getattribute__(self, name)
+                print('Invalid command')
     
     def __setattr__(self, name, value):
-        cmds = {}
         try:
-            cmds = self.__dict__['commandset']
+            initializing = self.__dict__['init']
         except:
-            pass 
-        
-        if name in cmds.keys():
-            setting = cmds[name]
-            if isinstance(setting, list):
-                command = setting[0]
-                try:
-                    value = setting[1].inverse[value]
-                except:
-                    print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
-            else:
-                command = setting
-            cmd = '{} {}'.format(command, value)
-            self.inst.write(cmd)
-            self.inst.write('*OPC')
-            self.error
-        else:
+            initializing = True
+        if initializing:
             super().__setattr__(name, value)
+        else:
+            cmds = {}
+            try:
+                cmds = self.__dict__['commandset']
+            except:
+                pass 
+            
+            if name in cmds.keys():
+                setting = cmds[name]
+                if isinstance(setting, list):
+                    command = setting[0]
+                    try:
+                        value = setting[1].inverse[value]
+                    except:
+                        print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
+                else:
+                    command = setting
+                cmd = '{} {}'.format(command, value)
+                self.inst.write(cmd)
+                self.inst.write('*OPC')
+                self.error
+            else:
+#                super().__setattr__(name, value)
+                print('Trying setting an invalid setting')
     
     def close(self):
         self.inst.close()
+    
+    def reset(self):
+        self.inst.write('*RST; *CLS')
         
     @property
     def error(self):
@@ -113,53 +134,70 @@ class SCPIinst(object):
 class Module(object):
 
     def __init__(self,inst, commands, errcmd):
+        self.init = True
+        
         self.inst = inst
         self.commandset = commands
         self.errcmd = errcmd
         
+        self.init = False
+        
     def __getattr__(self, name):
-        cmds = self.__dict__['commandset']
-        if name in cmds.keys():
-            if isinstance(cmds[name], list):
-                val = self.inst.query(cmds[name][0]+'?').rstrip()
-                try:
-                    val = eval(val)
-                    strings = cmds[name][1]
-                    return strings[val]
-                except:
-                    return val
-            else:
-                val = self.inst.query(cmds[name]+'?').rstrip()
-                try:
-                    return eval(val)
-                except:
-                    return val
-        else:
+        initializing = self.__dict__['init']
+        if initializing:
             super().__getattribute__(self, name)
+        else:
+            cmds = self.__dict__['commandset']
+            if name in cmds.keys():
+                if isinstance(cmds[name], list):
+                    val = self.inst.query(cmds[name][0]+'?').rstrip()
+                    try:
+                        val = eval(val)
+                        strings = cmds[name][1]
+                        return strings[val]
+                    except:
+                        return val
+                else:
+                    val = self.inst.query(cmds[name]+'?').rstrip()
+                    try:
+                        return eval(val)
+                    except:
+                        return val
+            else:
+#                super().__getattribute__(self, name)
+                print('Invalid command')
     
     def __setattr__(self, name, value):
-        cmds = {}
         try:
-            cmds = self.__dict__['commandset']
+            initializing = self.__dict__['init']
         except:
-            pass 
-        
-        if name in cmds.keys():
-            setting = cmds[name]
-            if isinstance(setting, list):
-                command = setting[0]
-                try:
-                    value = setting[1].inverse[value]
-                except:
-                    print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
-            else:
-                command = setting
-            cmd = '{} {}'.format(command, value)
-            self.inst.write(cmd)
-            self.inst.write('*OPC')
-            self.error
-        else:
+            initializing = True
+        if initializing:
             super().__setattr__(name, value)
+        else:
+            cmds = {}
+            try:
+                cmds = self.__dict__['commandset']
+            except:
+                pass 
+            
+            if name in cmds.keys():
+                setting = cmds[name]
+                if isinstance(setting, list):
+                    command = setting[0]
+                    try:
+                        value = setting[1].inverse[value]
+                    except:
+                        print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
+                else:
+                    command = setting
+                cmd = '{} {}'.format(command, value)
+                self.inst.write(cmd)
+                self.inst.write('*OPC')
+                self.error
+            else:
+#                super().__setattr__(name, value)
+                print('Trying setting an invalid setting')
             
     @property
     def error(self):

@@ -71,7 +71,7 @@ class DC205(SCPIinst):
     
     def voltage_ramp(self, newV, step_size = 0.005, step_time = 0.001):
         deltaV = newV - self.Volt
-        numSteps = np.max(2, int(np.abs(np.ceil(deltaV/step_size))))
+        numSteps = max(2, int(np.abs(np.ceil(deltaV/step_size))))
         vsteps = np.linspace(self.Volt, newV, numSteps)
         for vstep in vsteps:
             self.Volt = np.round(vstep,6)
