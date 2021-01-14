@@ -26,25 +26,25 @@ class SCPIinst(object):
         if initializing:
             super().__getattribute__(self, name)
         else:
+            name = name.lower()
             cmds = self.__dict__['commandset']
-            if name in cmds.keys():
-                if isinstance(cmds[name], list):
-                    val = self.inst.query(cmds[name][0]+'?').rstrip()
-                    try:
-                        val = eval(val)
-                        strings = cmds[name][1]
-                        return strings[val]
-                    except:
-                        return val
-                else:
-                    val = self.inst.query(cmds[name]+'?').rstrip()
-                    try:
-                        return eval(val)
-                    except:
-                        return val
-            else:
-#                super().__getattribute__(self, name)
-                print('Invalid command')
+            for k in cmds.keys():
+                if name == k.lower():
+                    if isinstance(cmds[k], list):
+                        val = self.inst.query(cmds[k][0]+'?').rstrip()
+                        try:
+                            val = eval(val)
+                            strings = cmds[k][1]
+                            return strings[val]
+                        except:
+                            return val
+                    else:
+                        val = self.inst.query(cmds[k]+'?').rstrip()
+                        try:
+                            return eval(val)
+                        except:
+                            return val
+            print('Trying to set an invalid command: {}'.format(name))
     
     def __setattr__(self, name, value):
         try:
@@ -54,29 +54,31 @@ class SCPIinst(object):
         if initializing:
             super().__setattr__(name, value)
         else:
+            name = name.lower()
             cmds = {}
             try:
                 cmds = self.__dict__['commandset']
             except:
                 pass 
             
-            if name in cmds.keys():
-                setting = cmds[name]
-                if isinstance(setting, list):
-                    command = setting[0]
-                    try:
-                        value = setting[1].inverse[value]
-                    except:
-                        print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
-                else:
-                    command = setting
-                cmd = '{} {}'.format(command, value)
-                self.inst.write(cmd)
-                self.inst.write('*OPC')
-                self.error
-            else:
-#                super().__setattr__(name, value)
-                print('Trying setting an invalid setting')
+            for k in cmds.keys():
+                if name == k.lower():
+                    setting = cmds[k]
+                    if isinstance(setting, list):
+                        command = setting[0]
+                        try:
+                            value = setting[1].inverse[value]
+                        except:
+                            print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
+                    else:
+                        command = setting
+                    cmd = '{} {}'.format(command, value)
+                    self.inst.write(cmd)
+                    self.inst.write('*OPC')
+                    self.error
+                    return
+
+            print('Trying setting an invalid setting: {}'.format(name))
     
     def close(self):
         self.inst.close()
@@ -147,25 +149,25 @@ class Module(object):
         if initializing:
             super().__getattribute__(self, name)
         else:
+            name = name.lower()
             cmds = self.__dict__['commandset']
-            if name in cmds.keys():
-                if isinstance(cmds[name], list):
-                    val = self.inst.query(cmds[name][0]+'?').rstrip()
-                    try:
-                        val = eval(val)
-                        strings = cmds[name][1]
-                        return strings[val]
-                    except:
-                        return val
-                else:
-                    val = self.inst.query(cmds[name]+'?').rstrip()
-                    try:
-                        return eval(val)
-                    except:
-                        return val
-            else:
-#                super().__getattribute__(self, name)
-                print('Invalid command')
+            for k in cmds.keys():
+                if name == k.lower():
+                    if isinstance(cmds[k], list):
+                        val = self.inst.query(cmds[k][0]+'?').rstrip()
+                        try:
+                            val = eval(val)
+                            strings = cmds[k][1]
+                            return strings[val]
+                        except:
+                            return val
+                    else:
+                        val = self.inst.query(cmds[k]+'?').rstrip()
+                        try:
+                            return eval(val)
+                        except:
+                            return val
+            print('Trying to set an invalid command: {}'.format(name))
     
     def __setattr__(self, name, value):
         try:
@@ -175,29 +177,31 @@ class Module(object):
         if initializing:
             super().__setattr__(name, value)
         else:
+            name = name.lower()
             cmds = {}
             try:
                 cmds = self.__dict__['commandset']
             except:
                 pass 
             
-            if name in cmds.keys():
-                setting = cmds[name]
-                if isinstance(setting, list):
-                    command = setting[0]
-                    try:
-                        value = setting[1].inverse[value]
-                    except:
-                        print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
-                else:
-                    command = setting
-                cmd = '{} {}'.format(command, value)
-                self.inst.write(cmd)
-                self.inst.write('*OPC')
-                self.error
-            else:
-#                super().__setattr__(name, value)
-                print('Trying setting an invalid setting')
+            for k in cmds.keys():
+                if name == k.lower():
+                    setting = cmds[k]
+                    if isinstance(setting, list):
+                        command = setting[0]
+                        try:
+                            value = setting[1].inverse[value]
+                        except:
+                            print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
+                    else:
+                        command = setting
+                    cmd = '{} {}'.format(command, value)
+                    self.inst.write(cmd)
+                    self.inst.write('*OPC')
+                    self.error
+                    return
+
+            print('Trying setting an invalid setting: {}'.format(name))
             
     @property
     def error(self):
