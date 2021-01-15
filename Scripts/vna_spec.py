@@ -57,20 +57,21 @@ def vna_spec(instruments, settings):
 
     CAV_Attenuation = settings['CAV_Attenuation']
     Qbit_Attenuation = settings['Qbit_Attenuation']
+    settings['CAVpower'] = settings['CAVpower'] + CAV_Attenuation
     scanname = settings['scanname']
 
-    start_power = settings['start_power']
-    stop_power = settings['stop_power']
+    start_power = settings['start_power'] + Qbit_Attenuation
+    stop_power = settings['stop_power'] + Qbit_Attenuation
     power_points = settings['power_points']
     powers = np.linspace(start_power, stop_power, power_points)
 
     mags = np.zeros((len(powers), settings['freq_points']))
     phases = np.zeros((len(powers), settings['freq_points']))
 
-    t0 = time.time()
+    tstart = time.time()
     for powerind in range(len(powers)):
         power = powers[powerind]
-        print('Power: {}, final power: {}'.format(power, powers[-1]))
+        print('Power: {}, final power: {}'.format(power+Qbit_Attenuation, powers[-1]+Qbit_Attenuation))
         settings['RFpower'] = power
 
         data = vna.spec_meas(settings)
@@ -81,27 +82,31 @@ def vna_spec(instruments, settings):
         phases[powerind] = data['phase']
 
         if powerind==0:
-            t1=time.time()
-            tdiff = t1-t0
-            ttotal = tdiff*len(powers)
-            print('Single run time: {}, estimated total time: {}'.format(tdiff, ttotal))
+            tstop = time.time()
+            singlePointTime = tstop-tstart
+                
+            estimatedTime = singlePointTime*len(powers)
+            
+            print('    ')
+            print('estimated time for this scan : ' + str(np.round(estimatedTime/60, 1)) + ' minutes')
+            print('estimated time for this scan : ' + str(np.round(estimatedTime/60/60, 2)) + ' hours')
+            print('    ')
 
+        freqs = data['xaxis']
+    
+        full_data = {}
+        full_data['xaxis'] = freqs
+        full_data['mags'] = mags[0:powerind+1]
+        full_data['phases'] = phases[0:powerind+1]
+    
+        single_data = data
+        yaxis = powers[0:powerind+1] - Qbit_Attenuation
+        labels = ['Freq (GHz)', 'Powers (dBm)']
+    
+        plots.simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=1)
+    
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-t0))
-    
-    freqs = data['xaxis']
-
-    full_data = {}
-    full_data['xaxis'] = freqs
-    full_data['mags'] = mags
-    full_data['phases'] = phases
-
-    single_data = data
-    yaxis = powers
-    labels = ['Freq (GHz)', 'Powers (dBm)']
-
-    plots.simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=1)
-    #VNAplots.power_plot(freqs, mags, phases, powers, filename, settings['CAV_Attenuation'])
 
     userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers'], locals(), expsettings=settings)
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)

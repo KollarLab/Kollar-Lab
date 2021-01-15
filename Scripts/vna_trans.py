@@ -73,10 +73,15 @@ def vna_trans(instruments, settings):
         phases[powerind] = data['phase']
 
         if powerind==0:
-            t1=time.time()
-            tdiff = t1-t0
-            ttotal = tdiff*len(powers)
-            print('Single run time: {}, estimated total time: {}'.format(tdiff, ttotal))
+            tstop = time.time()
+            singlePointTime = tstop-tstart
+                
+            estimatedTime = singlePointTime*len(powers)
+            
+            print('    ')
+            print('estimated time for this scan : ' + str(np.round(estimatedTime/60, 1)) + ' minutes')
+            print('estimated time for this scan : ' + str(np.round(estimatedTime/60/60, 2)) + ' hours')
+            print('    ')
         
         freqs = data['xaxis']   
 
@@ -85,10 +90,7 @@ def vna_trans(instruments, settings):
         full_data['mags'] = mags[0:powerind+1]
         full_data['phases'] = phases[0:powerind+1]
     
-        single_data = {}
-        single_data['xaxis'] = freqs
-        single_data['mag'] = data['mag']
-        single_data['phase'] = data['phase']
+        single_data = data
     
         labels = ['Freq (GHz)', 'Power (dBm)']
         yaxis = powers[0:powerind+1]-CAV_Attenuation
