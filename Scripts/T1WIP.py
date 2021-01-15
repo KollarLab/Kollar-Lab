@@ -118,8 +118,6 @@ def meas_T1(instruments, settings):
     indices = list(range(len(taus)))
     np.random.shuffle(indices)
     
-    plt.figure()
-    
     amp_int = np.zeros(len(taus))
     amps    = np.zeros((len(taus),card.samples))
     
@@ -167,12 +165,14 @@ def meas_T1(instruments, settings):
     offset0 = np.mean(amp_int[-2])
     amp0 = np.mean(max(amp_int)-offset0)
     
-    fit_guess = [tau0, amp0, offset0]
-    T1 = fit_T1(taus, amp_int, fit_guess)
+    fig = plt.figure(1,figsize=(13,8))
+    plt.clf()
+    fit_guess = [1e6*tau0, amp0, offset0]
+    T1 = fit_T1(1e6*taus, amp_int, fit_guess)
     plt.suptitle(filename)
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
     
-    fig = plt.figure(figsize=(13,8))
+    fig = plt.figure(2,figsize=(13,8))
     plt.clf()
         
     ax = plt.subplot(1,1,1)
