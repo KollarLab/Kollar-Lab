@@ -123,7 +123,7 @@ def general_colormap_subplot(ax,xaxis, yaxis, data, labels, title):
         
     limits = np.concatenate((xlimits, ylimits))
     
-    plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap='jet_r')
+    plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap='viridis')
     plt.colorbar()
     plt.xlabel(labels[0])
     plt.ylabel(labels[1])

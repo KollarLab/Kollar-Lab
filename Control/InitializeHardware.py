@@ -13,7 +13,7 @@ from Instruments.Generator import Keysight33500B
 from Instruments.DC205 import DC205
 from Instruments.VNA import VNA
 
-from SGShelper import SGS_coupling, HDAWG_clock
+from SGShelper import SGS_coupling
 
 #Digitizer
 hardwareAddress = "PXI23::0::0::INSTR"
@@ -39,9 +39,9 @@ triggergen.Freq       = '5 kHz'
 triggergen.Volt       = '2 V'
 triggergen.Output     = 'ON'
 
-#SRS = DC205('ASRL3::INSTR')
+SRS = DC205('ASRL3::INSTR')
 #
-#vna = VNA('TCPIP0::192.168.1.11::inst0::INSTR')
+vna = VNA('TCPIP0::192.168.1.11::inst0::INSTR')
 #
 #vars_to_save = dir()
 #vars_to_save += ['vars_to_save']
