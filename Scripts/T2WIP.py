@@ -55,24 +55,29 @@ def meas_T2(instruments, settings):
     hdawg     = instruments['AWG']
     LO        = instruments['LO']
     
-    Q_Freq    = settings['Q_Freq']
+    Q_Freq    = settings['Q_Freq'] + settings['detuning']
     Q_Power   = settings['Q_Power']
     CAV_Freq  = settings['CAV_Freq']
     CAV_Power = settings['CAV_Power']
     
-    extra_shift = 500e3
-    detuning = 1.23e6
-    Q_Freq = 4.20431e9 + detuning + extra_shift
+#    extra_shift = 500e3
+    detuning = settings['detuning']
+#    Q_Freq = 4.20431e9 + detuning + extra_shift
     
     stamp = userfuncs.timestamp()
     filename = settings['scanname'] + '_' + stamp
     saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
     
     ## Generator settings
-    LO.Ref.Source = 'EXT'
-    LO.Power = 12
-    LO.Freq = CAV_Freq
-    LO.Output = 'On'
+#    LO.Ref.Source = 'EXT'
+#    LO.Power = 12
+#    LO.Freq = CAV_Freq
+#    LO.Output = 'On'
+    LO.inst.write('ROSC EXT')
+    LO.inst.write('SENS:SWE:TYPE CW')
+    LO.inst.write('SOUR:FREQ:CW {}'.format(CAV_Freq))
+    LO.inst.write('SOUR:POW 12')
+    LO.output = 'On' 
     
     cavitygen.Freq   = CAV_Freq
     cavitygen.Power  = CAV_Power
@@ -169,9 +174,10 @@ def meas_T2(instruments, settings):
     tau0 = 5e-6
     offset0 = np.mean(amp_int[-10])
     amp0 = np.mean(max(amp_int)-offset0)
-    freq0 = extra_shift
+    freq0 = detuning
+    phi0 = 0
     
-    fit_guess = [tau0, amp0, offset0, freq0]
+    fit_guess = [tau0, amp0, offset0, freq0, phi0]
     T2, detuning = fit_T2(taus, amp_int, fit_guess)
     
     plt.suptitle(filename)
