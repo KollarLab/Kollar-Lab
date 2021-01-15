@@ -6,9 +6,6 @@ VNA class
 from time import sleep, time
 
 import numpy
-import pyvisa
-
-import matplotlib.pyplot as plt
 
 from Instruments.SCPIinst import SCPIinst
 
@@ -21,7 +18,6 @@ class VNA(SCPIinst):
         error: read only value, returns error code and string
     Methods:
         __init__(address): initialize connection and resets the instrument
-        get_errors(): return all errors form instrument and clears them
         spec_default_settings(): return default settings for a spec measurement
         meas_spec(settings): perform spec measurement using settings dict
         trans_default_settings(): return default settings for transmission meas
@@ -39,22 +35,21 @@ class VNA(SCPIinst):
         clear_channel_traces(channel): remove traces defined in channel
         display_trace(trace, tracenum, window): display trace in window with number
             tracenum
-        close(): close VISA connection with instrument
     '''
     errcmds           = {}
-    errcmds['error']  = 'SYST:ERR?'
-    errcmds['serror'] = 'SYST:SERR?'
+    errcmds['error']  = 'SYSTem:ERRor?'
     
     commandlist = {}
-    commandlist['core']   = {}
-    commandlist['Ref']    = {}
+    commandlist['core'] = {}
+    commandlist['Ref']  = {}
     
     core = {}
-    core['Output'] = 'OUTPut:STATe'
-    core['Power']  = 'SOURce:POWer'
-    core['SweepType'] = 'SENS:SWE:TYPE'
-    core['Freq']   = 'SOURce:FREQuency:CW'
-    core['ifBW']   = 'SENS:BAND'
+    core['Output']    = 'OUTPut:STATe'
+    core['Power']     = 'SOURce:POWer'
+    core['SweepType'] = 'SENSe:SWEep:TYPE'
+    core['Freq']      = 'SOURce:FREQuency:CW'
+    core['ifBW']      = 'SENSe:BANDwidth'
+    
     Ref = {}
     Ref['Source']    = 'ROSCillator'
     Ref['Frequency'] = 'ROSCillator:EXTernal:FREQuency'
@@ -68,99 +63,15 @@ class VNA(SCPIinst):
         Initialize connection with instrument, reset it and clear all errors
         '''
         super().__init__(address, self.commandlist, self.errcmds, reset) 
-        #rm = pyvisa.ResourceManager()
-        #self.inst = rm.open_resource(address)
-        self.ext_ref = 'EXT'
+        self.Ref.Source = 'EXT'
         self.Output = 'Off'
-        #if reset:
-        #    self.reset()
-
-    @property
-    def error(self):
-        '''Return error code and string'''
-        return (self.inst.query('SYST:ERR?')).strip().split(',')
-
-    @property
-    def output(self):
-        '''Return output state of instrument ('ON'/'OFF')'''
-        state = int(self.inst.query('OUTP?'))
-        if state:
-            return 'ON'
-        return 'OFF'
-    @output.setter
-    def output(self, state):
-        '''
-        Set output state of instrument
-        Arguments:
-            state(str/int): desired state, can be a string ('ON') or an int (1)
-        '''
-        self.inst.write('OUTP {}'.format(state))
-    
-    @property
-    def freq(self):
-        return float(self.inst.query('FREQ:CW?'))
-    @freq.setter
-    def freq(self, freq):
-        self.inst.write('FREQ:CW {}'.format(freq))
-        
-    @property
-    def power(self):
-        '''Return output RF power'''
-        return float(self.inst.query('SOUR:POW?'))
-    @power.setter
-    def power(self, power):
-        '''
-        Set output RF power
-        Arguments:
-            power(str/float): desired output power, can be string ('-10 dBm') or float (-11.2')
-        '''
-        self.inst.write('SOUR:POW {}'.format(power))
-
-    @property
-    def ifBW(self):
-        '''Return IF bandwidth'''
-        return float(self.inst.query('SENS:BAND?'))
-    @ifBW.setter
-    def ifBW(self, ifBW):
-        '''
-        Set IF bandwidth
-        Argument:
-            ifBW(str/float): IF BW to use, can be a string ('1 kHz') of a float (1e3)
-            the VNA will auto round to 1,1.5,2,3,5,7 in the nearest decade
-        '''
-        self.inst.write('SENS:BAND {}'.format(ifBW))
-        
-    @property
-    def ext_ref(self):
-        '''Return reference source'''
-        return self.inst.query('ROSC?').strip()
-    @ext_ref.setter
-    def ext_ref(self, source):
-        '''
-        Set reference source
-        Argument:
-            source(str): 'EXT' or 'INT' for external or internal freq reference
-        '''
-        self.inst.write('ROSC {}'.format(source))
-        
-    def get_errors(self, verbose = True):
-        '''Print out all errors and clear queue'''
-        code, *string = self.error
-        while int(code) != 0:
-            print('{},{}'.format(code, string))
-            code, *string = self.error
-        if verbose:
-            print('{},{}'.format(code, string))
-        self.inst.write('*CLS')
+        if reset:
+            self.reset()
 
     def reset(self):
         self.inst.write('*RST; *CLS')
         self.inst.write('OUTP OFF')
-        self.ext_ref = 'EXT'
-    
-    def close(self):
-        '''Close VISA connection'''
-        self.inst.close()
+        self.Ref.Source = 'EXT'
     
     ### User functions (spec, trans, powersweep etc.)     
     def spec_default_settings(self):
@@ -170,9 +81,9 @@ class VNA(SCPIinst):
         settings['channel']      = 1
         settings['avg_time']     = 10
         settings['measurement']  = 'S21'
-        settings['start']        = '3 GHz'
-        settings['stop']         = '6 GHz'
-        settings['sweep_points'] = 501
+        settings['start_freq']   = '3 GHz'
+        settings['stop_freq']    = '6 GHz'
+        settings['freq_points'] = 501
         settings['RFpower']      = -10
         settings['RFport']       = 3
         settings['Mport']        = 2
@@ -196,9 +107,9 @@ class VNA(SCPIinst):
         channel      = settings['channel']
         time         = settings['avg_time']
         measurement  = settings['measurement']
-        start        = settings['start']
-        stop         = settings['stop']
-        sweep_points = settings['sweep_points']
+        start        = settings['start_freq']
+        stop         = settings['stop_freq']
+        sweep_points = settings['freq_points']
         rf_power     = settings['RFpower']
         rf_port      = settings['RFport']
         m_port       = settings['Mport']
@@ -224,6 +135,11 @@ class VNA(SCPIinst):
 
         #Configure ports
         #RF
+        ##########################################
+        #It seems like the data comes out more cleanly when only the rf port is 
+        #configured in generator mode. Not sure why this is the case but this
+        #cleared out a lot of noise spikes in the spec data
+        ##########################################
         #configures rf_port to always be on during measurements
         self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, rf_port))
         #Measure
@@ -239,13 +155,12 @@ class VNA(SCPIinst):
         #fixed power of cav_power (ignores the power level of Ch1)
         self.inst.write('SOUR{}:POW{}:OFFS {}, ONLY'.format(channel, cav_port, cav_power))
         self.inst.query('*OPC?')
-
-        self.get_errors(verbose = False)
+        
+        self.error
         self.avg_time(channel, time)
         self.autoscale(window=1)
 
         data = self.get_channel_data(channel)
-#        self.output = 'Off'
         
         return data
 
@@ -256,9 +171,9 @@ class VNA(SCPIinst):
         settings['channel']      = 1
         settings['avg_time']     = 10
         settings['measurement']  = 'S21'
-        settings['start']        = '3 GHz'
-        settings['stop']         = '9 GHz'
-        settings['sweep_points'] = 501
+        settings['start_freq']   = '3 GHz'
+        settings['stop_freq']    = '9 GHz'
+        settings['freq_points']  = 501
         settings['RFpower']      = -20
         settings['ifBW']         = 1e3
 
@@ -276,9 +191,9 @@ class VNA(SCPIinst):
         channel      = settings['channel']
         time         = settings['avg_time']
         measurement  = settings['measurement']
-        start        = settings['start']
-        stop         = settings['stop']
-        sweep_points = settings['sweep_points']
+        start        = settings['start_freq']
+        stop         = settings['stop_freq']
+        sweep_points = settings['freq_points']
         rf_power     = settings['RFpower']
         ifBW         = settings['ifBW']
 
@@ -286,8 +201,6 @@ class VNA(SCPIinst):
         self.output = 'OFF'
         self.inst.write('INIT:CONT OFF')
         
-#        self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, 1))
-#        self.inst.write('SOUR{}:POW{}:STATE OFF'.format(channel, 2))
         #Configure averaging
         self.configure_averages(channel, 1e4) #high number so that VNA keeps averaging regardless of user averaging time
         self.configure_measurement(channel, measurement)
@@ -297,91 +210,13 @@ class VNA(SCPIinst):
         self.power = rf_power
         self.ifBW = ifBW
 
-        self.get_errors(verbose = False)
+        self.error
 
         self.avg_time(channel, time)
 
         data = self.get_channel_data(channel)
-#        self.output = 'Off'
         
         return data
-
-    def power_sweep(self, settings, powers):
-
-        channel = settings['channel']
-        ifBW = settings['ifBW']
-        sweep_points = settings['sweep_points']
-        averages = settings['averages']
-        freq = settings['frequency']
-        span = settings['span']
-        
-        self.ifBW = ifBW
-        
-        self.configure_trace(channel, 'Trc1', 'S21', 'MLOG')
-        self.configure_trace(channel, 'Trc2', 'S21', 'UPH')
-        self.display_trace('Trc1',1,1)
-        self.display_trace('Trc2',2,1)
-        
-        self.configure_frequency(channel, center=freq, span=span, sweep_points=sweep_points)
-        
-        mags = []
-        phases = []
-        axes = []
-        
-        for power in powers:
-            self.output = 'OFF'
-            self.inst.write('INIT:CONT OFF')
-            self.power = power
-            self.configure_averages(channel, averages)
-            self.wait_complete(channel, averages)
-            mag = self.get_trace(channel, 'Trc1')
-            phase = self.get_trace(channel, 'Trc2')
-            freq = self.get_channel_axis(channel)
-            mags.append(mag)
-            phases.append(phase)
-            axes.append(freq)
-        
-        return mags, phases, axes
-    
-    def meas_lines(self, freqs, spans, settings):
-        
-        power = settings['RFpower']
-        channel = settings['channel']
-        ifBW = settings['ifBW']
-        sweep_points = settings['sweep_points']
-        time = settings['avg_time']
-        
-        self.power = power
-        self.ifBW = ifBW
-        
-#        self.configure_trace(channel, 'Trc1', 'S21', 'MLOG')
-#        self.configure_trace(channel, 'Trc2', 'S21', 'UPH')
-#        self.display_trace('Trc2',2,1)
-#        self.display_trace('Trc1',1,1)
-        self.configure_measurement(channel, 'S21')
-        
-        
-        mags = []
-        phases = []
-        axes = []
-
-        for freq, span in list(zip(freqs, spans)):
-            print('{},{}'.format(freq, span))
-            self.output = 'OFF'
-            self.inst.write('INIT:CONT OFF')
-            self.configure_frequency(channel, center=freq, span=span, sweep_points=sweep_points)
-            self.configure_averages(channel, 10e3)
-#            self.wait_complete(channel, averages)
-            self.avg_time(1, time)
-            data = self.get_channel_data(channel)
-            mag = data['mag']
-            phase = data['phase']
-            freq = data['xaxis']
-            mags.append(mag)
-            phases.append(phase)
-            axes.append(freq)
-        
-        return mags, phases, axes
     
     ### Helpers and utility functions
     def autoscale(self, window=1, ref_trace=None):
@@ -411,7 +246,6 @@ class VNA(SCPIinst):
         sleep(time/5)
         self.autoscale()
         sleep(4*time/5)
-#        self.inst.write('SENS:CORR:EDEL:AUTO ONCE')
         
     def clear_all_traces(self):
         '''Clear all traces defined on instrument'''
@@ -568,32 +402,78 @@ class VNA(SCPIinst):
             if auto_scale:
                 self.autoscale()
                 auto_scale = False
+    def power_sweep(self, settings, powers):
 
+        channel = settings['channel']
+        ifBW = settings['ifBW']
+        sweep_points = settings['sweep_points']
+        averages = settings['averages']
+        freq = settings['frequency']
+        span = settings['span']
+        
+        self.ifBW = ifBW
+        
+        self.configure_trace(channel, 'Trc1', 'S21', 'MLOG')
+        self.configure_trace(channel, 'Trc2', 'S21', 'UPH')
+        self.display_trace('Trc1',1,1)
+        self.display_trace('Trc2',2,1)
+        
+        self.configure_frequency(channel, center=freq, span=span, sweep_points=sweep_points)
+        
+        mags = []
+        phases = []
+        axes = []
+        
+        for power in powers:
+            self.output = 'OFF'
+            self.inst.write('INIT:CONT OFF')
+            self.power = power
+            self.configure_averages(channel, averages)
+            self.wait_complete(channel, averages)
+            mag = self.get_trace(channel, 'Trc1')
+            phase = self.get_trace(channel, 'Trc2')
+            freq = self.get_channel_axis(channel)
+            mags.append(mag)
+            phases.append(phase)
+            axes.append(freq)
+        
+        return mags, phases, axes
+    
+    def meas_lines(self, freqs, spans, settings):
+        
+        power = settings['RFpower']
+        channel = settings['channel']
+        ifBW = settings['ifBW']
+        sweep_points = settings['sweep_points']
+        time = settings['avg_time']
+        
+        self.power = power
+        self.ifBW = ifBW
+        
+#        self.configure_trace(channel, 'Trc1', 'S21', 'MLOG')
+#        self.configure_trace(channel, 'Trc2', 'S21', 'UPH')
+#        self.display_trace('Trc2',2,1)
+#        self.display_trace('Trc1',1,1)
+        self.configure_measurement(channel, 'S21')
+        
+        
+        mags = []
+        phases = []
+        axes = []
 
-##Basic commands:
-#    Query error:
-#        inst.query('SYST:ERR?')
-#    inst.write('*RST')
-##Doing S measurements:
-#
-#    Clear all traces:
-#        inst.write('CALC:PAR:DEL:ALL')
-#    List all traces in channel:
-#        inst.query('CALC2:PAR:CAT?')
-#    Make s param group:
-#        inst.write("CALC2:PAR:DEF:SGR 1,2")
-#        Display results on screen:
-#            inst.write("DISP:WIND:TRAC2:FEED 'Ch2_SG_S11'")
-#    Read data from s param group:
-#        sdat = inst.query("CALC2:DATA:SGR? FDAT")
-
-##Other useful stuff:
-#
-#    Bandwidth:
-#        inst.write('SENS1:BAND:RES 1')
-#        inst.write('SENS1:BAND:RES:SEL NORM')
-#
-#    Electrical delay:
-#        inst.write('SENS2:CORR:EDEL:AUTO ONCE')
-#        inst.write('SENS2:CORR:LOSS:AUTO ONCE') (loss and edelay)
-#        inst.write('SENS2:CORR:OFFS:COMP ON') (toggle compensation)
+        for freq, span in list(zip(freqs, spans)):
+            print('{},{}'.format(freq, span))
+            self.output = 'OFF'
+            self.inst.write('INIT:CONT OFF')
+            self.configure_frequency(channel, center=freq, span=span, sweep_points=sweep_points)
+            self.configure_averages(channel, 10e3)
+            self.avg_time(1, time)
+            data = self.get_channel_data(channel)
+            mag = data['mag']
+            phase = data['phase']
+            freq = data['xaxis']
+            mags.append(mag)
+            phases.append(phase)
+            axes.append(freq)
+        
+        return mags, phases, axes

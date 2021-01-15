@@ -23,70 +23,68 @@ class SCPIinst(object):
     
     def __getattr__(self, name):
         initializing = self.__dict__['init']
-        if initializing:
+        full_dict = self.__dict__
+        if initializing or name in full_dict.keys():
             super().__getattribute__(self, name)
         else:
+            name = name.lower()
             cmds = self.__dict__['commandset']
-            if name in cmds.keys():
-                if isinstance(cmds[name], list):
-                    val = self.inst.query(cmds[name][0]+'?').rstrip()
-                    try:
-                        val = eval(val)
-                        strings = cmds[name][1]
-                        return strings[val]
-                    except:
-                        return val
-                else:
-                    val = self.inst.query(cmds[name]+'?').rstrip()
-                    try:
-                        return eval(val)
-                    except:
-                        return val
-            else:
-#                super().__getattribute__(self, name)
-                print('Invalid command')
+            for k in cmds.keys():
+                if name == k.lower():
+                    if isinstance(cmds[k], list):
+                        val = self.inst.query(cmds[k][0]+'?').rstrip()
+                        try:
+                            val = eval(val)
+                            strings = cmds[k][1]
+                            return strings[val]
+                        except:
+                            return val
+                    else:
+                        val = self.inst.query(cmds[k]+'?').rstrip()
+                        try:
+                            return eval(val)
+                        except:
+                            return val
+            print('Trying to get an invalid command: {}'.format(name))
     
     def __setattr__(self, name, value):
         try:
             initializing = self.__dict__['init']
         except:
             initializing = True
-        if initializing:
+        full_dict = self.__dict__
+        if initializing or name in full_dict.keys():
             super().__setattr__(name, value)
         else:
+            name = name.lower()
             cmds = {}
             try:
                 cmds = self.__dict__['commandset']
             except:
                 pass 
             
-            if name in cmds.keys():
-                setting = cmds[name]
-                if isinstance(setting, list):
-                    command = setting[0]
-                    try:
-                        value = setting[1].inverse[value]
-                    except:
-                        print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
-                else:
-                    command = setting
-                cmd = '{} {}'.format(command, value)
-                self.inst.write(cmd)
-                self.inst.write('*OPC')
-                self.error
-            else:
-#                super().__setattr__(name, value)
-                print('Trying setting an invalid setting')
-    
-    def close(self):
-        self.inst.close()
-    
-    def reset(self):
-        self.inst.write('*RST; *CLS')
-        
+            for k in cmds.keys():
+                if name == k.lower():
+                    setting = cmds[k]
+                    if isinstance(setting, list):
+                        command = setting[0]
+                        try:
+                            value = setting[1].inverse[value]
+                        except:
+                            print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
+                    else:
+                        command = setting
+                    cmd = '{} {}'.format(command, value)
+                    self.inst.write(cmd)
+                    self.inst.write('*OPC')
+                    self.error
+                    return
+
+            print('Trying to set an invalid setting: {}'.format(name))
+            
     @property
     def error(self):
-        errcmd = self.errcmd
+        errcmd = self.__dict__['errcmd']
         if isinstance(errcmd, dict):
             for errtype in errcmd.keys():
                 code = 0
@@ -108,6 +106,8 @@ class SCPIinst(object):
             (code, string) = eval(self.inst.query(errcmd))
             if code != 0:
                 print('{},{}'.format(code, string))
+        self.inst.write('*CLS')
+        return code, string
         
     @property
     def settings(self):
@@ -119,6 +119,7 @@ class SCPIinst(object):
             mod = getattr(self, module)
             fullsettings[module] = mod.settings
         return fullsettings
+    
     @settings.setter
     def settings(self, fullsettings):
         for setting in fullsettings.keys():
@@ -130,7 +131,13 @@ class SCPIinst(object):
                     mod.settings = fullsettings[setting]
                 except:
                     print('invalid')
-            
+    
+    def reset(self):
+        self.inst.write('*RST; *CLS')
+        
+    def close(self):
+        self.inst.close()
+        
 class Module(object):
 
     def __init__(self,inst, commands, errcmd):
@@ -144,64 +151,68 @@ class Module(object):
         
     def __getattr__(self, name):
         initializing = self.__dict__['init']
-        if initializing:
+        full_dict = self.__dict__
+        if initializing or name in full_dict.keys():
             super().__getattribute__(self, name)
         else:
+            name = name.lower()
             cmds = self.__dict__['commandset']
-            if name in cmds.keys():
-                if isinstance(cmds[name], list):
-                    val = self.inst.query(cmds[name][0]+'?').rstrip()
-                    try:
-                        val = eval(val)
-                        strings = cmds[name][1]
-                        return strings[val]
-                    except:
-                        return val
-                else:
-                    val = self.inst.query(cmds[name]+'?').rstrip()
-                    try:
-                        return eval(val)
-                    except:
-                        return val
-            else:
-#                super().__getattribute__(self, name)
-                print('Invalid command')
+            for k in cmds.keys():
+                if name == k.lower():
+                    if isinstance(cmds[k], list):
+                        val = self.inst.query(cmds[k][0]+'?').rstrip()
+                        try:
+                            val = eval(val)
+                            strings = cmds[k][1]
+                            return strings[val]
+                        except:
+                            return val
+                    else:
+                        val = self.inst.query(cmds[k]+'?').rstrip()
+                        try:
+                            return eval(val)
+                        except:
+                            return val
+            print('Trying to get an invalid command: {}'.format(name))
     
     def __setattr__(self, name, value):
         try:
             initializing = self.__dict__['init']
         except:
             initializing = True
-        if initializing:
+        full_dict = self.__dict__
+        if initializing or name in full_dict.keys():
             super().__setattr__(name, value)
         else:
+            name = name.lower()
             cmds = {}
             try:
                 cmds = self.__dict__['commandset']
             except:
                 pass 
             
-            if name in cmds.keys():
-                setting = cmds[name]
-                if isinstance(setting, list):
-                    command = setting[0]
-                    try:
-                        value = setting[1].inverse[value]
-                    except:
-                        print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
-                else:
-                    command = setting
-                cmd = '{} {}'.format(command, value)
-                self.inst.write(cmd)
-                self.inst.write('*OPC')
-                self.error
-            else:
-#                super().__setattr__(name, value)
-                print('Trying setting an invalid setting')
+            for k in cmds.keys():
+                if name == k.lower():
+                    setting = cmds[k]
+                    if isinstance(setting, list):
+                        command = setting[0]
+                        try:
+                            value = setting[1].inverse[value]
+                        except:
+                            print('Invalid input, valid options are: {}'.format(list(setting[1].inverse.keys())))
+                    else:
+                        command = setting
+                    cmd = '{} {}'.format(command, value)
+                    self.inst.write(cmd)
+                    self.inst.write('*OPC')
+                    self.error
+                    return
+
+            print('Trying to set an invalid setting: {}'.format(name))
             
     @property
     def error(self):
-        errcmd = self.errcmd
+        errcmd = self.__dict__['errcmd']
         if isinstance(errcmd, dict):
             for errtype in errcmd.keys():
                 code = 0
@@ -223,16 +234,14 @@ class Module(object):
             (code, string) = eval(self.inst.query(errcmd))
             if code != 0:
                 print('{},{}'.format(code, string))
-                
+        self.inst.write('*CLS')
+        return code, string
+    
     @property
     def settings(self):
         fullsettings = {}
         for setting in self.commandset:
             fullsettings[setting] = self.__getattr__(setting)
-#        for module in modules:
-#            fullsettings[module] = {}
-#            mod = getattr(self, module)
-#            fullsettings[module] = mod.settings
         return fullsettings
     @settings.setter
     def settings(self, fullsettings):

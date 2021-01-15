@@ -1,25 +1,19 @@
 import time
-import numpy 
+import numpy
 import os
 import matplotlib.pyplot as plt
 
 import userfuncs
-from VNAplottingTools import base_power_plot, base_raw_time_plot_spec, pulsed_debug
+from plotting_tools import simplescan_plot
+from ellipse_fitting import remove_IQ_ellipse
 
 pi = numpy.pi
-
-def remove_IQ_ellipse(Is, Qs, axes, center, phi):
-   
-    Isprime = numpy.cos(phi)*(Is-center[0]) + numpy.sin(phi)*(Qs-center[1]) + center[0]
-    Qsprime = -numpy.sin(phi)*(Is-center[0]) + numpy.cos(phi)*(Qs-center[1]) 
-    Qsprime = Qsprime*axes[0]/axes[1] + center[1]
-    return Isprime, Qsprime
 
 center = [0.027, -0.034]
 phi = 0.044*2*pi/180
 axes = [0.024, 0.018]
 
-def GetDefaultSettings():
+def get_default_settings():
     settings = {}
     
     settings['scanname'] = 'initial_power_scan_q4'
@@ -59,7 +53,7 @@ def GetDefaultSettings():
     
     return settings
 
-def PulsedSpec(instruments, settings):
+def pulsed_spec(instruments, settings):
     
     ##Instruments used
     qubitgen  = instruments['qubitgen']
@@ -74,7 +68,8 @@ def PulsedSpec(instruments, settings):
     filename = settings['scanname'] + '_' + stamp
     
     ##Cavity settings
-    CAV_power = settings['CAVpower']
+    CAV_Attenuation = settings['CAV_Attenuation']
+    CAV_power = settings['CAVpower'] + CAV_Attenuation
     CAV_freq  = settings['CAV_freq']
     
     ##Qubit settings
@@ -83,8 +78,9 @@ def PulsedSpec(instruments, settings):
     freq_points = settings['freq_points']
     freqs  = numpy.round(numpy.linspace(start_freq,stop_freq,freq_points),-3)
     
-    start_power  = settings['start_power']
-    stop_power   = settings['stop_power']
+    Qbit_Attenuation = settings['Qbit_Attenuation']
+    start_power  = settings['start_power'] + Qbit_Attenuation
+    stop_power   = settings['stop_power'] + Qbit_Attenuation
     power_points = settings['power_points']
     powers = numpy.round(numpy.linspace(start_power,stop_power,power_points),2)
     
@@ -100,15 +96,10 @@ def PulsedSpec(instruments, settings):
     cavitygen.Output = 'On'
     qubitgen.Output = 'On'
     
-#    LO.Ref.Source = 'EXT'
-#    LO.Power = 12
-#    LO.Freq = CAV_freq
-#    LO.Output = 'On'
-    LO.inst.write('ROSC EXT')
-    LO.inst.write('SENS:SWE:TYPE CW')
-    LO.inst.write('SOUR:POW 12')
-    LO.inst.write('SOUR:FREQ:CW {}'.format(CAV_freq))
-    LO.output = 'On' 
+    LO.Ref.Source = 'EXT'
+    LO.Power = 12
+    LO.Freq = CAV_freq
+    LO.Output = 'On'
     
     ##Card settings
     meas_samples = settings['sampleRate']*settings['meas_window']
@@ -165,7 +156,7 @@ def PulsedSpec(instruments, settings):
         Is = numpy.zeros((len(freqs), len(xaxis) ))
         Qs = numpy.zeros((len(freqs), len(xaxis) ))
         
-        print('Current power:{}, max:{}'.format(powers[powerind], powers[-1]))
+        print('Current power:{}, max:{}'.format(powers[powerind]+Qbit_Attenuation, powers[-1]+Qbit_Attenuation))
     
         for find in range(0, len(freqs)):
             freq = freqs[find]
@@ -190,22 +181,15 @@ def PulsedSpec(instruments, settings):
                 print('    ')
             
             # mixer correction
-            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
+#            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
             
             # No mixer correction
-#            Ip, Qp = I[0], Q[0]
+            Ip, Qp = I[0], Q[0]
             
             DC_I = numpy.mean(Ip[-50:])
             DC_Q = numpy.mean(Qp[-50:])
             Idat = Ip-DC_I
             Qdat = Qp-DC_Q
-            
-#            #no mixer correction
-#            DC_I = numpy.mean(I[0][-50:])
-#            DC_Q = numpy.mean(Q[0][-50:])
-#            
-#            Idat = I[0]-DC_I
-#            Qdat = Q[0]-DC_Q
             
             amp = numpy.sqrt(Idat**2+Qdat**2)
             phase = numpy.arctan2(Qdat, Idat)*180/numpy.pi
@@ -222,48 +206,42 @@ def PulsedSpec(instruments, settings):
         phasedat[powerind,:] = phaseslice
         
         userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us'], locals(), expsettings=settings)
-        
-        ###plot the full power dependent data 
-        if len(powers) > 1:
-            fig = plt.figure(1, figsize=(13,8))
-            plt.clf()
-            pulsed_debug(fig, freqs, powers[0:powerind+2], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-    #        plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-        else:
-            if powerind == 1:
-                fig = plt.figure(1)
-                plt.clf()
-        
-    
+
+        full_data = {}
+        full_data['xaxis'] = freqs/1e9
+        full_data['mags'] = powerdat[0:powerind+1]
+        full_data['phases'] = phasedat[0:powerind+1]
+
+        single_data = {}
+        single_data['xaxis'] = freqs/1e9
+        single_data['mag'] = powerslice
+        single_data['phase'] = phaseslice
+
+        yaxis = powers[0:powerind+1] - Qbit_Attenuation
+        labels = ['Freq (GHz)', 'Power (dBm)']
+        simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
+
+        full_time = {}
+        full_time['xaxis'] = xaxis_us
+        full_time['mags'] = amps
+        full_time['phases'] = phases
+
+        single_time = {}
+        single_time['xaxis'] = xaxis_us
+        single_time['mag'] = amp
+        single_time['phase'] = phase
+
+        time_labels = ['Time (us)', 'Freq (GHz)']
+        identifier = 'Power: {}dBm'.format(power)
+        simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier, fig_num=2)
+
     t2 = time.time()
     
     print('elapsed time = ' + str(t2-t1))
-    
-    ###plot the full power dependent data 
-    if len(powers) > 1:
-        fig = plt.figure(1, figsize=(13,8))
-        plt.clf()
-        pulsed_debug(fig, freqs, powers[0:powerind+2], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
-        fig.canvas.draw()
-        fig.canvas.flush_events()
-        plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-    else:
-        fig = plt.figure(1)
-        plt.clf()
-    
-    
-    fig = plt.figure(2, figsize=(13,8))
-    plt.clf()
-    ax = plt.subplot(1,2,1)
-    base_raw_time_plot_spec(fig, ax, times = xaxis_us, ydata = amps, ys = freqs/1e9, ylabel = 'Freq (GHz)', zlabel = 'Volts', scanname = 'Raw trace amps', scanformat = '')
-    
-    
-    
-    ax = plt.subplot(1,2,2)
-    base_raw_time_plot_spec(fig, ax, times = xaxis_us, ydata = phases, ys = freqs/1e9, ylabel = 'Freq (GHz)', zlabel = 'Phase (deg)', scanname = 'Raw trace amps', scanformat = '')
-    
-    
-    plt.suptitle(filename)
-    plt.savefig(os.path.join(saveDir, filename+'_singleRawData.png'), dpi = 150)
+
+    simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
+    plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
+    simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier='', fig_num=2)
+    plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
+       
+    userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us'], locals(), expsettings=settings)
