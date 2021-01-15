@@ -11,12 +11,12 @@ from T1WIP import GetDefaultSettings, meas_T1
 instruments = {}
 instruments['cavitygen'] = cavitygen
 instruments['qubitgen'] = qubitgen
-instruments['LO'] = SMB
+instruments['LO'] = vna
 instruments['card'] = card
 instruments['AWG'] = hdawg
 
 settings = GetDefaultSettings()
-settings['scanname'] = 'T1_meas_stability'
+settings['scanname'] = 'q4_T1_test'
 settings['project_dir'] = r'Z:\Data\HouckQuadTransmon'
 settings['meas_type'] = 'Tmeas'
 
@@ -30,7 +30,7 @@ Meas_pos = 80e-6
 #Card settings
 settings['segments']         = 1
 settings['reads']            = 1
-settings['averages']         = 40e3
+settings['averages']         = 20e3
 settings['activeChannels']   = [1,2]
 settings['sampleRate']       = 2e9/8
 settings['trigger_buffer']   = Meas_pos
@@ -42,13 +42,12 @@ settings['Tau_points'] = 101
 
 settings['Measurement_pos'] = Meas_pos
 
-meas_repeats = 20
+meas_repeats = 80
 
 T1vec = numpy.zeros(meas_repeats)
 
 for ind in range(meas_repeats):
     T1 = meas_T1(instruments, settings)
     T1vec[ind] = T1
-    time.sleep(900)
     
 plt.plot(T1vec)
