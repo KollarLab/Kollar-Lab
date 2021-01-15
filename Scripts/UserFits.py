@@ -12,9 +12,9 @@ def expff(x, tau, amp, offset):
     vals = amp*np.exp(- (x)/tau) + offset
     return vals
 
-def exp_cosff(x, tau, amp, offset, freq):
+def exp_cosff(x, tau, amp, offset, freq, phi):
     pi = np.pi
-    vals = amp*np.cos(2*pi*freq*x)*np.exp(- (x)/tau) + offset
+    vals = amp*np.cos(2*pi*freq*x+phi)*np.exp(- (x)/tau) + offset
     return vals
 
 def fit_T1(taus, amps, fit_guess):
@@ -26,7 +26,7 @@ def fit_T1(taus, amps, fit_guess):
     plt.plot(taus, amps, 'x')
     plt.plot(ts, fit_curve)
     
-    plt.title('T1 fit, T1: {}s'.format(round(fit_out[0], 2)))
+    plt.title('T1 fit, T1: {}us'.format(round(fit_out[0], 2)))
     plt.xlabel('Tau (s)')
     plt.ylabel('Amp')
     
@@ -37,7 +37,7 @@ def fit_T2(taus, amps, fit_guess):
     
     fit_out, pcov = curve_fit(exp_cosff, taus, amps, p0 = fit_guess)
     
-    fit_curve = exp_cosff(ts, fit_out[0], fit_out[1], fit_out[2], fit_out[3])
+    fit_curve = exp_cosff(ts, fit_out[0], fit_out[1], fit_out[2], fit_out[3], fit_out[4])
     plt.plot(taus*1e6, amps, 'x')
     plt.plot(ts*1e6, fit_curve)
     
