@@ -57,16 +57,15 @@ def pulsed_trans(instruments, settings):
     stamp = userfuncs.timestamp()
     filename = settings['scanname'] + '_' + stamp
 
-    scanname = settings['scanname']
-
     ##Sweep settings
     start_freq  = settings['start_freq']
     stop_freq   = settings['stop_freq']
     freq_points = settings['freq_points']
     freqs  = numpy.round(numpy.linspace(start_freq,stop_freq,freq_points),-3)
     
-    start_power  = settings['start_power']
-    stop_power   = settings['stop_power']
+    CAV_Attenuation = settings['CAV_Attenuation']
+    start_power  = settings['start_power'] + CAV_Attenuation
+    stop_power   = settings['stop_power'] + CAV_Attenuation
     power_points = settings['power_points']
     powers = numpy.round(numpy.linspace(start_power,stop_power,power_points),2)
     
@@ -77,15 +76,10 @@ def pulsed_trans(instruments, settings):
 
     cavitygen.Output = 'On'
     
-#    LO.Ref.Source = 'EXT'
-#    LO.Power = 12
-#    LO.Freq = CAV_freq
-#    LO.Output = 'On'
-    LO.inst.write('ROSC EXT')
-    LO.inst.write('SENS:SWE:TYPE CW')
-    LO.inst.write('SOUR:POW 12')
+    LO.Ref.Source = 'EXT'
+    LO.Power = 12
     LO.Freq = freqs[0]
-    LO.output = 'On' 
+    LO.Output = 'On'
     
     ##Card settings
     meas_samples = settings['sampleRate']*settings['meas_window']
@@ -124,9 +118,6 @@ def pulsed_trans(instruments, settings):
     xaxis = (numpy.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6
     
-    LO.inst.write('SENS:SWE:TYPE CW')
-    LO.inst.write('SOUR:POW 12') 
-    
     powerdat = numpy.zeros((len(powers), len(freqs)))
     phasedat = numpy.zeros((len(powers), len(freqs)))
     
@@ -143,7 +134,7 @@ def pulsed_trans(instruments, settings):
         Is = numpy.zeros((len(freqs), len(xaxis) ))
         Qs = numpy.zeros((len(freqs), len(xaxis) ))
         
-        print('Current power:{}, max:{}'.format(powers[powerind], powers[-1]))
+        print('Current power:{}, max:{}'.format(powers[powerind] + CAV_Attenuation, powers[-1] + CAV_Attenuation))
     
         for find in range(0, len(freqs)):
             freq = freqs[find]
@@ -206,9 +197,9 @@ def pulsed_trans(instruments, settings):
         single_data['mag'] = powerslice
         single_data['phase'] = phaseslice
 
-        yaxis = powers[0:powerind+1]
+        yaxis = powers[0:powerind+1] - CAV_Attenuation
         labels = ['Freq (GHz)', 'Power (dBm)']
-        simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=1) 
+        simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
 
         full_time = {}
         full_time['xaxis'] = xaxis_us
@@ -228,7 +219,7 @@ def pulsed_trans(instruments, settings):
     
     print('elapsed time = ' + str(t2-t1))
 
-    simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=1) 
+    simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
     plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
     simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier='', fig_num=2)
     plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)

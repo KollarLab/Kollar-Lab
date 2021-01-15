@@ -1,5 +1,5 @@
 import time
-import numpy 
+import numpy
 import os
 import matplotlib.pyplot as plt
 
@@ -68,7 +68,8 @@ def pulsed_spec(instruments, settings):
     filename = settings['scanname'] + '_' + stamp
     
     ##Cavity settings
-    CAV_power = settings['CAVpower']
+    CAV_Attenuation = settings['CAV_Attenuation']
+    CAV_power = settings['CAVpower'] + CAV_Attenuation
     CAV_freq  = settings['CAV_freq']
     
     ##Qubit settings
@@ -77,8 +78,9 @@ def pulsed_spec(instruments, settings):
     freq_points = settings['freq_points']
     freqs  = numpy.round(numpy.linspace(start_freq,stop_freq,freq_points),-3)
     
-    start_power  = settings['start_power']
-    stop_power   = settings['stop_power']
+    Qbit_Attenuation = settings['Qbit_Attenuation']
+    start_power  = settings['start_power'] + Qbit_Attenuation
+    stop_power   = settings['stop_power'] + Qbit_Attenuation
     power_points = settings['power_points']
     powers = numpy.round(numpy.linspace(start_power,stop_power,power_points),2)
     
@@ -94,15 +96,10 @@ def pulsed_spec(instruments, settings):
     cavitygen.Output = 'On'
     qubitgen.Output = 'On'
     
-#    LO.Ref.Source = 'EXT'
-#    LO.Power = 12
-#    LO.Freq = CAV_freq
-#    LO.Output = 'On'
-    LO.inst.write('ROSC EXT')
-    LO.inst.write('SENS:SWE:TYPE CW')
-    LO.inst.write('SOUR:POW 12')
-    LO.inst.write('SOUR:FREQ:CW {}'.format(CAV_freq))
-    LO.output = 'On' 
+    LO.Ref.Source = 'EXT'
+    LO.Power = 12
+    LO.Freq = CAV_freq
+    LO.Output = 'On'
     
     ##Card settings
     meas_samples = settings['sampleRate']*settings['meas_window']
@@ -159,7 +156,7 @@ def pulsed_spec(instruments, settings):
         Is = numpy.zeros((len(freqs), len(xaxis) ))
         Qs = numpy.zeros((len(freqs), len(xaxis) ))
         
-        print('Current power:{}, max:{}'.format(powers[powerind], powers[-1]))
+        print('Current power:{}, max:{}'.format(powers[powerind]+Qbit_Attenuation, powers[-1]+Qbit_Attenuation))
     
         for find in range(0, len(freqs)):
             freq = freqs[find]
@@ -184,22 +181,15 @@ def pulsed_spec(instruments, settings):
                 print('    ')
             
             # mixer correction
-            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
+#            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
             
             # No mixer correction
-#            Ip, Qp = I[0], Q[0]
+            Ip, Qp = I[0], Q[0]
             
             DC_I = numpy.mean(Ip[-50:])
             DC_Q = numpy.mean(Qp[-50:])
             Idat = Ip-DC_I
             Qdat = Qp-DC_Q
-            
-#            #no mixer correction
-#            DC_I = numpy.mean(I[0][-50:])
-#            DC_Q = numpy.mean(Q[0][-50:])
-#            
-#            Idat = I[0]-DC_I
-#            Qdat = Q[0]-DC_Q
             
             amp = numpy.sqrt(Idat**2+Qdat**2)
             phase = numpy.arctan2(Qdat, Idat)*180/numpy.pi
@@ -227,9 +217,9 @@ def pulsed_spec(instruments, settings):
         single_data['mag'] = powerslice
         single_data['phase'] = phaseslice
 
-        yaxis = powers[0:powerind+1]
+        yaxis = powers[0:powerind+1] - Qbit_Attenuation
         labels = ['Freq (GHz)', 'Power (dBm)']
-        simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=1) 
+        simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
 
         full_time = {}
         full_time['xaxis'] = xaxis_us
@@ -249,7 +239,7 @@ def pulsed_spec(instruments, settings):
     
     print('elapsed time = ' + str(t2-t1))
 
-    simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=1) 
+    simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
     plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
     simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier='', fig_num=2)
     plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
