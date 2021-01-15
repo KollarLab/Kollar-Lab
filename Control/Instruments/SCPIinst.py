@@ -23,7 +23,8 @@ class SCPIinst(object):
     
     def __getattr__(self, name):
         initializing = self.__dict__['init']
-        if initializing:
+        full_dict = self.__dict__
+        if initializing or name in full_dict.keys():
             super().__getattribute__(self, name)
         else:
             name = name.lower()
@@ -44,14 +45,15 @@ class SCPIinst(object):
                             return eval(val)
                         except:
                             return val
-            print('Trying to set an invalid command: {}'.format(name))
+            print('Trying to get an invalid command: {}'.format(name))
     
     def __setattr__(self, name, value):
         try:
             initializing = self.__dict__['init']
         except:
             initializing = True
-        if initializing:
+        full_dict = self.__dict__
+        if initializing or name in full_dict.keys():
             super().__setattr__(name, value)
         else:
             name = name.lower()
@@ -78,17 +80,11 @@ class SCPIinst(object):
                     self.error
                     return
 
-            print('Trying setting an invalid setting: {}'.format(name))
-    
-    def close(self):
-        self.inst.close()
-    
-    def reset(self):
-        self.inst.write('*RST; *CLS')
-        
+            print('Trying to set an invalid setting: {}'.format(name))
+            
     @property
     def error(self):
-        errcmd = self.errcmd
+        errcmd = self.__dict__['errcmd']
         if isinstance(errcmd, dict):
             for errtype in errcmd.keys():
                 code = 0
@@ -110,6 +106,8 @@ class SCPIinst(object):
             (code, string) = eval(self.inst.query(errcmd))
             if code != 0:
                 print('{},{}'.format(code, string))
+        self.inst.write('*CLS')
+        return code, string
         
     @property
     def settings(self):
@@ -121,6 +119,7 @@ class SCPIinst(object):
             mod = getattr(self, module)
             fullsettings[module] = mod.settings
         return fullsettings
+    
     @settings.setter
     def settings(self, fullsettings):
         for setting in fullsettings.keys():
@@ -132,7 +131,13 @@ class SCPIinst(object):
                     mod.settings = fullsettings[setting]
                 except:
                     print('invalid')
-            
+    
+    def reset(self):
+        self.inst.write('*RST; *CLS')
+        
+    def close(self):
+        self.inst.close()
+        
 class Module(object):
 
     def __init__(self,inst, commands, errcmd):
@@ -146,7 +151,8 @@ class Module(object):
         
     def __getattr__(self, name):
         initializing = self.__dict__['init']
-        if initializing:
+        full_dict = self.__dict__
+        if initializing or name in full_dict.keys():
             super().__getattribute__(self, name)
         else:
             name = name.lower()
@@ -167,14 +173,15 @@ class Module(object):
                             return eval(val)
                         except:
                             return val
-            print('Trying to set an invalid command: {}'.format(name))
+            print('Trying to get an invalid command: {}'.format(name))
     
     def __setattr__(self, name, value):
         try:
             initializing = self.__dict__['init']
         except:
             initializing = True
-        if initializing:
+        full_dict = self.__dict__
+        if initializing or name in full_dict.keys():
             super().__setattr__(name, value)
         else:
             name = name.lower()
@@ -201,11 +208,11 @@ class Module(object):
                     self.error
                     return
 
-            print('Trying setting an invalid setting: {}'.format(name))
+            print('Trying to set an invalid setting: {}'.format(name))
             
     @property
     def error(self):
-        errcmd = self.errcmd
+        errcmd = self.__dict__['errcmd']
         if isinstance(errcmd, dict):
             for errtype in errcmd.keys():
                 code = 0
@@ -227,16 +234,14 @@ class Module(object):
             (code, string) = eval(self.inst.query(errcmd))
             if code != 0:
                 print('{},{}'.format(code, string))
-                
+        self.inst.write('*CLS')
+        return code, string
+    
     @property
     def settings(self):
         fullsettings = {}
         for setting in self.commandset:
             fullsettings[setting] = self.__getattr__(setting)
-#        for module in modules:
-#            fullsettings[module] = {}
-#            mod = getattr(self, module)
-#            fullsettings[module] = mod.settings
         return fullsettings
     @settings.setter
     def settings(self, fullsettings):
