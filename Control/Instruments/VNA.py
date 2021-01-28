@@ -264,6 +264,7 @@ class VNA(SCPIinst):
     def configure_averages(self, channel, averages):
         '''Set up channel to measure averages traces'''
         self.inst.write('SENS{}:AVER ON'.format(channel))
+        self.inst.write('SENS{}:AVER:MODE MOV'.format(channel))
         self.inst.write('SENS{}:AVER:COUN {}'.format(channel, averages))
         self.inst.write('SENS{}:SWE:COUN {}'.format(channel, averages))
         self.clear_averages(channel)
