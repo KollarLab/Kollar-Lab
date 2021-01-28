@@ -95,7 +95,7 @@ def autoscan_plot(transdata, specdata, singledata, yaxis, scanname, trans_labels
     fig.canvas.flush_events()
     return
 
-def general_colormap_subplot(ax,xaxis, yaxis, data, labels, title):
+def general_colormap_subplot(ax,xaxis, yaxis, data, labels, title, cmap = 'viridis', vmin = np.NaN, vmax = np.NaN):
     '''given a subplot object, it should make a decent imshow plot of the data.
     
     You have to handle subtracting out any attenuation and do the labeling after.
@@ -123,7 +123,11 @@ def general_colormap_subplot(ax,xaxis, yaxis, data, labels, title):
         
     limits = np.concatenate((xlimits, ylimits))
     
-    plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap='viridis')
+    if (not np.isnan(vmax)) and (not np.isnan(vmin)):
+#        print('version with color scale limits')
+        plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap=cmap, vmin = vmin, vmax = vmax)
+    else:
+        plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap=cmap)
     plt.colorbar()
     plt.xlabel(labels[0])
     plt.ylabel(labels[1])
