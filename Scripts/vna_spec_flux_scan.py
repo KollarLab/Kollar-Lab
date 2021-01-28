@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-import VNAplottingTools as plots
+import plotting_tools as plots
 
 def get_default_settings():
     fullsettings = {}
@@ -43,6 +43,8 @@ def get_default_settings():
     settings['CAV_Attenuation'] = 30
     settings['Qbit_Attenuation'] = 10
     
+    autoscan_settings['channel'] = 1
+    autoscan_settings['measurement'] = 'S21'
     autoscan_settings['freq_points'] = 501
     autoscan_settings['ifBW'] = settings['ifBW']
     autoscan_settings['avg_time'] = 15
@@ -68,12 +70,13 @@ def vna_spec_flux_scan(instruments, fullsettings):
     stamp = userfuncs.timestamp()
     filename = settings['scanname'] + '_' + stamp
 
-    CAV_Attenuation = settings['CAV_attenuation']
+    CAV_Attenuation = settings['CAV_Attenuation']
     Qbit_Attenuation = settings['Qbit_Attenuation']
     
-    autoscan_set['RFpower'] = settings['RFpower'] + CAV_Attenuation
+    
     settings['CAVpower'] = settings['CAVpower'] + CAV_Attenuation
     settings['RFpower'] = settings['RFpower'] + Qbit_Attenuation
+    autoscan_set['RFpower'] = settings['CAVpower']
     
     #set voltage sweep
     start_voltage = settings['start_voltage']
@@ -82,7 +85,7 @@ def vna_spec_flux_scan(instruments, fullsettings):
     voltages = np.round(np.linspace(settings['start_voltage'], settings['stop_voltage'], settings['voltage_points']),6)
     max_voltage = 3.5
     if np.max(voltages) > max_voltage:
-        raise ValueError('max voltage too! large')
+        raise ValueError('max voltage too large!')
     else:
         settings['voltages'] = voltages
     
@@ -116,7 +119,7 @@ def vna_spec_flux_scan(instruments, fullsettings):
         trans_phases[vind] = trans_data['phase']
         
         settings['CAVfreq'] = trans_freqs[np.argmax(trans_data['mag'])]
-        print('spec')
+        print('spec, CAV power: {}, cav freq: {}'.format(settings['CAVpower'], settings['CAVfreq']))
         data = vna.spec_meas(settings)
         
         vna.autoscale()
@@ -182,13 +185,13 @@ def vna_spec_flux_scan(instruments, fullsettings):
             mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
         specplotdata['phases'] = mat
         
-        plots.spec_fluxscanplot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
+        plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
             
-        if np.mod(vind,10) ==4:
-            userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers', 
+        if np.mod(vind,10) == 1:
+            userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 
                                             'CAV_Attenuation', 
-                                            'trans_freqs', 'trans_mags', 'trans_phases', 
-                                            'autoscan_settings'], locals(), expsettings=settings)
+                                            'trans_freqs', 'trans_mags', 'trans_phases'], 
+                                            locals(), expsettings=fullsettings)
             
     
     t2 = time.time()
@@ -218,13 +221,17 @@ def vna_spec_flux_scan(instruments, fullsettings):
     spec_labels = ['Freq (GHz)','Voltage (V)']
     
     
-    plots.spec_fluxscanplot(transdata, specplotdata, singledata, voltages, filename, trans_labels, spec_labels, identifier, fig_num = 1)
+    plots.autoscan_plot(transdata, specplotdata, singledata, voltages, filename, trans_labels, spec_labels, identifier, fig_num = 1)
     
     
-    userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers', 
-                                            'CAV_Attenuation', 
-                                            'trans_freqs', 'trans_mags', 'trans_phases', 
-                                            'autoscan_settings'], locals(), expsettings=settings)
+#    userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs',
+#                                            'CAV_Attenuation', 
+#                                            'trans_freqs', 'trans_mags', 'trans_phases'], 
+#                                            locals(), expsettings=settings)
+    userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'voltages', 
+                                           'filename', 'trans_labels', 'spec_labels'], 
+                                           locals(), expsettings=settings)
+    
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
     
     

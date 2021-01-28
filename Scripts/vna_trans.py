@@ -59,7 +59,7 @@ def vna_trans(instruments, settings):
     mags = np.zeros((len(powers), settings['freq_points']))
     phases = np.zeros((len(powers), settings['freq_points']))
 
-    t0 = time.time()
+    tstart = time.time()
     for powerind in range(len(powers)):
         power = powers[powerind]
         print('Power: {}, final power: {}'.format(power-CAV_Attenuation, powers[-1]-CAV_Attenuation))
@@ -94,11 +94,11 @@ def vna_trans(instruments, settings):
     
         labels = ['Freq (GHz)', 'Power (dBm)']
         yaxis = powers[0:powerind+1]-CAV_Attenuation
-        plots.simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=2)
+        plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=2)
     
-        userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers'], locals(), expsettings=settings)
+        userfuncs.SaveFull(saveDir, filename, ['full_data', 'single_data', 'powers', 'labels', 'filename'], locals(), expsettings=settings)
         
     t2 = time.time()
-    print('Elapsed time: {}'.format(t2-t0))
+    print('Elapsed time: {}'.format(t2-tstart))
 
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)

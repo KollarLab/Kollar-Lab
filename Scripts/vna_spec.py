@@ -71,7 +71,7 @@ def vna_spec(instruments, settings):
     tstart = time.time()
     for powerind in range(len(powers)):
         power = powers[powerind]
-        print('Power: {}, final power: {}'.format(power+Qbit_Attenuation, powers[-1]+Qbit_Attenuation))
+        print('Power: {}, final power: {}'.format(power-Qbit_Attenuation, powers[-1]-Qbit_Attenuation))
         settings['RFpower'] = power
 
         data = vna.spec_meas(settings)
@@ -103,10 +103,11 @@ def vna_spec(instruments, settings):
         yaxis = powers[0:powerind+1] - Qbit_Attenuation
         labels = ['Freq (GHz)', 'Powers (dBm)']
     
-        plots.simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier='', fig_num=1)
+        plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
     
     t2 = time.time()
-    print('Elapsed time: {}'.format(t2-t0))
+    print('Elapsed time: {}'.format(t2-tstart))
 
-    userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers'], locals(), expsettings=settings)
+#    userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers'], locals(), expsettings=settings)
+    userfuncs.SaveFull(saveDir, filename, ['full_data', 'single_data', 'powers', 'labels', 'filename'], locals(), expsettings=settings)
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)

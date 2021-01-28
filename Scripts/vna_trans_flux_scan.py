@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-import VNAplottingTools as plots
+import plotting_tools as plots
 
 def get_default_settings():
 
@@ -24,9 +24,9 @@ def get_default_settings():
     #Sweep parameter
     settings['CAV_Attenuation'] = 30
 
-    settings['start_volt']  = 0.4
-    settings['stop_volt']   = 0.9
-    settings['volt_points'] = 15
+    settings['start_voltage']  = 0.4
+    settings['stop_voltage']   = 0.9
+    settings['voltage_points'] = 15
 
     settings['start_power'] = -50
     settings['stop_power'] = -48
@@ -55,7 +55,7 @@ def vna_trans_flux_scan(instruments, settings):
     stamp = userfuncs.timestamp()
     filename = settings['scanname'] + '_' + stamp
 
-    CAV_Attenuation = settings['CAV_attenuation']
+    CAV_Attenuation = settings['CAV_Attenuation']
     scanname = settings['scanname']
     
     SRS.Range = '10 V'
@@ -79,7 +79,7 @@ def vna_trans_flux_scan(instruments, settings):
     
     avg_times = settings['avg_times']
     
-    if len(settings['avg_times']) != len(settings['powers']):
+    if len(settings['avg_times']) != len(powers):
         raise ValueError('incorrect number of averaging times specified')
     
     mags = np.zeros((settings['voltage_points'], settings['freq_points']))
@@ -88,8 +88,8 @@ def vna_trans_flux_scan(instruments, settings):
     SRS.Volt = 0
     SRS.Output = 'On'
     
-    for pind in range(0, len(settings['powers'])):
-        power = settings['powers'][pind]
+    for pind in range(len(powers)):
+        power = powers[pind]
         settings['RFpower'] = power
         settings['avg_time'] = settings['avg_times'][pind]
         identifier = 'Cav Power : ' + str(settings['RFpower'] - CAV_Attenuation) + ' dB'
@@ -141,18 +141,14 @@ def vna_trans_flux_scan(instruments, settings):
             single_data = data
     
             labels = ['Freq (GHz)', 'Voltage (V)']
-            yaxis = voltages[0:vind+1]-CAV_Attenuation
+            yaxis = voltages[0:vind+1]
             plots.simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier=identifier, fig_num=2)
     
-            userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers'], locals(), expsettings=settings)
-        
-#            #plot the data as it comes in
-#            plots.general_VNAplot(freqs, mags[0:vind+1,:], phases[0:vind+1,:], voltages[0:vind+1], scanname, 
-#                                     xlabel = 'Frequency (GHz)', ylabel = 'Voltage (V)', identifier = identifier,
-#                                     fig_num = 1)
+            userfuncs.SaveFull(saveDir, scanname, ['full_data', 'single_data', 'powers', 'scanname', 'labels'], locals(), expsettings=settings)
             
         #end loop over voltages
-        userfuncs.SaveFull(saveDir, scanname, ['mags', 'phases', 'freqs', 'powers', 'CAV_Attenuation'], locals(), expsettings=settings)
+#        userfuncs.SaveFull(saveDir, scanname, ['mags', 'phases', 'freqs', 'powers', 'CAV_Attenuation'], locals(), expsettings=settings)
+        userfuncs.SaveFull(saveDir, scanname, ['full_data', 'single_data', 'voltages', 'powers', 'scanname', 'labels'], locals(), expsettings=settings)
         plt.savefig(os.path.join(saveDir, scanname+'.png'), dpi = 150)
     
     t2 = time.time()
@@ -161,7 +157,3 @@ def vna_trans_flux_scan(instruments, settings):
     #return to zero voltage
     SRS.voltage_ramp(0)
     SRS.Output = 'Off'
-
-#    plots.general_VNAplot(freqs, mags, phases, voltages, scanname, 
-                             xlabel = 'Frequency (GHz)', ylabel = 'Voltage (V)', identifier = identifier,
-                             fig_num = 1)
