@@ -46,6 +46,7 @@ def get_default_settings():
     settings['timeout']          = 30
     
     ##Pulse settings
+    settings['Quasi_CW'] = False
     settings['meas_pos'] = 80e-6
     settings['empirical_delay']  = 1e-6
     settings['pulse_delay'] = 200e-9
@@ -91,7 +92,11 @@ def pulsed_spec(instruments, settings):
 
     qubitgen.Freq   = 4e9
     qubitgen.Power  = -20
-    qubitgen.IQ.Mod = 'On'
+    
+    if settings['Quasi_CW']:
+        qubitgen.IQ.Mod = 'Off'
+    else:
+        qubitgen.IQ.Mod = 'On'
 
     cavitygen.Output = 'On'
     qubitgen.Output = 'On'
@@ -156,7 +161,7 @@ def pulsed_spec(instruments, settings):
         Is = numpy.zeros((len(freqs), len(xaxis) ))
         Qs = numpy.zeros((len(freqs), len(xaxis) ))
         
-        print('Current power:{}, max:{}'.format(powers[powerind]+Qbit_Attenuation, powers[-1]+Qbit_Attenuation))
+        print('Current power:{}, max:{}'.format(powers[powerind]-Qbit_Attenuation, powers[-1]-Qbit_Attenuation))
     
         for find in range(0, len(freqs)):
             freq = freqs[find]
@@ -232,7 +237,7 @@ def pulsed_spec(instruments, settings):
         single_time['phase'] = phase
 
         time_labels = ['Time (us)', 'Freq (GHz)']
-        identifier = 'Power: {}dBm'.format(power)
+        identifier = 'Power: {}dBm'.format(power-Qbit_Attenuation)
         simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier, fig_num=2)
 
     t2 = time.time()
