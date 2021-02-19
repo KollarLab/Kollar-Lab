@@ -42,7 +42,9 @@ def get_default_settings():
 def vna_trans(instruments, settings):
     ##Instruments used
     vna = instruments['VNA']
-
+    
+    vna.reset()
+    
     ##Data saving and naming
     saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
     stamp = userfuncs.timestamp()
