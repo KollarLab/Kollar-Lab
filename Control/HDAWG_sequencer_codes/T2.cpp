@@ -32,8 +32,11 @@ for(i=0; i<meas_ramp_samples/2; i++){
 }
 //Qubit pulse params
 const qbit_samples = qbitTime*sampleRate;
+const qbit_position = qbit_samples/2-0.5;
+const qbit_amp = 1.0;
+const qbit_sigma = qbit_samples/4;
 
-wave qbit  = gauss(qbit_samples, qbit_samples/2-0.5, qbit_samples/8);
+wave qbit  = gauss(qbit_samples, qbit_amp, qbit_position, qbit_sigma);
 wave blank = zeros(qbit_samples);
 wave qbit_clean = zeros(qbit_samples);
 
