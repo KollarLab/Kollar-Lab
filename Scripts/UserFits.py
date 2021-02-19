@@ -18,7 +18,7 @@ def exp_cosff(x, tau, amp, offset, freq, phi):
     return vals
 
 def fit_T1(taus, amps, fit_guess):
-    ts = np.linspace(min(taus), max(taus), 100)
+    ts = np.linspace(min(taus), max(taus), 10*len(taus))
     
     fit_out, pcov = curve_fit(expff, taus, amps, p0 = fit_guess)
     
@@ -33,7 +33,7 @@ def fit_T1(taus, amps, fit_guess):
     return fit_out[0]
 
 def fit_T2(taus, amps, fit_guess):
-    ts = np.linspace(min(taus), max(taus), 100)
+    ts = np.linspace(min(taus), max(taus), 10*len(taus))
     
     fit_out, pcov = curve_fit(exp_cosff, taus, amps, p0 = fit_guess)
     
