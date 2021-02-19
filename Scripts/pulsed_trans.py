@@ -134,7 +134,7 @@ def pulsed_trans(instruments, settings):
         Is = numpy.zeros((len(freqs), len(xaxis) ))
         Qs = numpy.zeros((len(freqs), len(xaxis) ))
         
-        print('Current power:{}, max:{}'.format(powers[powerind] + CAV_Attenuation, powers[-1] + CAV_Attenuation))
+        print('Current power:{}, max:{}'.format(powers[powerind] - CAV_Attenuation, powers[-1] - CAV_Attenuation))
     
         for find in range(0, len(freqs)):
             freq = freqs[find]
@@ -161,10 +161,10 @@ def pulsed_trans(instruments, settings):
                 print('    ')
             
             # mixer correction
-            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
+#            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
             
             # No mixer correction
-#            Ip, Qp = I[0], Q[0]
+            Ip, Qp = I[0], Q[0]
             
             DC_I = numpy.mean(Ip[-50:])
             DC_Q = numpy.mean(Qp[-50:])
@@ -212,7 +212,7 @@ def pulsed_trans(instruments, settings):
         single_time['phase'] = phase
 
         time_labels = ['Time (us)', 'Freq (GHz)']
-        identifier = 'Power: {}dBm'.format(power)
+        identifier = 'Power: {}dBm'.format(power-CAV_Attenuation)
         simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier, fig_num=2)
     
     t2 = time.time()
