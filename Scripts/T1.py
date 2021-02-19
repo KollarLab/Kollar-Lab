@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-from VNAplottingTools import base_power_plot_imshow
+from plotting_tools import base_power_plot_imshow
 from UserFits import fit_T1
 
 def GetDefaultSettings():
@@ -21,10 +21,10 @@ def GetDefaultSettings():
     settings['meas_type'] = 'Tmeas'
 
     
-    settings['Q_Freq'] = 4.20431e9
-    settings['Q_Power'] = -11
-    settings['CAV_Freq'] = 8.126e9
-    settings['CAV_Power'] = -18
+    settings['Q_Freq'] = 4.21109e9
+    settings['Q_Power'] = -18
+    settings['CAV_Freq'] = 8.12357e9
+    settings['CAV_Power'] = -42.9
     
     Meas_pos = 80e-6
     #Card settings
@@ -58,6 +58,9 @@ def meas_T1(instruments, settings):
     Q_Power   = settings['Q_Power']
     CAV_Freq  = settings['CAV_Freq']
     CAV_Power = settings['CAV_Power']
+    
+    CAV_Attenuation  = settings['CAV_Attenuation']
+    Qbit_Attenuation = settings['Qbit_Attenuation']
       
     stamp = userfuncs.timestamp()
     filename = settings['scanname'] + '_' + stamp
@@ -70,11 +73,11 @@ def meas_T1(instruments, settings):
     LO.Output = 'On'
     
     cavitygen.Freq   = CAV_Freq
-    cavitygen.Power  = CAV_Power
+    cavitygen.Power  = CAV_Power + CAV_Attenuation
     cavitygen.IQ.Mod = 'On'
     
     qubitgen.Freq   = Q_Freq
-    qubitgen.Power  = Q_Power
+    qubitgen.Power  = Q_Power + Qbit_Attenuation
     qubitgen.IQ.Mod = 'On'
     
     cavitygen.Output = 'On'
@@ -89,7 +92,7 @@ def meas_T1(instruments, settings):
     card.activeChannels = settings['activeChannels']
     card.triggerDelay   = settings['trigger_buffer']
     card.timeout        = 30
-    card.samples        = int(meas_samples*2.5)
+    card.samples        = int(meas_samples*2.1)
     card.channelRange   = 0.5
     card.SetParams()
     

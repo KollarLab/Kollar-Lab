@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-from VNAplottingTools import base_power_plot_imshow
+from plotting_tools import base_power_plot_imshow
 from UserFits import fit_T2
 
 def GetDefaultSettings():
@@ -60,6 +60,8 @@ def meas_T2(instruments, settings):
     CAV_Freq  = settings['CAV_Freq']
     CAV_Power = settings['CAV_Power']
     
+    CAV_Attenuation  = settings['CAV_Attenuation']
+    Qbit_Attenuation = settings['Qbit_Attenuation']
 #    extra_shift = 500e3
     detuning = settings['detuning']
 #    Q_Freq = 4.20431e9 + detuning + extra_shift
@@ -80,11 +82,11 @@ def meas_T2(instruments, settings):
     LO.output = 'On' 
     
     cavitygen.Freq   = CAV_Freq
-    cavitygen.Power  = CAV_Power
+    cavitygen.Power  = CAV_Power + CAV_Attenuation
     cavitygen.IQ.Mod = 'On'
     
     qubitgen.Freq   = Q_Freq
-    qubitgen.Power  = Q_Power
+    qubitgen.Power  = Q_Power + Qbit_Attenuation
     qubitgen.IQ.Mod = 'On'
     
     cavitygen.Output = 'On'
@@ -97,10 +99,10 @@ def meas_T2(instruments, settings):
     card.segments       = settings['segments']
     card.sampleRate     = settings['sampleRate']
     card.activeChannels = settings['activeChannels']
-    card.triggerDelay   = settings['trigger_buffer']
+    card.triggerDelay   = settings['trigger_buffer']+1e-6
     card.timeout        = 30
     card.samples        = int(meas_samples*2.5)
-    card.channelRange   = 0.5
+    card.channelRange   = 2.5
     card.SetParams()
     
     data_window = int(meas_samples) #for 100us measurement pulses 
@@ -167,23 +169,13 @@ def meas_T2(instruments, settings):
             print('estimated time for this scan : ' + str(np.round(estimatedTime/60/60, 2)) + ' hours')
             print('    ')
     
+    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis_us', 'amps', 'amp_int'], locals(), expsettings=settings)
+    
     t2 = time.time()
     
     print('Elapsed time: {}'.format(t2-tstart))
     
-    tau0 = 5e-6
-    offset0 = np.mean(amp_int[-10])
-    amp0 = np.mean(max(amp_int)-offset0)
-    freq0 = detuning
-    phi0 = 0
-    
-    fit_guess = [tau0, amp0, offset0, freq0, phi0]
-    T2, detuning = fit_T2(taus, amp_int, fit_guess)
-    
-    plt.suptitle(filename)
-    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
-    
-    fig = plt.figure(figsize=(13,8))
+    fig = plt.figure(1,figsize=(13,8))
     plt.clf()
         
     ax = plt.subplot(1,1,1)
@@ -191,6 +183,25 @@ def meas_T2(instruments, settings):
     
     plt.suptitle(filename)
     plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis_us', 'amps', 'amp_int'], locals(), expsettings=settings)
+    
+    fig = plt.figure(2,figsize=(13,8))
+    plt.clf()
+    tau0 = 5e-9
+    offset0 = np.mean(amp_int[-10])
+    amp0 = np.mean(max(amp_int)-offset0)
+    freq0 = detuning
+    phi0 = 0
+    
+    fit_guess = [tau0, amp0, offset0, freq0, phi0]
+    try:
+        T2, detuning = fit_T2(taus, amp_int, fit_guess)
+    except:
+        print('T2 fit did not converge')
+        T2 = 0
+        detuning = 0
+    
+    plt.suptitle(filename)
+    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
+    
     
     return T2, detuning
