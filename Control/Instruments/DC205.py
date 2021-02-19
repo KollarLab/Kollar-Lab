@@ -66,8 +66,8 @@ class DC205(SCPIinst):
     
     commandlist['core'] = core
     
-    def __init__(self, address):
-        super().__init__(address, self.commandlist, self.errcmds)
+    def __init__(self, address, reset):
+        super().__init__(address, self.commandlist, self.errcmds, reset)
     
     def voltage_ramp(self, newV, step_size = 0.005, step_time = 0.001):
         deltaV = newV - self.Volt
