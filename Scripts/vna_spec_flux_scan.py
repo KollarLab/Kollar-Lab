@@ -4,7 +4,7 @@ Created on Thu Dec 17 12:02:58 2020
 
 @author: Kollarlab
 """
-
+import copy 
 import time
 import os
 import numpy as np
@@ -51,6 +51,7 @@ def get_default_settings():
     autoscan_settings['start_freq'] = 7.6e9
     autoscan_settings['stop_freq'] = 7.7e9
     autoscan_settings['RFpower'] = settings['CAVpower']
+    autoscan_settings['background_subtract'] = False
     
     fullsettings['spec'] = settings
     fullsettings['autoscan'] = autoscan_settings
@@ -61,6 +62,7 @@ def vna_spec_flux_scan(instruments, fullsettings):
     settings = fullsettings['spec']
     autoscan_set = fullsettings['autoscan']
     
+    background_subtract = autoscan_set['background_subtract']
     ##Instruments used
     vna = instruments['VNA']
     SRS = instruments['DCsupply']
@@ -84,6 +86,7 @@ def vna_spec_flux_scan(instruments, fullsettings):
     voltage_points = settings['voltage_points']
     voltages = np.round(np.linspace(settings['start_voltage'], settings['stop_voltage'], settings['voltage_points']),6)
     max_voltage = 3.5
+    SRS.range = '10 V'
     if np.max(voltages) > max_voltage:
         raise ValueError('max voltage too large!')
     else:
@@ -102,6 +105,13 @@ def vna_spec_flux_scan(instruments, fullsettings):
     
     identifier = 'Cav Power : ' + str(settings['CAVpower'] - CAV_Attenuation) + ' dB'
     
+    if background_subtract:
+        vna.reset()
+        print('Collecting background ripple, turning cavity power to 0 dBm (on vna)')
+        back_settings = copy.deepcopy(autoscan_set)
+        back_settings['RFpower'] = 0
+        back_data = vna.trans_meas(back_settings)
+        
     for vind in range(len(voltages)):
         voltage = voltages[vind]
         print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
@@ -118,7 +128,12 @@ def vna_spec_flux_scan(instruments, fullsettings):
         trans_mags[vind] = trans_data['mag']
         trans_phases[vind] = trans_data['phase']
         
-        settings['CAVfreq'] = trans_freqs[np.argmax(trans_data['mag'])]
+        if background_subtract:
+            trans_mags[vind] = trans_mags[vind] - back_data['mag']
+        else:
+            trans_mags[vind] = trans_mags[vind]
+        
+        settings['CAVfreq'] = trans_freqs[np.argmin(trans_mags[vind])]
         print('spec, CAV power: {}, cav freq: {}'.format(settings['CAVpower'], settings['CAVfreq']))
         data = vna.spec_meas(settings)
         
@@ -187,11 +202,11 @@ def vna_spec_flux_scan(instruments, fullsettings):
         
         plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
             
-        if np.mod(vind,10) == 1:
-            userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 
-                                            'CAV_Attenuation', 
-                                            'trans_freqs', 'trans_mags', 'trans_phases'], 
-                                            locals(), expsettings=fullsettings)
+        if np.mod(vind,5) == 1:
+            userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'voltages', 
+                                           'filename', 'trans_labels', 'spec_labels'], 
+                                           locals(), expsettings=settings)
+            plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
             
     
     t2 = time.time()
@@ -223,15 +238,8 @@ def vna_spec_flux_scan(instruments, fullsettings):
     
     plots.autoscan_plot(transdata, specplotdata, singledata, voltages, filename, trans_labels, spec_labels, identifier, fig_num = 1)
     
-    
-#    userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs',
-#                                            'CAV_Attenuation', 
-#                                            'trans_freqs', 'trans_mags', 'trans_phases'], 
-#                                            locals(), expsettings=settings)
     userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'voltages', 
                                            'filename', 'trans_labels', 'spec_labels'], 
                                            locals(), expsettings=settings)
     
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
-    
-    
