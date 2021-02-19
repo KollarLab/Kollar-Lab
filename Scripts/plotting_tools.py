@@ -95,7 +95,7 @@ def autoscan_plot(transdata, specdata, singledata, yaxis, scanname, trans_labels
     fig.canvas.flush_events()
     return
 
-def general_colormap_subplot(ax,xaxis, yaxis, data, labels, title, cmap = 'viridis', vmin = np.NaN, vmax = np.NaN):
+def general_colormap_subplot(ax,xaxis, yaxis, data, labels, title, cmap = 'hot', vmin = np.NaN, vmax = np.NaN):
     '''given a subplot object, it should make a decent imshow plot of the data.
     
     You have to handle subtracting out any attenuation and do the labeling after.
