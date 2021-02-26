@@ -11,7 +11,7 @@ import os
 import matplotlib.pyplot as plt
 
 import userfuncs
-from VNAplottingTools import base_power_plot, base_raw_time_plot_spec, pulsed_debug
+from plotting_tools import simplescan_plot
 
 
 pi = numpy.pi
@@ -30,16 +30,19 @@ axes = [0.024, 0.018]
 def GetDefaultSettings():
     settings = {}
     
-    settings['scanname'] = 'initial_power_scan_q4'
+    settings['scanname'] = 'scanname'
     settings['meas_type'] = 'PulsedTransVProbe'
-    settings['project_dir'] = r'Z:\Data\HouckQuadTransmon'
+    settings['project_dir'] = r'Z:\Data\defaultdir'
     
     #Sweep parameters
     settings['start_freq']      = 4.15*1e9  
     settings['stop_freq']       = 4.25*1e9 
     settings['freq_points']     = 50
 
-    settings['cavity_power']    = -35
+    settings['CAV_Attenuation'] = 30
+    settings['Qbit_Attenuation'] = 10
+
+    settings['cavity_power']    = -60
     
     settings['probe_freq']      = 3.2*1e9
     settings['start_power']     = -20
@@ -74,13 +77,13 @@ def PulsedTransVProbe(instruments, settings):
     filename = settings['scanname'] + '_' + stamp
     
     ##Sweep settings
-    start_freq  = settings['start_freq']
-    stop_freq   = settings['stop_freq']
+    start_freq  = settings['start_freq'] 
+    stop_freq   = settings['stop_freq'] 
     freq_points = settings['freq_points']
     freqs  = numpy.round(numpy.linspace(start_freq,stop_freq,freq_points),-3)
     
-    start_power  = settings['start_power']
-    stop_power   = settings['stop_power']
+    start_power  = settings['start_power'] + settings['Qbit_Attenuation']
+    stop_power   = settings['stop_power'] + settings['Qbit_Attenuation']
     power_points = settings['power_points']
     powers = numpy.round(numpy.linspace(start_power,stop_power,power_points),2)
     
@@ -91,21 +94,16 @@ def PulsedTransVProbe(instruments, settings):
     
     
     cavitygen.Freq   = freqs[0]
-    cavitygen.Power  = settings['cavity_power']
+    cavitygen.Power  = settings['cavity_power'] + settings['CAV_Attenuation']
     cavitygen.IQ.Mod = 'On'
 
     cavitygen.Output = 'On'
     qubitgen.Output = 'On'
     
-#    LO.Ref.Source = 'EXT'
-#    LO.Power = 12
-#    LO.Freq = CAV_freq
-#    LO.Output = 'On'
-    LO.inst.write('ROSC EXT')
-    LO.inst.write('SENS:SWE:TYPE CW')
-    LO.inst.write('SOUR:POW 12')
+    LO.Ref.Source = 'EXT'
+    LO.Power = 12
     LO.Freq = freqs[0]
-    LO.output = 'On' 
+    LO.Output = 'On'
     
     ##Card settings
     meas_samples = settings['sampleRate']*settings['meas_window']
@@ -145,9 +143,6 @@ def PulsedTransVProbe(instruments, settings):
     xaxis = (numpy.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6
     
-    LO.inst.write('SENS:SWE:TYPE CW')
-    LO.inst.write('SOUR:POW 12') 
-    
     powerdat = numpy.zeros((len(powers), len(freqs)))
     phasedat = numpy.zeros((len(powers), len(freqs)))
     
@@ -165,7 +160,7 @@ def PulsedTransVProbe(instruments, settings):
         Is = numpy.zeros((len(freqs), len(xaxis) ))
         Qs = numpy.zeros((len(freqs), len(xaxis) ))
         
-        print('Current power:{}, max:{}'.format(powers[powerind], powers[-1]))
+        print('Current power:{}, max:{}'.format(powers[powerind] - settings['Qbit_Attenuation'], powers[-1]))
     
         for find in range(0, len(freqs)):
             freq = freqs[find]
@@ -192,10 +187,10 @@ def PulsedTransVProbe(instruments, settings):
                 print('    ')
             
             # mixer correction
-            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
+#            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
             
             # No mixer correction
-#            Ip, Qp = I[0], Q[0]
+            Ip, Qp = I[0], Q[0]
             
             DC_I = numpy.mean(Ip[-50:])
             DC_Q = numpy.mean(Qp[-50:])
@@ -217,53 +212,89 @@ def PulsedTransVProbe(instruments, settings):
         powerdat[powerind,:] = powerslice
         phasedat[powerind,:] = phaseslice
         
+        full_data = {}
+        full_data['xaxis'] = freqs/1e9
+        full_data['mags'] = powerdat[0:powerind+1]
+        full_data['phases'] = phasedat[0:powerind+1]
+
+        single_data = {}
+        single_data['xaxis'] = freqs/1e9
+        single_data['mag'] = powerslice
+        single_data['phase'] = phaseslice
+
+        yaxis = powers[0:powerind+1] - settings['Qbit_Attenuation']
+        labels = ['Freq (GHz)', 'Power (dBm)']
+        simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
+
+        full_time = {}
+        full_time['xaxis'] = xaxis_us
+        full_time['mags'] = amps
+        full_time['phases'] = phases
+
+        single_time = {}
+        single_time['xaxis'] = xaxis_us
+        single_time['mag'] = amp
+        single_time['phase'] = phase
+
+        time_labels = ['Time (us)', 'Freq (GHz)']
+        identifier = 'Power: {}dBm'.format(power-settings['Qbit_Attenuation'])
+        
+        userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us', 'full_time'], locals(), expsettings=settings)
+        
+        simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier, fig_num=2)
+        
         userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us'], locals(), expsettings=settings)
         
-        ###plot the full power dependent data 
-        if len(powers) > 1:
-#    
-#            plt.suptitle(filename)
-            fig = plt.figure(1, figsize=(13,8))
-            plt.clf()
-            pulsed_debug(fig, freqs, powers[0:powerind+2], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-    #        plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-        else:
-            if powerind == 1:
-                fig = plt.figure(1)
-                plt.clf()
+#        ###plot the full power dependent data 
+#        if len(powers) > 1:
+##    
+##            plt.suptitle(filename)
+#            fig = plt.figure(1, figsize=(13,8))
+#            plt.clf()
+#            pulsed_debug(fig, freqs, powers[0:powerind+2], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
+#            fig.canvas.draw()
+#            fig.canvas.flush_events()
+#            plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
+#        else:
+#            if powerind == 1:
+#                fig = plt.figure(1)
+#                plt.clf()
         
     
     t2 = time.time()
     
     print('elapsed time = ' + str(t2-t1))
     
-    ###plot the full power dependent data 
-    if len(powers) > 1:
-
-        fig = plt.figure(1, figsize=(13,8))
-        plt.clf()
-        pulsed_debug(fig, freqs, powers[0:powerind+1], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
-        fig.canvas.draw()
-        fig.canvas.flush_events()
-            
-        plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-    else:
-        fig = plt.figure(1)
-        plt.clf()
+    simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
+    plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
+    simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier=identifier, fig_num=2)
+    plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
     
-    
-    #plot the raw data at (the last?) power
-    fig = plt.figure(2, figsize=(13,8))
-    plt.clf()
-    ax = plt.subplot(1,2,1)
-    base_raw_time_plot_spec(fig, ax, times = xaxis_us, ydata = amps, ys = freqs/1e9, ylabel = 'Freq (GHz)', zlabel = 'Volts', scanname = 'Raw trace amps', scanformat = '')
-    
-    
-    
-    ax = plt.subplot(1,2,2)
-    base_raw_time_plot_spec(fig, ax, times = xaxis_us, ydata = phases, ys = freqs/1e9, ylabel = 'Freq (GHz)', zlabel = 'Phase (deg)', scanname = 'Raw trace amps', scanformat = '')
+#    ###plot the full power dependent data 
+#    if len(powers) > 1:
+#
+#        fig = plt.figure(1, figsize=(13,8))
+#        plt.clf()
+#        pulsed_debug(fig, freqs, powers[0:powerind+1], powerdat[0:powerind+1], phasedat[0:powerind+1], powerslice, phaseslice, filename, power)
+#        fig.canvas.draw()
+#        fig.canvas.flush_events()
+#            
+#        plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
+#    else:
+#        fig = plt.figure(1)
+#        plt.clf()
+#    
+#    
+#    #plot the raw data at (the last?) power
+#    fig = plt.figure(2, figsize=(13,8))
+#    plt.clf()
+#    ax = plt.subplot(1,2,1)
+#    base_raw_time_plot_spec(fig, ax, times = xaxis_us, ydata = amps, ys = freqs/1e9, ylabel = 'Freq (GHz)', zlabel = 'Volts', scanname = 'Raw trace amps', scanformat = '')
+#    
+#    
+#    
+#    ax = plt.subplot(1,2,2)
+#    base_raw_time_plot_spec(fig, ax, times = xaxis_us, ydata = phases, ys = freqs/1e9, ylabel = 'Freq (GHz)', zlabel = 'Phase (deg)', scanname = 'Raw trace amps', scanformat = '')
     
     
     
@@ -281,5 +312,5 @@ def PulsedTransVProbe(instruments, settings):
     
     #datatip()
     
-    plt.suptitle(filename)
-    plt.savefig(os.path.join(saveDir, filename+'_singleRawData.png'), dpi = 150)
+#    plt.suptitle(filename)
+#    plt.savefig(os.path.join(saveDir, filename+'_singleRawData.png'), dpi = 150)
