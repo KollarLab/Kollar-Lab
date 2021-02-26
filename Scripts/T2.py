@@ -113,8 +113,8 @@ def meas_T2(instruments, settings):
     ## HDAWG
     hdawg.AWGs[0].samplerate = '2.4GHz'
     hdawg.channelgrouping = '1x4'
-    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='True')
-    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='True')
+    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
+    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\Control\HDAWG_sequencer_codes\T2.cpp",'r')
