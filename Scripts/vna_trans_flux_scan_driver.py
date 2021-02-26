@@ -15,30 +15,33 @@ instruments['DCsupply'] = SRS
 settings = get_default_settings()
 
 #Save location
-settings['scanname']    = 'flux_Scan'
+settings['scanname']    = 'cavity_wide_scan'
 settings['meas_type']   = 'trans_flux_scan'
-settings['project_dir'] = r'Z:\Data'
+settings['project_dir'] = r'Z:\Data\HouckDualHangerFluxonium'
+
 
 #Sweep parameter
 settings['CAV_Attenuation'] = 30
 
-settings['start_volt']  = 0.4
-settings['stop_volt']   = 0.9
-settings['volt_points'] = 15
+settings['start_voltage']  = -2
+settings['stop_voltage']   = 2
+settings['voltage_points'] = 401
 
-settings['start_power'] = -50
-settings['stop_power'] = -48
+settings['start_power'] = -55
+settings['stop_power'] = -55
 settings['power_points'] = 1
 
-settings['avg_times'] = np.array([0.8])
+settings['avg_times'] = np.array([10])
 
+center = 7.58e9
+span = 60e6
 #VNA settings
 settings['channel']  = 1
-settings['avg_time'] = 1
+settings['avg_time'] = 20
 settings['measurement'] = 'S21'
-settings['start_freq']  = 7.576e9-40e6 
-settings['stop_freq']   = 7.576e9+40e6 
-settings['freq_points'] = 501
-settings['ifBW'] = 4e3
+settings['start_freq']  = center-span/2 
+settings['stop_freq']   = center+span/2 
+settings['freq_points'] = 201
+settings['ifBW'] = 1e3
 
 vna_trans_flux_scan(instruments, settings)
