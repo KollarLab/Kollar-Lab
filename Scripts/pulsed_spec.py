@@ -122,8 +122,8 @@ def pulsed_spec(instruments, settings):
     ##HDAWG settings
     hdawg.AWGs[0].samplerate = '2.4GHz'
     hdawg.channelgrouping = '1x4'
-    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='True')
-    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='True')
+    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
+    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\Control\HDAWG_sequencer_codes\T1.cpp",'r')
@@ -135,10 +135,13 @@ def pulsed_spec(instruments, settings):
     loadprog = loadprog.replace('_meas_window_', str(settings['meas_window']))
     loadprog = loadprog.replace('_tau_',str(settings['pulse_delay']))
     loadprog = loadprog.replace('_qwidth_',str(settings['pulse_width']))
+    print('loading')
     hdawg.AWGs[0].load_program(loadprog)
+    print('loaded')
     hdawg.AWGs[0].run_loop()
     time.sleep(0.1)
-
+    
+    print('Running the program')
     ###########################################
     
     data_window = int(meas_samples)
@@ -188,8 +191,12 @@ def pulsed_spec(instruments, settings):
             # mixer correction
 #            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
             
-            # No mixer correction
-            Ip, Qp = I[0], Q[0]
+#            # No mixer correction
+#            Ip, Qp = I[0], Q[0]
+            
+            # no mixer correction, but average different segments together.
+            Ip = numpy.mean(I, 0)
+            Qp = numpy.mean(Q, 0)
             
             DC_I = numpy.mean(Ip[-50:])
             DC_Q = numpy.mean(Qp[-50:])
@@ -209,8 +216,6 @@ def pulsed_spec(instruments, settings):
         
         powerdat[powerind,:] = powerslice
         phasedat[powerind,:] = phaseslice
-        
-        userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us'], locals(), expsettings=settings)
 
         full_data = {}
         full_data['xaxis'] = freqs/1e9
@@ -238,6 +243,9 @@ def pulsed_spec(instruments, settings):
 
         time_labels = ['Time (us)', 'Freq (GHz)']
         identifier = 'Power: {}dBm'.format(power-Qbit_Attenuation)
+        
+        userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us', 'full_time'], locals(), expsettings=settings)
+        
         simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier, fig_num=2)
 
     t2 = time.time()
@@ -246,7 +254,11 @@ def pulsed_spec(instruments, settings):
 
     simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
     plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-    simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier='', fig_num=2)
+    simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier=identifier, fig_num=2)
     plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
        
-    userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us'], locals(), expsettings=settings)
+    userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us', 'full_time'], locals(), expsettings=settings)
+    
+    cavitygen.Output = 'Off'
+    qubitgen.Output = 'Off'
+    LO.Output = 'Off'
