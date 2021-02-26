@@ -16,12 +16,12 @@ from Instruments.VNA import VNA
 from SGShelper import SGS_coupling
 
 #Digitizer
-hardwareAddress = "PXI23::0::0::INSTR"
+hardwareAddress = "PXI23::0::0::INSTR" 
 card = Acqiris(hardwareAddress)
 
 #HDAWG
 hdawg = HDAWG('dev8163')
-
+  
 #Generators
 
 rm = pyvisa.ResourceManager()
@@ -35,13 +35,13 @@ triggergen  = Keysight33500B('USB0::0x0957::0x2507::MY58000681::0::INSTR')
 
 triggergen.Ref.Source = 'Ext'
 triggergen.Waveform   = 'SQU'
-triggergen.Freq       = '5 kHz'
+triggergen.Freq       = '50 kHz'
 triggergen.Volt       = '2 V'
 triggergen.Output     = 'ON'
 
-SRS = DC205('ASRL3::INSTR')
+SRS = DC205('ASRL3::INSTR', False)
 #
-vna = VNA('TCPIP0::192.168.1.11::inst0::INSTR')
+vna = VNA('TCPIP0::192.168.1.5::inst0::INSTR', False)
 #
 #vars_to_save = dir()
 #vars_to_save += ['vars_to_save']
