@@ -47,7 +47,7 @@ def extract_data(raw_data, xaxis, settings):
     Extracts the data from a trace. Finds the indices of start/ stop for both
     data and background (assumes that they are the same length, which should
     be enforced by the card samples in the actual exp script) and splices the 
-    corrct ranges from the raw data. Returns a time axis for the data window 
+    correct ranges from the raw data. Returns a time axis for the data window 
     and subtracts mean of background if specified
     Key input params:
     ALL VALUES SHOULD BE IN TIME UNITS (base seconds)
@@ -58,7 +58,7 @@ def extract_data(raw_data, xaxis, settings):
         pulse_buffer: time to wait after the pulse before measuring background
     '''
     init_buffer = settings['init_buffer']
-    emp_delay   = settings['emp_delay']
+    emp_delay   = settings['empirical_delay']
     meas_window = settings['meas_window']
     pulse_buffer= settings['pulse_buffer']
     
@@ -73,15 +73,52 @@ def extract_data(raw_data, xaxis, settings):
     print(window_width)
     
     data_x = xaxis[data_start:data_start+window_width]
-    back_x = xaxis[back_start:back_start+window_width]
     
     data    = raw_data[data_start:data_start+window_width]
     background = raw_data[back_start:back_start+window_width]
     back_val = np.mean(background)
     
     if settings['subtract_background']:
-        return data - back_val, data_x, background, back_x
+        return data - back_val, data_x, raw_data - back_val, xaxis
     else:
-        return data, data_x, background, back_x
+        return data, data_x, raw_data, xaxis
+
+def configure_card(card, settings):
+    '''
+    Helper function to configure the card from a set of settings. This will
+    force a standard definition of what the digitizer timing should be. Computes
+    the total acquisition time and converts it to samples (also configures the 
+    rest of the digitizer but this is the main part that requires logic)
+    Inputs:
+        settings dictionary with the following keys (should be initialized from
+        the get_default_settings method)
+        meas_window: width of measurment tone
+        empirical_delay: line delay and other delays accumulated between the 
+            AWG and the digitizer
+        init_buffer: buffer to collect data before the pulse
+        pulse_buffer: buffer after measurment tone to wait out the ringing before
+            background subtraction
+        averages: number of averages for the card to perform in HW
+        segments: number of segments (will be averaged together), useful when
+            number of averages gets very high ~>50e3
+        sampleRate: sampling rate of digitizer (make this lower for longer acquisitions)
+        activeChannels: active channels on digitizer (both by default)
+        timeout: timeout (in s) for VISA communication (make this longer for 
+                         longer acquisitions)
+        channelRange: full scale (peak to peak) of each channel, 0.5 or 2.5 V
+    '''
+    #Compute total acquisition time
+    card_time = settings['meas_window']*2 + settings['empirical_delay'] + settings['init_buffer'] + settings['pulse_buffer']
+    meas_samples = settings['sampleRate']*card_time
+    #Compute trigger delay, has to be multiple of 32ns for Acquiris
+    trigger_delay = np.floor((settings['meas_pos'] - settings['init_buffer'])/32e-9)*32e-9
     
-    
+    card.averages       = settings['averages']
+    card.segments       = settings['segments']
+    card.sampleRate     = settings['sampleRate']
+    card.activeChannels = settings['activeChannels']
+    card.triggerDelay   = trigger_delay
+    card.timeout        = settings['timeout']
+    card.samples        = int(meas_samples)
+    card.channelRange   = settings['channelRange']
+    card.SetParams()    
