@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 import userfuncs
 from plotting_tools import simplescan_plot
-from ellipse_fitting import remove_IQ_ellipse
+from measurement_helpers import check_inputs, extract_data, remove_IQ_ellipse, configure_card
 
 pi = numpy.pi
 
@@ -16,23 +16,22 @@ axes = [0.024, 0.018]
 def get_default_settings():
     settings = {}
     
-    settings['scanname'] = 'initial_power_scan_q4'
-    settings['meas_type'] = 'PulsedSpec'
-    settings['project_dir'] = r'Z:\Data\HouckQuadTransmon'
+    settings['scanname'] = 'scanname'
+    settings['meas_type'] = 'pulsed_spec'
+    settings['project_dir'] = r'Z:\Data\defaultdir'
     
     #Cavity parameters
-    settings['CAVpower']        = -18
-    settings['CAV_freq']        = 8.126e9
+    settings['CAVpower']        = -60
+    settings['CAV_freq']        = 7e9
     
     #Qubit parameters
     settings['start_freq']      = 4.15*1e9  
     settings['stop_freq']       = 4.25*1e9 
     settings['freq_points']     = 50
 
-    settings['start_power']     = -20
-    settings['stop_power']      = 10
-    settings['power_points']    = 31
-
+    settings['start_power']     = -30
+    settings['stop_power']      = -20
+    settings['power_points']    = 5
 
     #Card settings
     settings['segments']         = 1
@@ -41,16 +40,26 @@ def get_default_settings():
     settings['activeChannels']   = [1,2]
     settings['channelRange']     = 0.5
     settings['sampleRate']       = 2e9/8
-    #settings['trigger_buffer']   = 0e-6
-    settings['meas_window']      = 10e-6
     settings['timeout']          = 30
     
-    ##Pulse settings
-    settings['Quasi_CW'] = False
-    settings['meas_pos'] = 80e-6
-    settings['empirical_delay']  = 1e-6
+    #Measurement settings
+    settings['Quasi_CW']    = False
+    settings['meas_pos']    = 80e-6
+    settings['meas_window'] = 10e-6
+    
+    #Qubit pulse settings
     settings['pulse_delay'] = 200e-9
     settings['pulse_width'] = 80e-9
+    
+    #Digitizer measurement settings
+    settings['init_buffer'] = 0e-6
+    settings['empirical_delay'] = 375e-6
+    settings['pulse_buffer'] = 0e-6
+    settings['subtract_background'] = True
+    settings['remove_IQ_ellipse'] = False
+    settings['ellipse_center'] = [0,0]
+    settings['ellipse_axes'] = [1,1]
+    settings['ellipse_phi'] = 0
     
     return settings
 
@@ -106,18 +115,7 @@ def pulsed_spec(instruments, settings):
     LO.Freq = CAV_freq
     LO.Output = 'On'
     
-    ##Card settings
-    meas_samples = settings['sampleRate']*settings['meas_window']
-
-    card.averages       = settings['averages']
-    card.segments       = settings['segments']
-    card.sampleRate     = settings['sampleRate']
-    card.activeChannels = settings['activeChannels']
-    card.triggerDelay   = settings['meas_pos'] + settings['empirical_delay']
-    card.timeout        = settings['timeout']
-    card.samples        = int(meas_samples*1.2)
-    card.channelRange   = settings['channelRange']
-    card.SetParams()
+    configure_card(card, settings)
 
     ##HDAWG settings
     hdawg.AWGs[0].samplerate = '2.4GHz'
