@@ -17,6 +17,7 @@ example code for reading traces from the VNA.
 
 import pylab
 import userfuncs
+import os
 
 #finished_imports = dir()
 #
@@ -29,11 +30,14 @@ import userfuncs
 #save location
 ###########
 
-saveDir = r'Z:\Data\BF1\InitialCalibrations_10-20'
+saveDir = r'Z:\Data\Fluxonium_Raman\CRF01_A3\Trans\20210305'
+if not os.path.isdir(saveDir):
+    #directory does not exist. We must make it.
+    os.mkdir(saveDir)
 
 stamp = userfuncs.timestamp()
 
-name = 'Output3'
+name = 'cavity_search'
 
 filename = name + '_' + stamp
 
@@ -41,21 +45,25 @@ filename = name + '_' + stamp
 settings = vna.trans_default_settings()
 
 
-settings['start'] = 1e9
-settings['stop'] = 5e9
-settings['sweep_points'] = 2001
-settings['RFpower'] = 0
-settings['averages'] = 100
+settings['start_freq'] = 7e9
+settings['stop_freq'] = 8e9
+settings['sweep_points'] = 501
+settings['RFpower'] = -
+settings['avg_time'] = 10
 settings['measurement'] = 'S21'
 
-mag, phase, freqs = vna.trans_meas(settings)
+#mag, phase, freqs = vna.trans_meas(settings)
+data_dict = vna.trans_meas(settings)
+mag = data_dict['mag']
+phase = data_dict['phase']
+freqs = data_dict['xaxis']
 
 vna.output = 'OFF'
 
 fig = pylab.figure(1)
 pylab.clf()
 
-ax = pylab.subplot(1,2,1)
+#ax = pylab.subplot(1,2,1)
 pylab.plot(freqs/1e9, mag)
 pylab.xlabel('frequency (GHz)')
 pylab.ylabel('logmag')
@@ -74,10 +82,11 @@ pylab.show()
 #try to save
 #####
 
-#varsToSave = ['mag', 'phase', 'freqs','filename','fig']
-#figsToSave = [fig]
+varsToSave = ['mag', 'phase', 'freqs','filename','fig']
+figsToSave = [fig]
 
-#userfuncs.SaveFull( saveDir, filename, varsToSave, locals(), expsettings = settings)
+userfuncs.SaveFull( saveDir, filename, varsToSave, locals(), expsettings = settings)
+userfuncs.savefig(fig, filename, path = saveDir,  png = True)
 
 #######
 ##read the file
