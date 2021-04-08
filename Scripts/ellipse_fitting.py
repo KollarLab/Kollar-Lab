@@ -103,10 +103,3 @@ def fitEllipse(Is, Qs, verbose = False):
         print("ecc = ", np.round(ecc,3))
     
     return axes, center, phi        
-
-def remove_IQ_ellipse(Is, Qs, axes, center, phi):
-   
-    Isprime = np.cos(phi)*(Is-center[0]) + np.sin(phi)*(Qs-center[1]) + center[0]
-    Qsprime = -np.sin(phi)*(Is-center[0]) + np.cos(phi)*(Qs-center[1]) 
-    Qsprime = Qsprime*axes[0]/axes[1] + center[1]
-    return Isprime, Qsprime
