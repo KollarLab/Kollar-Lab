@@ -5,8 +5,9 @@ Created on Tue Dec  8 16:42:56 2020
 @author: Kollarlab
 """
 import time
+import numpy as np
 
-from T1WIP import GetDefaultSettings, meas_T1
+from T1 import GetDefaultSettings, meas_T1
 
 instruments = {}
 instruments['cavitygen'] = cavitygen
@@ -16,38 +17,35 @@ instruments['card'] = card
 instruments['AWG'] = hdawg
 
 settings = GetDefaultSettings()
-settings['scanname'] = 'q4_T1_test'
+settings['scanname'] = 'q2_T1'
 settings['project_dir'] = r'Z:\Data\HouckQuadTransmon'
 settings['meas_type'] = 'Tmeas'
 
+settings['CAV_Attenuation'] = 30
+settings['Qbit_Attenuation'] = 0
 
-settings['Q_Freq'] = 4.20431e9
-settings['Q_Power'] = -11
-settings['CAV_Freq'] = 8.126e9
-settings['CAV_Power'] = -18
+settings['Q_Freq'] = 5.360e9
+settings['Q_Power'] = -19
+settings['CAV_Freq'] = 7.89725e9
+settings['CAV_Power'] = -45
 
-Meas_pos = 80e-6
+Meas_pos = 12e-6
+#Meas_pos = np.floor(7e-6/32e-9) * 32e-9 #15e-6
 #Card settings
 settings['segments']         = 1
 settings['reads']            = 1
-settings['averages']         = 20e3
+settings['averages']         = 5e3
 settings['activeChannels']   = [1,2]
 settings['sampleRate']       = 2e9/8
-settings['trigger_buffer']   = Meas_pos
-settings['meas_window']      = 20e-6
+settings['trigger_buffer']   = np.floor((Meas_pos+350e-9)/32e-9) * 32e-9
+settings['meas_window']      = 5e-6
 
-settings['Tau_min'] = 200e-9
-settings['Tau_max'] = 50e-6
-settings['Tau_points'] = 101
+settings['Tau_min'] = 1e-8
+settings['Tau_max'] = 10e-6
+settings['Tau_points'] = 25
+settings['pulse_width'] = 80e-9
 
 settings['Measurement_pos'] = Meas_pos
 
-meas_repeats = 80
 
-T1vec = numpy.zeros(meas_repeats)
-
-for ind in range(meas_repeats):
-    T1 = meas_T1(instruments, settings)
-    T1vec[ind] = T1
-    
-plt.plot(T1vec)
+T1 = meas_T1(instruments, settings)

@@ -1,9 +1,11 @@
 //Used .cpp extension to get nice syntax highlighting 
 
 //Configure 
+const qbitTime = _qwidth_;
 const measTime = _meas_window_;
 
 //Timing control 
+const tau        = _tau_;
 const max_time   = _max_time_;
 
 //Convert times to number of samples
@@ -11,7 +13,7 @@ const sampleRate      = 2.4e+9;
 const sequencerRate   = sampleRate/8;
 
 //Measurement tone params
-const meas_samples      = measTime*sampleRate;
+const meas_samples      = measTime*sequencerRate;
 const meas_ramp_samples = 160;
 
 //The -0.5 is critical to have a symmetric gaussian (so that the signal goes to 0 at both ends)
@@ -21,23 +23,46 @@ wave meas_fall = cut(meas_ramp,meas_ramp_samples/2,meas_ramp_samples-1);
 wave rise_clean = zeros(meas_ramp_samples/2);
 wave fall_clean = zeros(meas_ramp_samples/2);
 
-wave hold_high = ones(meas_samples);
-
 const ramp_off = meas_ramp[0];
 cvar i; 
 for(i=0; i<meas_ramp_samples/2; i++){
   rise_clean[i] = meas_rise[i]-ramp_off;
   fall_clean[i] = meas_fall[i]-ramp_off;
 }
-wave measurement_tone = join(rise_clean, hold_high, fall_clean);
+//Qubit pulse params
+const qbit_samples = qbitTime*sampleRate;
+const qbit_position = qbit_samples/2-0.5;
+const qbit_amp = 1.0;
+const qbit_sigma = qbit_samples/4;
 
-const init_wait_cycles = round(max_time*sequencerRate);
+wave qbit  = gauss(qbit_samples, qbit_amp, qbit_position, qbit_sigma);
+wave blank = zeros(qbit_samples);
+wave qbit_clean = zeros(qbit_samples);
+
+//Subtract offset from data (gaussian doesn't go to 0 at the ends initially)
+const offset = qbit[0];
+for (i=0; i<qbit_samples;i++){
+  qbit_clean[i] = qbit[i]-offset;
+}
+
+const init_wait_cycles = round((max_time-tau-qbitTime)*sequencerRate);
+const pulse_sep_cycles = round(tau*sequencerRate);
 
 while(true){
   //Wait for trigger on channel 1
   waitDigTrigger(1);
   wait(init_wait_cycles);
+  //Qubit tone
+  playWave(blank, qbit_clean);
+  waitWave();
+  wait(pulse_sep_cycles);
   //Measurement tone
-  playWave(measurement_tone);
+  playWave(rise_clean);
+  waitWave();
+  wait(meas_samples);
+  playWave(fall_clean);
+  waitWave();
+  
+  playWave(blank, blank);
   waitWave();
 }

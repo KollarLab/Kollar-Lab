@@ -104,8 +104,8 @@ def meas_T1(instruments, settings):
     ## HDAWG
     hdawg.AWGs[0].samplerate = '2.4GHz'
     hdawg.channelgrouping = '1x4'
-    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='True')
-    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='True')
+    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
+    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\Control\HDAWG_sequencer_codes\T1.cpp",'r')
@@ -139,11 +139,22 @@ def meas_T1(instruments, settings):
         card.ArmAndWait()
         I,Q = card.ReadAllData()
         
-        DC_I = np.mean(I[0][-data_window:])
-        DC_Q = np.mean(Q[0][-data_window:])
+#        #version with one secoment only
+#        DC_I = np.mean(I[0][-data_window:])
+#        DC_Q = np.mean(Q[0][-data_window:])
+#        
+#        Idat = I[0]-DC_I
+#        Qdat = Q[0]-DC_Q
         
-        Idat = I[0]-DC_I
-        Qdat = Q[0]-DC_Q
+        # no mixer correction, but average different segments together.
+        Ip = np.mean(I, 0)
+        Qp = np.mean(Q, 0)
+        
+        DC_I = np.mean(Ip[-data_window:])
+        DC_Q = np.mean(Qp[-data_window:])
+        
+        Idat = Ip-DC_I
+        Qdat = Qp-DC_Q
         
         amp = np.sqrt(Idat**2+Qdat**2)
         
@@ -164,7 +175,8 @@ def meas_T1(instruments, settings):
     
     
     print('Elapsed time: {}'.format(t2-tstart))
-    tau0 = 5e-6
+#    tau0 = 5e-6
+    tau0 = 1e-6
     offset0 = np.mean(amp_int[-2])
     amp0 = np.mean(max(amp_int)-offset0)
     

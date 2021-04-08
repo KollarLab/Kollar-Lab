@@ -91,6 +91,7 @@ class VNA(SCPIinst):
         settings['CAVpower']     = -5
         settings['CAVfreq']      = '7 GHz'
         settings['ifBW']         = 1e3
+        settings['mode']         = 'MOV'
         
         return settings
 
@@ -117,13 +118,14 @@ class VNA(SCPIinst):
         cav_power    = settings['CAVpower']
         cav_freq     = settings['CAVfreq']
         ifBW         = settings['ifBW']
-
+        mode         = settings['mode']
+        
         #Turn off output and switch to single sweep mode instead of continuous sweeps
         self.output = 'OFF'
         self.inst.write('INIT:CONT OFF')
 
         #Configure averaging
-        self.configure_averages(channel, 1e4)
+        self.configure_averages(channel, 1e4, mode)
 
         #Clear old traces on channels and define a new trace to measure 'S21'
         self.configure_measurement(channel, measurement)
@@ -176,7 +178,8 @@ class VNA(SCPIinst):
         settings['freq_points']  = 501
         settings['RFpower']      = -20
         settings['ifBW']         = 1e3
-
+        settings['mode']         = 'MOV'
+        
         return settings
 
     def trans_meas(self, settings):
@@ -196,13 +199,13 @@ class VNA(SCPIinst):
         sweep_points = settings['freq_points']
         rf_power     = settings['RFpower']
         ifBW         = settings['ifBW']
-
+        mode         = settings['mode']
         #Turn off output and switch to single sweep mode instead of continuous sweeps
         self.output = 'OFF'
         self.inst.write('INIT:CONT OFF')
         
         #Configure averaging
-        self.configure_averages(channel, 1e4) #high number so that VNA keeps averaging regardless of user averaging time
+        self.configure_averages(channel, 1e4, mode) #high number so that VNA keeps averaging regardless of user averaging time
         self.configure_measurement(channel, measurement)
 
         #Configure frequency sweep and RF power
@@ -261,10 +264,10 @@ class VNA(SCPIinst):
         self.inst.write('CALC{}:PAR:DEL:CALL'.format(channel))
         self.inst.query('*OPC?')
         
-    def configure_averages(self, channel, averages):
+    def configure_averages(self, channel, averages, mode='MOV'):
         '''Set up channel to measure averages traces'''
         self.inst.write('SENS{}:AVER ON'.format(channel))
-        self.inst.write('SENS{}:AVER:MODE MOV'.format(channel))
+        self.inst.write('SENS{}:AVER:MODE {}'.format(channel, mode))
         self.inst.write('SENS{}:AVER:COUN {}'.format(channel, averages))
         self.inst.write('SENS{}:SWE:COUN {}'.format(channel, averages))
         self.clear_averages(channel)

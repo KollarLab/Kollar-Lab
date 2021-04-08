@@ -133,7 +133,7 @@ def vna_spec_flux_scan(instruments, fullsettings):
         else:
             trans_mags[vind] = trans_mags[vind]
         
-        settings['CAVfreq'] = trans_freqs[np.argmin(trans_mags[vind])]
+        settings['CAVfreq'] = trans_freqs[np.argmax(trans_mags[vind])]
         print('spec, CAV power: {}, cav freq: {}'.format(settings['CAVpower'], settings['CAVfreq']))
         data = vna.spec_meas(settings)
         

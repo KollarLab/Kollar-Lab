@@ -15,30 +15,33 @@ instruments['DCsupply'] = SRS
 settings = get_default_settings()
 
 #Save location
-settings['scanname']    = 'flux_Scan'
+settings['scanname']    = 'cavity1_init_flux_sweep'
 settings['meas_type']   = 'trans_flux_scan'
-settings['project_dir'] = r'Z:\Data'
+settings['project_dir'] = r'Z:\Data\Fluxonium_Raman\CRF01_A3'
+
 
 #Sweep parameter
 settings['CAV_Attenuation'] = 30
 
-settings['start_volt']  = 0.4
-settings['stop_volt']   = 0.9
-settings['volt_points'] = 15
+settings['start_voltage']  = -0.25
+settings['stop_voltage']   = 0.75
+settings['voltage_points'] = 21
 
-settings['start_power'] = -50
-settings['stop_power'] = -48
+settings['start_power'] = -60
+settings['stop_power'] = -60
 settings['power_points'] = 1
 
-settings['avg_times'] = np.array([0.8])
+settings['avg_times'] = np.array([20])
 
+center = 5.56e9
+span = 100e6
 #VNA settings
 settings['channel']  = 1
-settings['avg_time'] = 1
+settings['avg_time'] = 20
 settings['measurement'] = 'S21'
-settings['start_freq']  = 7.576e9-40e6 
-settings['stop_freq']   = 7.576e9+40e6 
+settings['start_freq']  = center - span/2
+settings['stop_freq']   = center + span/2
 settings['freq_points'] = 501
-settings['ifBW'] = 4e3
+settings['ifBW'] = 1e3
 
 vna_trans_flux_scan(instruments, settings)

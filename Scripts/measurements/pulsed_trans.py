@@ -97,8 +97,8 @@ def pulsed_trans(instruments, settings):
     ##HDAWG settings
     hdawg.AWGs[0].samplerate = '2.4GHz'
     hdawg.channelgrouping = '1x4'
-    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='True')
-    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='True')
+    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
+    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\Control\HDAWG_sequencer_codes\pulsedtrans.cpp",'r')
@@ -163,8 +163,12 @@ def pulsed_trans(instruments, settings):
             # mixer correction
 #            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
             
-            # No mixer correction
-            Ip, Qp = I[0], Q[0]
+#            # No mixer correction
+#            Ip, Qp = I[0], Q[0]
+            
+            # no mixer correction, but average different segments together.
+            Ip = numpy.mean(I, 0)
+            Qp = numpy.mean(Q, 0)
             
             DC_I = numpy.mean(Ip[-50:])
             DC_Q = numpy.mean(Qp[-50:])
