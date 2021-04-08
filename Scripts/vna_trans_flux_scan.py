@@ -88,6 +88,7 @@ def vna_trans_flux_scan(instruments, settings):
     SRS.Volt = 0
     SRS.Output = 'On'
     
+    tstart = time.time()
     for pind in range(len(powers)):
         power = powers[pind]
         settings['RFpower'] = power
@@ -152,7 +153,7 @@ def vna_trans_flux_scan(instruments, settings):
         plt.savefig(os.path.join(saveDir, scanname+'.png'), dpi = 150)
     
     t2 = time.time()
-    print('Elapsed time: {}'.format(t2-t0))
+    print('Elapsed time: {}'.format(t2-tstart))
     
     #return to zero voltage
     SRS.voltage_ramp(0)
