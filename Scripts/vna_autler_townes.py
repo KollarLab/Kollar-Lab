@@ -79,11 +79,18 @@ def vna_autler_townes(instruments, settings):
     autler_points = settings['autler_points']
     autler_freqs = np.round(np.linspace(start_autler_freq, stop_autler_freq, autler_points),-3)
 
+    findices = np.array(list(range(len(autler_freqs))))
+    if settings['reverse']:
+        findices = np.flipud(findices)
+    
+    if settings['random']:
+        np.random.shuffle(findices)
+        
     mags = np.zeros((len(autler_freqs), settings['freq_points']))
     phases = np.zeros((len(autler_freqs), settings['freq_points']))
 
     tstart = time.time()
-    for freqind in range(len(autler_freqs)):
+    for freqind in findices:
         autler_freq = autler_freqs[freqind]
         print('Freq: {}, final freq: {}'.format(autler_freq, autler_freqs[-1]))
         
@@ -108,21 +115,44 @@ def vna_autler_townes(instruments, settings):
             print('    ')
 
         freqs = data['xaxis']
-    
-        full_data = {}
-        full_data['xaxis'] = freqs
-        full_data['mags'] = mags[0:freqind+1]
-        full_data['phases'] = phases[0:freqind+1]
-    
-        single_data = data
-        yaxis = autler_freqs[0:freqind+1]
         labels = ['Freq (GHz)', 'Autler freq (GHz)']
-    
-        plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
-    
+        full_data = {}
+        single_data = {}
+        if not settings['random']:
+            if settings['reverse']:
+                full_data = {}
+                full_data['xaxis'] = freqs
+                full_data['mags'] = mags[freqind:]
+                full_data['phases'] = phases[freqind:]
+            
+                single_data = data
+                yaxis = autler_freqs[freqind:]
+            else:
+                full_data = {}
+                full_data['xaxis'] = freqs
+                full_data['mags'] = mags[0:freqind+1]
+                full_data['phases'] = phases[0:freqind+1]
+            
+                single_data = data
+                yaxis = autler_freqs[0:freqind+1]
+            
+        
+            plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
+            
+        userfuncs.SaveFull(saveDir, filename, ['full_data', 'single_data', 'autler_freqs', 'labels', 'filename'], locals(), expsettings=settings)
+        plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
+    if settings['random']:
+        full_data = {}
+        full_data['xaxis'] = freqs
+        full_data['mags'] = mags
+        full_data['phases'] = phases
     
+        single_data = data
+        yaxis = autler_freqs
+        plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
+                
 #    SRS.voltage_ramp(0.)
 #    SRS.output = 'Off'
     autlergen.output = 'Off'
