@@ -43,7 +43,8 @@ def get_default_settings():
     settings['CAVpower'] = -55
     settings['CAVfreq'] = 8.12555e9
     settings['ifBW'] = 2e2
-
+    settings['mode'] = 'MOV'
+    
     return settings
 
 def vna_spec(instruments, settings):
