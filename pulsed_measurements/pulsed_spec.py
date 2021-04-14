@@ -124,7 +124,7 @@ def pulsed_spec(instruments, settings):
     hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
     
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\Control\HDAWG_sequencer_codes\T1.cpp",'r')
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T1.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -133,16 +133,19 @@ def pulsed_spec(instruments, settings):
     loadprog = loadprog.replace('_meas_window_', str(settings['meas_window']))
     loadprog = loadprog.replace('_tau_',str(settings['pulse_delay']))
     loadprog = loadprog.replace('_qwidth_',str(settings['pulse_width']))
-    print('loading')
+#    print('loading')
     hdawg.AWGs[0].load_program(loadprog)
-    print('loaded')
+#    print('loaded')
     hdawg.AWGs[0].run_loop()
     time.sleep(0.1)
     
-    print('Running the program')
+#    print('Running the program')
     ###########################################
     
-    data_window = int(meas_samples)
+    #Replace with extract data function
+    data_window = int(settings['meas_window']*card.sampleRate)
+    start_points = int(1.2e-6*card.sampleRate)
+    
     xaxis = (numpy.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6
     
@@ -196,8 +199,8 @@ def pulsed_spec(instruments, settings):
             Ip = numpy.mean(I, 0)
             Qp = numpy.mean(Q, 0)
             
-            DC_I = numpy.mean(Ip[-50:])
-            DC_Q = numpy.mean(Qp[-50:])
+            DC_I = numpy.mean(Ip[-data_window:])
+            DC_Q = numpy.mean(Qp[-data_window:])
             Idat = Ip-DC_I
             Qdat = Qp-DC_Q
             
@@ -209,8 +212,8 @@ def pulsed_spec(instruments, settings):
             Is[find,:] = Idat 
             Qs[find,:] = Qdat
         
-        powerslice = numpy.mean(amps[:,:int(data_window)], axis=1)
-        phaseslice = numpy.mean(phases[:,:int(data_window)], axis=1)
+        powerslice = numpy.mean(amps[:,start_points:start_points+data_window], axis=1)
+        phaseslice = numpy.mean(phases[:,start_points:start_points+data_window], axis=1)
         
         powerdat[powerind,:] = powerslice
         phasedat[powerind,:] = phaseslice
