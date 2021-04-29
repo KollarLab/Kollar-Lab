@@ -41,7 +41,7 @@ triggergen.Output     = 'ON'
 
 SRS = DC205('ASRL3::INSTR', False)
 #
-vna = VNA('TCPIP0::192.168.1.5::inst0::INSTR', False)
+vna = VNA('TCPIP0::192.168.1.7::inst0::INSTR', False)
 #
 #vars_to_save = dir()
 #vars_to_save += ['vars_to_save']
