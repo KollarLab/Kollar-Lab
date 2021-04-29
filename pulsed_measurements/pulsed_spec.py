@@ -7,12 +7,6 @@ import userfuncs
 from utility.plotting_tools import simplescan_plot
 from utility.measurement_helpers import check_inputs, extract_data, remove_IQ_ellipse, configure_card
 
-pi = numpy.pi
-
-center = [0.027, -0.034]
-phi = 0.044*2*pi/180
-axes = [0.024, 0.018]
-
 def get_default_settings():
     settings = {}
     
@@ -112,10 +106,14 @@ def pulsed_spec(instruments, settings):
     
     LO.Ref.Source = 'EXT'
     LO.Power = 12
-    LO.Freq = CAV_freq
+#    LO.Freq = CAV_freq
+    LO.Freq = CAV_freq - 1e6
     LO.Output = 'On'
     
     configure_card(card, settings)
+#    card.triggerDelay = 0#!!!!!!!!
+#    card.samples = 25e-6*card.sampleRate #!!!!!
+#    card.SetParams()
 
     ##HDAWG settings
     hdawg.AWGs[0].samplerate = '2.4GHz'
@@ -133,17 +131,18 @@ def pulsed_spec(instruments, settings):
     loadprog = loadprog.replace('_meas_window_', str(settings['meas_window']))
     loadprog = loadprog.replace('_tau_',str(settings['pulse_delay']))
     loadprog = loadprog.replace('_qwidth_',str(settings['pulse_width']))
-#    print('loading')
+
     hdawg.AWGs[0].load_program(loadprog)
-#    print('loaded')
+
     hdawg.AWGs[0].run_loop()
     time.sleep(0.1)
     
-#    print('Running the program')
     ###########################################
     
     #Replace with extract data function
     data_window = int(settings['meas_window']*card.sampleRate)
+#    start_points = int((settings['meas_pos'] - card.settings['triggerDelay'] + settings['empirical_delay'])*card.sampleRate)
+#    print(start_points)
     start_points = int(1.2e-6*card.sampleRate)
     
     xaxis = (numpy.array(range(card.samples))/card.sampleRate)
@@ -203,6 +202,8 @@ def pulsed_spec(instruments, settings):
             DC_Q = numpy.mean(Qp[-data_window:])
             Idat = Ip-DC_I
             Qdat = Qp-DC_Q
+#            Idat = Ip
+#            Qdat = Qp
             
             amp = numpy.sqrt(Idat**2+Qdat**2)
             phase = numpy.arctan2(Qdat, Idat)*180/numpy.pi
@@ -211,9 +212,43 @@ def pulsed_spec(instruments, settings):
             phases[find,:] = phase
             Is[find,:] = Idat 
             Qs[find,:] = Qdat
+            
+            if powerind == 0 and find ==0:
+                plt.figure(42)
+                plt.clf()
+                ax = plt.subplot(1,1,1)
+                plt.plot(xaxis_us, amp, 'r')
+                plt.plot(xaxis_us[start_points:start_points+data_window], amp[start_points:start_points+data_window], 'b')
+                plt.xlabel('time (us)')
+                plt.title('data window check')
+                plt.show()
+                
+                plt.figure(44)
+                plt.clf()
+                ax = plt.subplot(1,3,1)
+                plt.plot(xaxis_us, Idat, 'b')
+                plt.xlabel('time (us)')
+                plt.title('I')
+                
+                ax = plt.subplot(1,3,2)
+                plt.plot(xaxis_us, Qdat, 'r')
+                plt.xlabel('time (us)')
+                plt.title('Q')
+                
+                ax = plt.subplot(1,3,3)
+                plt.plot(xaxis_us, Idat, 'b')
+                plt.plot(xaxis_us, Qdat, 'r')
+                plt.xlabel('time (us)')
+                plt.title('I and Q')
+                
+                plt.suptitle('sampe single read I and Q')
+                
+                plt.show()
+                
         
         powerslice = numpy.mean(amps[:,start_points:start_points+data_window], axis=1)
         phaseslice = numpy.mean(phases[:,start_points:start_points+data_window], axis=1)
+         
         
         powerdat[powerind,:] = powerslice
         phasedat[powerind,:] = phaseslice

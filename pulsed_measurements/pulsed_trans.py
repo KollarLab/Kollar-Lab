@@ -7,13 +7,6 @@ import userfuncs
 from utility.measurement_helpers import remove_IQ_ellipse
 from utility.plotting_tools import simplescan_plot
 
-
-pi = numpy.pi
-
-center = [0.027, -0.034]
-phi = 0.044*2*pi/180
-axes = [0.024, 0.018]
-
 def get_default_settings():
     settings = {}
     
@@ -114,6 +107,7 @@ def pulsed_trans(instruments, settings):
     time.sleep(0.1)
 
     data_window = int(settings['meas_window']*card.sampleRate)
+    start_points = int(1.2e-6*card.sampleRate)
     
     xaxis = (numpy.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6
@@ -142,7 +136,7 @@ def pulsed_trans(instruments, settings):
             if powerind == 0 and find == 0:
                 tstart = time.time()
             cavitygen.Freq = freq
-            LO.freq = freq
+            LO.freq = freq-1e6
             LO.output = 'On'
             time.sleep(0.2)
             
@@ -183,8 +177,8 @@ def pulsed_trans(instruments, settings):
             Is[find,:] = Idat 
             Qs[find,:] = Qdat
         
-        powerslice = numpy.mean(amps[:,:int(data_window)], axis=1)#/(10**(power/20))
-        phaseslice = numpy.mean(phases[:,:int(data_window)], axis=1)
+        powerslice = numpy.mean(amps[:,start_points:start_points+data_window], axis=1)#/(10**(power/20))
+        phaseslice = numpy.mean(phases[:,start_points:start_points+data_window], axis=1)
         
         powerdat[powerind,:] = powerslice
         phasedat[powerind,:] = phaseslice

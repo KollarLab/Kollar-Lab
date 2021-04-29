@@ -39,6 +39,7 @@ def GetDefaultSettings():
     settings['Tau_min'] = 200e-9
     settings['Tau_max'] = 30e-6
     settings['Tau_points'] = 5
+    settings['spacing'] = 'Linear'
     
     #Pulse settings
     settings['Measurement_pos'] = Meas_pos
@@ -69,7 +70,7 @@ def meas_T1(instruments, settings):
     ## Generator settings
     LO.Ref.Source = 'EXT'
     LO.Power = 12
-    LO.Freq = CAV_Freq
+    LO.Freq = CAV_Freq - 1e6
     LO.Output = 'On'
     
     cavitygen.Freq   = CAV_Freq
@@ -96,7 +97,8 @@ def meas_T1(instruments, settings):
     card.channelRange   = 0.5
     card.SetParams()
     
-    data_window = int(meas_samples) #for 100us measurement pulses 
+    data_window = int(meas_samples)
+    start_points = int(1.2e-6*card.sampleRate)
     
     xaxis = (np.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6 + settings['trigger_buffer']
@@ -108,7 +110,7 @@ def meas_T1(instruments, settings):
     hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
     
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\Control\HDAWG_sequencer_codes\T1.cpp",'r')
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T1.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -116,7 +118,14 @@ def meas_T1(instruments, settings):
     loadprog = loadprog.replace('_max_time_', str(settings['Measurement_pos']))
     loadprog = loadprog.replace('_meas_window_', str(settings['meas_window']))
     loadprog = loadprog.replace('_qwidth_', str(settings['pulse_width']))
-    taus = np.round(np.linspace(settings['Tau_min'],settings['Tau_max'] , settings['Tau_points'] ), 8)
+    if settings['spacing']=='Log':
+        tau_list = np.logspace(np.log10(settings['Tau_min']), np.log10(settings['Tau_max']), settings['Tau_points'])
+    else:
+#        tau_list1 = np.linspace(settings['Tau_min'], 20e-6, int(0.5*settings['Tau_points']))
+#        tau_list2 = np.linspace(25e-6, settings['Tau_max'], int(0.5*settings['Tau_points']))
+#        tau_list = np.concatenate((tau_list1, tau_list2))
+         tau_list = np.linspace(settings['Tau_min'], settings['Tau_max'], settings['Tau_points'])
+    taus = np.round(tau_list, 8)
     
     indices = list(range(len(taus)))
     np.random.shuffle(indices)
@@ -159,7 +168,7 @@ def meas_T1(instruments, settings):
         amp = np.sqrt(Idat**2+Qdat**2)
         
         amps[tind] = amp
-        amp_int[tind] = np.mean(amp[0:int(data_window)])
+        amp_int[tind] = np.mean(amp[start_points:start_points+data_window])
         if first_it:
             tstop = time.time()
             singlePointTime = tstop-tstart
@@ -170,13 +179,49 @@ def meas_T1(instruments, settings):
             print('estimated time for this scan : ' + str(np.round(estimatedTime/60/60, 2)) + ' hours')
             print('    ')
         
-        first_it = False
+        
+            fig = plt.figure(42)
+            plt.clf()
+            ax = plt.subplot(1,1,1)
+            plt.plot(xaxis_us, amp, 'r')
+            plt.plot(xaxis_us[start_points:start_points+data_window], amp[start_points:start_points+data_window], 'b')
+            plt.xlabel('time (us)')
+            plt.title('data window check')
+            plt.show()
+            
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+            
+            fig2 = plt.figure(44)
+            plt.clf()
+            ax = plt.subplot(1,3,1)
+            plt.plot(xaxis_us, Idat, 'b')
+            plt.xlabel('time (us)')
+            plt.title('I')
+            
+            ax = plt.subplot(1,3,2)
+            plt.plot(xaxis_us, Qdat, 'r')
+            plt.xlabel('time (us)')
+            plt.title('Q')
+            
+            ax = plt.subplot(1,3,3)
+            plt.plot(xaxis_us, Idat, 'b')
+            plt.plot(xaxis_us, Qdat, 'r')
+            plt.xlabel('time (us)')
+            plt.title('I and Q')
+            
+            plt.suptitle('sampe single read I and Q')
+            
+            plt.show()
+            fig2.canvas.draw()
+            fig2.canvas.flush_events()
+        first_it = False        
     t2 = time.time()
     
     
     print('Elapsed time: {}'.format(t2-tstart))
-#    tau0 = 5e-6
-    tau0 = 1e-6
+
+    tau0 = 50e-6
     offset0 = np.mean(amp_int[-2])
     amp0 = np.mean(max(amp_int)-offset0)
     
@@ -197,4 +242,4 @@ def meas_T1(instruments, settings):
     plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
     userfuncs.SaveFull(saveDir, filename, ['taus','xaxis_us', 'amps', 'amp_int'], locals(), expsettings=settings)
     
-    return T1
+    return T1, taus, amp_int

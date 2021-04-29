@@ -101,7 +101,7 @@ def rabi_chevron(instruments, settings):
     
     LO.Ref.Source = 'EXT'
     LO.Power = 12
-    LO.Freq = CAV_freq
+    LO.Freq = CAV_freq - 1e6
     LO.Output = 'On'
     
     ##Card settings
@@ -113,7 +113,7 @@ def rabi_chevron(instruments, settings):
     card.activeChannels = settings['activeChannels']
     card.triggerDelay   = settings['meas_pos'] + settings['empirical_delay']
     card.timeout        = settings['timeout']
-    card.samples        = int(meas_samples*1.2)
+    card.samples        = int(meas_samples*2.1)
     card.channelRange   = settings['channelRange']
     card.SetParams()
 
@@ -124,7 +124,7 @@ def rabi_chevron(instruments, settings):
     hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
     
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\Control\HDAWG_sequencer_codes\chevron.cpp",'r')
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\chevron.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -137,6 +137,8 @@ def rabi_chevron(instruments, settings):
     ###########################################
     
     data_window = int(meas_samples)
+    start_points = int(1.2e-6*card.sampleRate)
+    
     xaxis = (numpy.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6
     
@@ -187,8 +189,8 @@ def rabi_chevron(instruments, settings):
             Ip = numpy.mean(I, 0)
             Qp = numpy.mean(Q, 0)
             
-            DC_I = numpy.mean(Ip[-50:])
-            DC_Q = numpy.mean(Qp[-50:])
+            DC_I = numpy.mean(Ip[-data_window:])
+            DC_Q = numpy.mean(Qp[-data_window:])
             Idat = Ip-DC_I
             Qdat = Qp-DC_Q
             
@@ -200,8 +202,8 @@ def rabi_chevron(instruments, settings):
             Is[find,:] = Idat 
             Qs[find,:] = Qdat
         
-        timeslice = numpy.mean(amps[:,:int(data_window)], axis=1)
-        phaseslice = numpy.mean(phases[:,:int(data_window)], axis=1)
+        timeslice = numpy.mean(amps[:,start_points:start_points+data_window], axis=1)
+        phaseslice = numpy.mean(phases[:,start_points:start_points+data_window], axis=1)
         
         timedat[timeind,:] = timeslice
         phasedat[timeind,:] = phaseslice

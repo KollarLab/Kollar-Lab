@@ -1,13 +1,14 @@
 //Used .cpp extension to get nice syntax highlighting 
 
 //Configure 
-const min_q_time = _min_q_time_;
-const measTime   = _meas_window_;
-
+const qbitTime = _qwidth_;
+const measTime = _meas_window_;
+const IF       = _IF_;
+const piAmp    = 1;
 //Timing control 
-const hold_time  = _hold_time_;
+const tau        = _tau_;
 const max_time   = _max_time_;
-const meas_delay = _meas_delay_;
+const wait_time  = _wait_time_;
 
 //Convert times to number of samples
 const sampleRate      = 2.4e+9;
@@ -15,7 +16,6 @@ const sequencerRate   = sampleRate/8;
 
 //Measurement tone params
 const meas_samples      = measTime*sampleRate;
-const hold_samples      = hold_time*sampleRate;
 const meas_ramp_samples = 160;
 
 //The -0.5 is critical to have a symmetric gaussian (so that the signal goes to 0 at both ends)
@@ -26,7 +26,6 @@ wave rise_clean = zeros(meas_ramp_samples/2);
 wave fall_clean = zeros(meas_ramp_samples/2);
 
 wave hold_high = ones(meas_samples);
-wave blank = zeros(meas_ramp_samples);
 
 const ramp_off = meas_ramp[0];
 cvar i; 
@@ -37,39 +36,40 @@ for(i=0; i<meas_ramp_samples/2; i++){
 wave measurement_tone = join(rise_clean, hold_high, fall_clean);
 
 //Qubit pulse params
-const qbit_samples = min_q_time*sampleRate;
+const qbit_samples = qbitTime*sampleRate;
 const qbit_position = qbit_samples/2-0.5;
 const qbit_amp = 1.0;
 const qbit_sigma = qbit_samples/4;
 
 wave qbit  = gauss(qbit_samples, qbit_amp, qbit_position, qbit_sigma);
-wave q_rise = cut(qbit,0,qbit_samples/2-1);
-wave q_fall = cut(qbit,qbit_samples/2,qbit_samples-1);
-wave q_rise_clean = zeros(qbit_samples/2);
-wave q_fall_clean = zeros(qbit_samples/2);
+wave blank = zeros(qbit_samples);
+wave qbit_clean = zeros(qbit_samples);
 
-//wave q_hold_high = ones(round(hold_samples/16)*16);
-wave q_hold_high = ones(hold_samples);
-
-const q_off = qbit[0];
-
-for(i=0; i<qbit_samples/2; i++){
-  q_rise_clean[i] = q_rise[i]-q_off;
-  q_fall_clean[i] = q_fall[i]-q_off;
+//Subtract offset from data (gaussian doesn't go to 0 at the ends initially)
+const offset = qbit[0];
+for (i=0; i<qbit_samples;i++){
+  qbit_clean[i] = qbit[i]-offset;
 }
-wave q_tone = join(q_rise_clean, (1-q_off)*q_hold_high, q_fall_clean);
 
-const init_wait_cycles = round((max_time-meas_delay-min_q_time-hold_time)*sequencerRate);
-const pulse_sep_cycles = round(meas_delay*sequencerRate);
+const init_wait_cycles = round((max_time-wait_time-tau-qbitTime*2)*sequencerRate);
+const pulse_sep_cycles = round(tau*sequencerRate);
+const meas_wait_cycles = round(wait_time*sequencerRate);
+
+const Iamp = cos(tau*2*M_PI*IF);
+const Qamp = sin(tau*2*M_PI*IF);
 
 while(true){
   //Wait for trigger on channel 1
   waitDigTrigger(1);
   wait(init_wait_cycles);
-  //Qubit tone
-  playWave(2, q_tone);
+  //pi/2 pulse
+  playWave(blank, piAmp/2*qbit_clean);
   waitWave();
   wait(pulse_sep_cycles);
+  //pi/2 pulse
+  playWave(blank, Iamp*piAmp/2*qbit_clean, Qamp*piAmp/2*qbit_clean);
+  waitWave();
+  wait(meas_wait_cycles);
   //Measurement tone
   playWave(measurement_tone);
   waitWave();

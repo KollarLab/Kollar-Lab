@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Dec  4 16:52:18 2020
+Created on Wed Apr 21 12:15:03 2021
 
 @author: Kollarlab
 """
+
 import time
 import os
 import numpy as np
@@ -16,15 +17,15 @@ from utility.userfits import fit_T2
 def GetDefaultSettings():
     settings = {}
     
-    settings['scanname'] = 'T2_meas'
-    settings['project_dir'] = r'Z:\Data\HouckQuadTransmon'
+    settings['scanname'] = 'T2_echo'
+    settings['project_dir'] = r'Z:\Data\defaultdir'
     settings['meas_type'] = 'Tmeas'
 
     
-    settings['Q_Freq'] = 4.20431e9
-    settings['Q_Power'] = -11
-    settings['CAV_Freq'] = 8.126e9
-    settings['CAV_Power'] = -18
+    settings['Q_Freq'] = 4e9
+    settings['Q_Power'] = -20
+    settings['CAV_Freq'] = 6e9
+    settings['CAV_Power'] = -60
     
     Meas_pos = 80e-6
     #Card settings
@@ -39,6 +40,7 @@ def GetDefaultSettings():
     settings['Tau_min'] = 200e-9
     settings['Tau_max'] = 30e-6
     settings['Tau_points'] = 5
+    settings['pulse_count'] = 1
     
     #Pulse settings
     settings['Measurement_pos'] = Meas_pos
@@ -47,7 +49,7 @@ def GetDefaultSettings():
     
     return settings
 
-def meas_T2(instruments, settings):
+def meas_T2_echo(instruments, settings):
     ##Instruments used
     qubitgen  = instruments['qubitgen']
     cavitygen = instruments['cavitygen']
@@ -113,28 +115,16 @@ def meas_T2(instruments, settings):
     hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
     
-    if settings['T2_mode'] == 'detune':
-        progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T2.cpp",'r')
-        rawprog  = progFile.read()
-        loadprog = rawprog
-        progFile.close()
-        
-        loadprog = loadprog.replace('_max_time_', str(settings['Measurement_pos']))
-        loadprog = loadprog.replace('_meas_window_', str(settings['meas_window']))
-        loadprog = loadprog.replace('_wait_time_', str(settings['wait_time']))
-        loadprog = loadprog.replace('_qwidth_', str(settings['pulse_width']))
-        
-    if settings['T2_mode'] == 'phase_shift':
-        progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T2_phase_rotation.cpp",'r')
-        rawprog  = progFile.read()
-        loadprog = rawprog
-        progFile.close()
-        
-        loadprog = loadprog.replace('_max_time_', str(settings['Measurement_pos']))
-        loadprog = loadprog.replace('_meas_window_', str(settings['meas_window']))
-        loadprog = loadprog.replace('_wait_time_', str(settings['wait_time']))
-        loadprog = loadprog.replace('_qwidth_', str(settings['pulse_width']))
-        loadprog = loadprog.replace('_IF_', str(settings['IF']))
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T2_echo.cpp",'r')
+    rawprog  = progFile.read()
+    loadprog = rawprog
+    progFile.close()
+    
+    loadprog = loadprog.replace('_max_time_', str(settings['Measurement_pos']))
+    loadprog = loadprog.replace('_meas_window_', str(settings['meas_window']))
+    loadprog = loadprog.replace('_wait_time_', str(settings['wait_time']))
+    loadprog = loadprog.replace('_qwidth_', str(settings['pulse_width']))
+    loadprog = loadprog.replace('_pi_count_', str(settings['pulse_count']))
     
     taus = np.linspace(settings['Tau_min'],settings['Tau_max'] , settings['Tau_points'] )
     
@@ -195,7 +185,7 @@ def meas_T2(instruments, settings):
     
     fig = plt.figure(2,figsize=(13,8))
     plt.clf()
-    tau0 = .5e-6
+    tau0 = 5e-9
     offset0 = np.mean(amp_int[-10])
     amp0 = np.mean(max(amp_int)-offset0)
     freq0 = detuning
@@ -208,12 +198,9 @@ def meas_T2(instruments, settings):
         print('T2 fit did not converge')
         T2 = 0
         detuning = 0
-        plt.figure(62)
-        plt.clf()
-        plt.plot(taus, amp_int)
     
     plt.suptitle(filename)
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
     
     
-    return T2, detuning, taus, amp_int
+    return T2, detuning
