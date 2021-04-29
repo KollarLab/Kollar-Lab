@@ -23,13 +23,15 @@ def fit_T1(taus, amps, fit_guess):
     fit_out, pcov = curve_fit(expff, taus, amps, p0 = fit_guess)
     
     fit_curve = expff(ts, fit_out[0], fit_out[1], fit_out[2])
+    plt.figure(62)
+    plt.clf()
     plt.plot(taus, amps, 'x')
     plt.plot(ts, fit_curve)
     
     plt.title('T1 fit, T1: {}us'.format(round(fit_out[0], 2)))
     plt.xlabel('Tau (s)')
     plt.ylabel('Amp')
-    
+
     return fit_out[0]
 
 def fit_T2(taus, amps, fit_guess):
@@ -38,11 +40,13 @@ def fit_T2(taus, amps, fit_guess):
     fit_out, pcov = curve_fit(exp_cosff, taus, amps, p0 = fit_guess)
     
     fit_curve = exp_cosff(ts, fit_out[0], fit_out[1], fit_out[2], fit_out[3], fit_out[4])
+    plt.figure(62)
+    plt.clf()
     plt.plot(taus*1e6, amps, 'x')
     plt.plot(ts*1e6, fit_curve)
     
     plt.title('T2 fit, T2: {}us, detuning: {} kHz'.format(round(fit_out[0]*1e6, 2), round(fit_out[3]/1e3, 3)))
     plt.xlabel('Tau (us)')
     plt.ylabel('Amp')
-    
+
     return fit_out[0], fit_out[3]
