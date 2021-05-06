@@ -29,7 +29,23 @@ rm.close()
 
 qubitgen = SGS100A('TCPIP0::rssgs100a110425::inst0::INSTR')
 cavitygen = SGS100A('TCPIP0::rssgs100a110739::inst0::INSTR')
-SGS_coupling(qubitgen,cavitygen)
+#SGS_coupling(qubitgen,cavitygen)
+qubitgen.Ref.Source = 'Ext'
+qubitgen.Ref.Freq = 10e6
+
+qubitgen.RefOut.Source = 'Ref'
+qubitgen.RefOut.Freq = 1e9
+
+cavitygen.Ref.Source = 'Ext'
+cavitygen.Ref.Freq = 1e9
+
+qubitgen.IQ.Imp = 'On'
+qubitgen.IQ.Ileak = exp_globals['qubitgen_config']['Ileak']
+qubitgen.IQ.Qleak = exp_globals['qubitgen_config']['Qleak']
+
+cavitygen.IQ.Imp = 'On'
+cavitygen.IQ.Ileak = exp_globals['cavitygen_config']['Ileak']
+cavitygen.IQ.Qleak = exp_globals['cavitygen_config']['Qleak']
 
 triggergen  = Keysight33500B('USB0::0x0957::0x2507::MY58000681::0::INSTR')
 
@@ -39,9 +55,9 @@ triggergen.Freq       = '50 kHz'
 triggergen.Volt       = '2 V'
 triggergen.Output     = 'ON'
 
-SRS = DC205('ASRL3::INSTR', False)
+SRS = DC205('ASRL3::INSTR', reset = False)
 #
-vna = VNA('TCPIP0::192.168.1.7::inst0::INSTR', False)
+vna = VNA('TCPIP0::192.168.1.7::inst0::INSTR', reset = False)
 #
 #vars_to_save = dir()
 #vars_to_save += ['vars_to_save']
