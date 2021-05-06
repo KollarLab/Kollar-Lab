@@ -55,22 +55,23 @@ def extract_data(raw_data, xaxis, settings):
         emp_delay: combination of line delay and other delays that correctly
                    shifts the digitizer to match the HDAWG time axis
         meas_window: width of the measurement pulse
-        pulse_buffer: time to wait after the pulse before measuring background
+        post_buffer: time to wait after the pulse before measuring background
     '''
-    init_buffer = settings['init_buffer']
-    emp_delay   = settings['empirical_delay']
-    meas_window = settings['meas_window']
-    pulse_buffer= settings['pulse_buffer']
+    measurement_pulse = settings['exp_globals']['measurement_pulse']
+    init_buffer = measurement_pulse['init_buffer']
+    emp_delay   = measurement_pulse['emp_delay']
+    meas_window = measurement_pulse['meas_window']
+    post_buffer = measurement_pulse['post_buffer']
     
     timestep   = xaxis[1] - xaxis[0]
     data_start = int((init_buffer + emp_delay)/timestep)
     back_start = int((init_buffer + emp_delay + meas_window + pulse_buffer)/timestep)
     window_width = int(meas_window/timestep)
     
-    print(timestep)
-    print(data_start)
-    print(back_start)
-    print(window_width)
+    #print(timestep)
+    #print(data_start)
+    #print(back_start)
+    #print(window_width)
     
     data_x = xaxis[data_start:data_start+window_width]
     
