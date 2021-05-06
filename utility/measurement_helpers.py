@@ -72,21 +72,79 @@ def extract_data(raw_data, xaxis, settings):
     back_start = int((init_buffer + emp_delay + meas_window + pulse_buffer)/timestep)
     window_width = int(meas_window/timestep)
     
-    #print(timestep)
-    #print(data_start)
-    #print(back_start)
-    #print(window_width)
-    
     data_x = xaxis[data_start:data_start+window_width]
     
     data    = raw_data[data_start:data_start+window_width]
     background = raw_data[back_start:back_start+window_width]
     back_val = np.mean(background)
     
-    if settings['subtract_background']:
+    if settings['exp_settings']['subtract_background']:
         return data - back_val, data_x, raw_data - back_val, xaxis
     else:
         return data, data_x, raw_data, xaxis
+
+def estimate_time(t1, t2, array1, array2):
+    one_step = t2-t1
+    steps = len(array1)*len(array2)
+    total_time = one_step*steps
+    print('    ')
+    print('estimated time for this scan : ' + str(np.round(total_time/60, 1)) + ' minutes')
+    print('estimated time for this scan : ' + str(np.round(total_time/60/60, 2)) + ' hours')
+    print('    ')
+
+def read_and_process(card, settings, plot):
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    Ip = np.mean(I, 0)
+    Qp = np.mean(Q, 0)
+    mixer_config = settings['exp_globals']['mixer_config']
+    Ipp, Qpp = remove_IQ_ellipse(Ip, Qp, mixer_config)
+
+    xaxis = np.linspace(0, card.samples, card.samples)/card.sampleRate
+
+    Idata, Itime, Ifull, timefull = extract_data(Ipp, xaxis, settings)
+    Qdata, Qtime, Qfull, timefull = extract_data(Qpp, xaxis, settings)
+
+    amp_full = np.sqrt(Ifull**2+Qfull**2)
+    phase_full = np.arctan2(Qfull, Ifull)*180/np.pi
+
+    amp = np.sqrt(Idata**2+Qdata**2)
+    phase = np.arctan2(Qdata, Idata)*180/np.pi
+
+    if plot:
+        plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+
+    return amp, phase, amp_full, phase_full
+
+def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
+    plt.figure(99)
+    plt.clf()
+    plt.plot(time_extract, amp_extract, 'b')
+    plt.plot(time_full, amp_full, 'r')
+    plt.xlabel('Time (us)')
+    plt.title('Data window check')
+    plt.show()
+
+    plt.figure(98)
+    plt.clf()
+    plt.subplot(1,3,1)
+    plt.plot(time_full, I, 'b')
+    plt.xlabel('Time (us)')
+    plt.title('I')    
+
+    plt.subplot(1,3,1)
+    plt.plot(time_full, Q, 'r')
+    plt.xlabel('Time (us)')
+    plt.title('Q')    
+
+    plt.subplot(1,3,1)
+    plt.plot(time_full, I, 'b')
+    plt.plot(time_full, Q, 'r')
+    plt.xlabel('Time (us)')
+    plt.title('I and Q')    
+
+    plt.suptitle('Single read I and Q')
+    plt.show()
 
 def configure_card(card, settings):
     '''
