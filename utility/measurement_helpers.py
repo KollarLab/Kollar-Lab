@@ -25,7 +25,7 @@ def check_inputs(inputs, defaults):
             print(diff2)
         raise ValueError('Incorrect number of inputs, please check the default settings for variable names')
 
-def remove_IQ_ellipse(Is, Qs, axes, center, phi):
+def remove_IQ_ellipse(Is, Qs, mixer_config):
     '''
     Removes IQ imbalances from the mixer. This is critical for signals with 
     small SNR since the differences between high and low can be wiped out by
@@ -33,10 +33,14 @@ def remove_IQ_ellipse(Is, Qs, axes, center, phi):
     by the 'fitEllipse' function in the ellipse_fitting file
     Input params:
         Is, Qs: raw I, Q signals 
-        axes: major and minor axes of the ellipse
-        center: center of ellipse  
-        phi: phase rotation of ellipse
+        mixer config: dictionary with axes, center and phase rotation params
+            of the ellipse as found in the fitEllipse function. This is initialized
+            in the exp_globals function
     '''
+    center = mixer_config['center']
+    axes   = mixer_config['axes']
+    phi    = mixer_config['phi']
+
     Isprime = np.cos(phi)*(Is-center[0]) + np.sin(phi)*(Qs-center[1]) + center[0]
     Qsprime = -np.sin(phi)*(Is-center[0]) + np.cos(phi)*(Qs-center[1]) 
     Qsprime = Qsprime*axes[0]/axes[1] + center[1]
