@@ -1,7 +1,9 @@
 //Used .cpp extension to get nice syntax highlighting 
 
 //Configure 
-const min_q_time = _min_q_time_;
+const qbit_sigma = _qsigma_;
+const num_sigma  = _num_sigma_;
+const min_q_time = qbit_sigma*num_sigma;
 const measTime   = _meas_window_;
 
 //Timing control 
@@ -40,7 +42,6 @@ wave measurement_tone = join(rise_clean, hold_high, fall_clean);
 const qbit_samples = min_q_time*sampleRate;
 const qbit_position = qbit_samples/2-0.5;
 const qbit_amp = 1.0;
-const qbit_sigma = qbit_samples/4;
 
 wave qbit  = gauss(qbit_samples, qbit_amp, qbit_position, qbit_sigma);
 wave q_rise = cut(qbit,0,qbit_samples/2-1);
