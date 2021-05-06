@@ -5,14 +5,13 @@ import matplotlib.pyplot as plt
 
 import userfuncs
 from utility.plotting_tools import simplescan_plot
-from utility.measurement_helpers import check_inputs, extract_data, remove_IQ_ellipse, configure_card
+from utility.measurement_helpers import check_inputs, extract_data, remove_IQ_ellipse, configure_card, estimate_time, read_and_process
 
 def get_default_settings():
     settings = {}
     
     settings['scanname'] = 'scanname'
     settings['meas_type'] = 'pulsed_spec'
-    settings['project_dir'] = r'Z:\Data\defaultdir'
     
     #Cavity parameters
     settings['CAVpower']        = -60
@@ -31,29 +30,11 @@ def get_default_settings():
     settings['segments']         = 1
     settings['reads']            = 1
     settings['averages']         = 5e3
-    settings['activeChannels']   = [1,2]
-    settings['channelRange']     = 0.5
-    settings['sampleRate']       = 2e9/8
-    settings['timeout']          = 30
     
     #Measurement settings
     settings['Quasi_CW']    = False
-    settings['meas_pos']    = 80e-6
-    settings['meas_window'] = 10e-6
     
-    #Qubit pulse settings
-    settings['pulse_delay'] = 200e-9
-    settings['pulse_width'] = 80e-9
-    
-    #Digitizer measurement settings
-    settings['init_buffer'] = 0e-6
-    settings['empirical_delay'] = 375e-6
-    settings['pulse_buffer'] = 0e-6
     settings['subtract_background'] = True
-    settings['remove_IQ_ellipse'] = False
-    settings['ellipse_center'] = [0,0]
-    settings['ellipse_axes'] = [1,1]
-    settings['ellipse_phi'] = 0
     
     return settings
 
@@ -66,26 +47,33 @@ def pulsed_spec(instruments, settings):
     hdawg     = instruments['AWG']
     LO        = instruments['LO']
     
+    exp_globals = settings['exp_globals']
+    exp_settings = settings['exp_settings']
+
     ##Data saving and naming
-    saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
+    root_dir = exp_globals['root_folder']
+    project_name = exp_globals['project_name']
+    device_name = exp_globals['device_name']
+    device_dir = os.path.join(root_dir, project_name, device_name)
+    saveDir = userfuncs.saveDir(exp_globals, settings['meas_type'])
     stamp = userfuncs.timestamp()
-    filename = settings['scanname'] + '_' + stamp
+    filename = exp_settings['scanname'] + '_' + stamp
     
     ##Cavity settings
-    CAV_Attenuation = settings['CAV_Attenuation']
-    CAV_power = settings['CAVpower'] + CAV_Attenuation
-    CAV_freq  = settings['CAV_freq']
+    CAV_Attenuation = exp_globals['CAV_Attenuation']
+    CAV_power = exp_settings['CAVpower'] + CAV_Attenuation
+    CAV_freq  = exp_settings['CAV_freq']
     
     ##Qubit settings
-    start_freq  = settings['start_freq']
-    stop_freq   = settings['stop_freq']
-    freq_points = settings['freq_points']
+    start_freq  = exp_settings['start_freq']
+    stop_freq   = exp_settings['stop_freq']
+    freq_points = exp_settings['freq_points']
     freqs  = numpy.round(numpy.linspace(start_freq,stop_freq,freq_points),-3)
     
-    Qbit_Attenuation = settings['Qbit_Attenuation']
-    start_power  = settings['start_power'] + Qbit_Attenuation
-    stop_power   = settings['stop_power'] + Qbit_Attenuation
-    power_points = settings['power_points']
+    Qbit_Attenuation = exp_globals['Qbit_Attenuation']
+    start_power  = exp_settings['start_power'] + Qbit_Attenuation
+    stop_power   = exp_settings['stop_power'] + Qbit_Attenuation
+    power_points = exp_settings['power_points']
     powers = numpy.round(numpy.linspace(start_power,stop_power,power_points),2)
     
     ## Generator settings
@@ -93,6 +81,7 @@ def pulsed_spec(instruments, settings):
     cavitygen.Power  = CAV_power
     cavitygen.IQ.Mod = 'On'
 
+    #setting qubit generator to some safe starting point before we turn it on
     qubitgen.Freq   = 4e9
     qubitgen.Power  = -20
     
@@ -106,14 +95,10 @@ def pulsed_spec(instruments, settings):
     
     LO.Ref.Source = 'EXT'
     LO.Power = 12
-#    LO.Freq = CAV_freq
-    LO.Freq = CAV_freq - 1e6
+    LO.Freq = CAV_freq - exp_globals['IF']
     LO.Output = 'On'
     
-    configure_card(card, settings)
-#    card.triggerDelay = 0#!!!!!!!!
-#    card.samples = 25e-6*card.sampleRate #!!!!!
-#    card.SetParams()
+    configure_card(card, fullsettings)
 
     ##HDAWG settings
     hdawg.AWGs[0].samplerate = '2.4GHz'
@@ -127,10 +112,13 @@ def pulsed_spec(instruments, settings):
     loadprog = rawprog
     progFile.close()
     
-    loadprog = loadprog.replace('_max_time_', str(settings['meas_pos']))
-    loadprog = loadprog.replace('_meas_window_', str(settings['meas_window']))
-    loadprog = loadprog.replace('_tau_',str(settings['pulse_delay']))
-    loadprog = loadprog.replace('_qwidth_',str(settings['pulse_width']))
+    q_pulse = exp_globals['qubit_pulse']
+    m_pulse = exp_globals['measurement_pulse']
+    loadprog = loadprog.replace('_max_time_', str(m_pulse['meas_pos']))
+    loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
+    loadprog = loadprog.replace('_tau_',str(q_pulse['delay']))
+    loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
+    loadprog = loadprog.replace('_num_sigma_',str(q_pulse['sigma']))
 
     hdawg.AWGs[0].load_program(loadprog)
 
@@ -138,12 +126,6 @@ def pulsed_spec(instruments, settings):
     time.sleep(0.1)
     
     ###########################################
-    
-    #Replace with extract data function
-    data_window = int(settings['meas_window']*card.sampleRate)
-#    start_points = int((settings['meas_pos'] - card.settings['triggerDelay'] + settings['empirical_delay'])*card.sampleRate)
-#    print(start_points)
-    start_points = int(1.2e-6*card.sampleRate)
     
     xaxis = (numpy.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6
@@ -160,9 +142,9 @@ def pulsed_spec(instruments, settings):
         
         amps = numpy.zeros((len(freqs), len(xaxis) ))
         phases = numpy.zeros((len(freqs),len(xaxis) ))
-        
-        Is = numpy.zeros((len(freqs), len(xaxis) ))
-        Qs = numpy.zeros((len(freqs), len(xaxis) ))
+
+        amps_full = numpy.zeros((len(freqs), len(xaxis) ))
+        phases_full = numpy.zeros((len(freqs),len(xaxis) ))
         
         print('Current power:{}, max:{}'.format(powers[powerind]-Qbit_Attenuation, powers[-1]-Qbit_Attenuation))
     
@@ -171,83 +153,26 @@ def pulsed_spec(instruments, settings):
             
             if powerind == 0 and find == 0:
                 tstart = time.time()
+                plot_single_IQ = True
+
             qubitgen.Freq = freq
             time.sleep(0.2)
-            
-            card.ArmAndWait()
-            
-            I,Q = card.ReadAllData()
-            
+
+            amp, phase, amp_full, phase_full = read_and_process(card, settings, plot_single_IQ)
+
             if powerind == 0 and find == 0:
                 tstop = time.time()
-                singlePointTime = tstop-tstart
-                
-                estimatedTime = singlePointTime*len(freqs)*len(powers)
-                print('    ')
-                print('estimated time for this scan : ' + str(numpy.round(estimatedTime/60, 1)) + ' minutes')
-                print('estimated time for this scan : ' + str(numpy.round(estimatedTime/60/60, 2)) + ' hours')
-                print('    ')
+                estimate_time(tstart, tstop, powers, freqs)
+                plot_single_IQ = False
             
-            # mixer correction
-#            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
-            
-#            # No mixer correction
-#            Ip, Qp = I[0], Q[0]
-            
-            # no mixer correction, but average different segments together.
-            Ip = numpy.mean(I, 0)
-            Qp = numpy.mean(Q, 0)
-            
-            DC_I = numpy.mean(Ip[-data_window:])
-            DC_Q = numpy.mean(Qp[-data_window:])
-            Idat = Ip-DC_I
-            Qdat = Qp-DC_Q
-#            Idat = Ip
-#            Qdat = Qp
-            
-            amp = numpy.sqrt(Idat**2+Qdat**2)
-            phase = numpy.arctan2(Qdat, Idat)*180/numpy.pi
-            
-            amps[find,:] = amp
+            amps[find,:]   = amp
             phases[find,:] = phase
-            Is[find,:] = Idat 
-            Qs[find,:] = Qdat
-            
-            if powerind == 0 and find ==0:
-                plt.figure(42)
-                plt.clf()
-                ax = plt.subplot(1,1,1)
-                plt.plot(xaxis_us, amp, 'r')
-                plt.plot(xaxis_us[start_points:start_points+data_window], amp[start_points:start_points+data_window], 'b')
-                plt.xlabel('time (us)')
-                plt.title('data window check')
-                plt.show()
-                
-                plt.figure(44)
-                plt.clf()
-                ax = plt.subplot(1,3,1)
-                plt.plot(xaxis_us, Idat, 'b')
-                plt.xlabel('time (us)')
-                plt.title('I')
-                
-                ax = plt.subplot(1,3,2)
-                plt.plot(xaxis_us, Qdat, 'r')
-                plt.xlabel('time (us)')
-                plt.title('Q')
-                
-                ax = plt.subplot(1,3,3)
-                plt.plot(xaxis_us, Idat, 'b')
-                plt.plot(xaxis_us, Qdat, 'r')
-                plt.xlabel('time (us)')
-                plt.title('I and Q')
-                
-                plt.suptitle('sampe single read I and Q')
-                
-                plt.show()
-                
-        
-        powerslice = numpy.mean(amps[:,start_points:start_points+data_window], axis=1)
-        phaseslice = numpy.mean(phases[:,start_points:start_points+data_window], axis=1)
+
+            amps_full[find,:]   = amp_full
+            phases_full[find,:] = phase_full
+
+        powerslice = numpy.mean(amps[:,:], axis=1)
+        phaseslice = numpy.mean(phases[:,:], axis=1)
          
         
         powerdat[powerind,:] = powerslice
@@ -269,20 +194,20 @@ def pulsed_spec(instruments, settings):
 
         full_time = {}
         full_time['xaxis'] = xaxis_us
-        full_time['mags'] = amps
-        full_time['phases'] = phases
+        full_time['mags'] = amps_full
+        full_time['phases'] = phases_full
 
         single_time = {}
         single_time['xaxis'] = xaxis_us
-        single_time['mag'] = amp
-        single_time['phase'] = phase
+        single_time['mag'] = amp_full
+        single_time['phase'] = phase_full
 
         time_labels = ['Time (us)', 'Freq (GHz)']
         identifier = 'Power: {}dBm'.format(power-Qbit_Attenuation)
         
         userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us', 'full_time'], locals(), expsettings=settings)
         
-        simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier, fig_num=2)
+        simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces\n'+filename, time_labels, identifier, fig_num=2)
 
     t2 = time.time()
     
