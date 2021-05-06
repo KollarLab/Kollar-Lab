@@ -83,7 +83,7 @@ def extract_data(raw_data, xaxis, settings):
     else:
         return data, data_x, raw_data, xaxis
 
-def configure_card(card, settings):
+def configure_card(card, fullsettings):
     '''
     Helper function to configure the card from a set of settings. This will
     force a standard definition of what the digitizer timing should be. Computes
@@ -107,18 +107,31 @@ def configure_card(card, settings):
                          longer acquisitions)
         channelRange: full scale (peak to peak) of each channel, 0.5 or 2.5 V
     '''
+    exp_globals = settings['exp_globals']
+    exp_settings = settings['exp_settings']
+
+    measurement_pulse = exp_globals['measurement_pulse']
+    card_config = exp_globals['card_config']
+
     #Compute total acquisition time
-    card_time = settings['meas_window']*2 + settings['empirical_delay'] + settings['init_buffer'] + settings['pulse_buffer']
-    meas_samples = settings['sampleRate']*card_time
+    meas_pos    = measurement_pulse['meas_pos']
+    meas_window = measurement_pulse['meas_window']
+    emp_delay   = measurement_pulse['emp_delay']
+    init_buffer = measurement_pulse['init_buffer']
+    post_buffer = measurement_pulse['post_buffer']
+
+    card_time = 2*meas_window + emp_delay + init_buffer + post_buffer
+    meas_samples = card_config['sampleRate']*card_time
+
     #Compute trigger delay, has to be multiple of 32ns for Acquiris
-    trigger_delay = np.floor((settings['meas_pos'] - settings['init_buffer'])/32e-9)*32e-9
+    trigger_delay = np.floor((meas_pos - init_buffer)/32e-9)*32e-9
     
-    card.averages       = settings['averages']
-    card.segments       = settings['segments']
-    card.sampleRate     = settings['sampleRate']
-    card.activeChannels = settings['activeChannels']
+    card.channelRange   = card_config['channelRange']
+    card.timeout        = card_config['timeout']
+    card.sampleRate     = card_config['sampleRate']
+    card.activeChannels = card_config['activeChannels']
+    card.averages       = exp_settings['averages']
+    card.segments       = exp_settings['segments']
     card.triggerDelay   = trigger_delay
-    card.timeout        = settings['timeout']
     card.samples        = int(meas_samples)
-    card.channelRange   = settings['channelRange']
     card.SetParams()    
