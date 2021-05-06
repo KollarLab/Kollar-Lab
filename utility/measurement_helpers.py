@@ -83,7 +83,7 @@ def extract_data(raw_data, xaxis, settings):
     else:
         return data, data_x, raw_data, xaxis
 
-def configure_card(card, fullsettings):
+def configure_card(card, settings):
     '''
     Helper function to configure the card from a set of settings. This will
     force a standard definition of what the digitizer timing should be. Computes
@@ -93,10 +93,12 @@ def configure_card(card, fullsettings):
         settings dictionary with the following keys (should be initialized from
         the get_default_settings method)
         meas_window: width of measurment tone
-        empirical_delay: line delay and other delays accumulated between the 
+        meas_pos: position of measurement tone relative to the rise edge of the 
+            trigger
+        emp_delay: line delay and other delays accumulated between the 
             AWG and the digitizer
         init_buffer: buffer to collect data before the pulse
-        pulse_buffer: buffer after measurment tone to wait out the ringing before
+        post_buffer: buffer after measurment tone to wait out the ringing before
             background subtraction
         averages: number of averages for the card to perform in HW
         segments: number of segments (will be averaged together), useful when
