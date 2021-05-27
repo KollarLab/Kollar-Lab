@@ -7,9 +7,24 @@ Created on Thu Dec  3 18:04:20 2020
 import pyvisa
 
 class HS9000B():
+    '''
+    Holzworth class, currently hard coded to 2 channels.
+    Attributes:
+        settings: property that returns the settings of the submodules (channels and reference)
+        ch1, ch2: channel objects with frequency, phase, power, output control
+        ref: reference objet that controls the reference clock source (INT/EXT) and frequency (10/100MHz)
+    '''
     def __init__(self, address):
+        '''
+        Constructor for Holzworth
+        Arguments:
+            address (string): pyvisa resource string (e.g. 'ASRL3::INSTR')
+
+        '''
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
+        #We have to explictly set the baud rate and termination because 
+        #they don't match the pyvisa defaults
         self.inst.baud_rate = 115200
         self.inst.write_termination = '\n'
         self.inst.read_termination = '\n'
@@ -70,8 +85,21 @@ class reference(object):
         return fullsettings
 
 class channel(object):
+    '''
+    Channel object for Holzworth. Very similar to SCPIinst object but with tweaked syntax
+    because Holzworth doesn't follow the SCPI standard...
+    Behavior is pretty much the same: a dictionary of commands is defined and the keys define 
+    properties of the object that are accessed (e.g,: channel.freq queries the instrument and
+    channel.freq = '5GHz' sets the instrument frequency to 5 GHz)
+    All interactions with the instrument happen as queries because that's just how it is
+    not sure why.
+    Attributes:
+        ID: channel number
+        inst: pyvisa handle
+        props: dictionary of commands that can be set/ read from the instrument
+    '''
     def __init__(self, inst, number):
-        #super().__setattr__('init', True)
+
         self.init = True
 
         self.ID = number
@@ -86,7 +114,6 @@ class channel(object):
         self.props['ext_mod_enable'] = ':MOD'
         self.props['ext_mod'] = ':MOD:MODE'
 
-        #super.__setattr__(self, 'init', False)
         self.init = False
 
     @property
@@ -101,6 +128,13 @@ class channel(object):
         self.output = 'OFF'
 
     def __getattr__(self, name):
+        '''
+        Overwriting the get attr method so that we can have the instrument
+        behave like a normal python object without having to write properties
+        or getters/setters for every single setting
+        Avoids infinite loops by invoking the standard getattr for the init 
+        phase
+        '''
         initializing = self.__dict__['init']
         full_dict = self.__dict__
         if initializing or name in full_dict.keys():
@@ -118,6 +152,13 @@ class channel(object):
                 print('invalid command')
     
     def __setattr__(self, name, value):
+        '''
+        Overwriting the set attribute method
+        It will behave 'normally' for the defined properties (ID etc) but
+        execute a command on the instrument for the standard operations (freq, phase
+        etc.)
+        The code at the beginning avoids infinite recursion for the very first setting (init)
+        '''
         try:
             initializing = self.__dict__['init']
         except:
