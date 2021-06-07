@@ -10,8 +10,8 @@ exp_globals = {}
 
 #Project naming
 exp_globals['root_folder'] = r'Z:\Data'
-exp_globals['project_name'] = ''
-exp_globals['device_name'] = ''
+exp_globals['project_name'] = 'testing'
+exp_globals['device_name'] = 'ABC000'
 
 #HW config
 exp_globals['CAV_Attenuation'] = 30
@@ -38,7 +38,7 @@ qubit_pulse['num_sigma'] = 4
 qubit_pulse['delay'] = 1e-7
 
 exp_globals['measurement_pulse'] = measurement_pulse
-exp_globals['measurement_pulse'] = qubit_pulse
+exp_globals['qubit_pulse'] = qubit_pulse
 
 #HW corrections and mixer corrections
 mixer_config = {}

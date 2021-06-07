@@ -5,6 +5,7 @@ Created on Wed Mar  3 09:20:52 2021
 @author: Kollarlab
 """
 import numpy as np
+import matplotlib.pyplot as plt
 
 def check_inputs(inputs, defaults):
     '''
@@ -69,7 +70,7 @@ def extract_data(raw_data, xaxis, settings):
     
     timestep   = xaxis[1] - xaxis[0]
     data_start = int((init_buffer + emp_delay)/timestep)
-    back_start = int((init_buffer + emp_delay + meas_window + pulse_buffer)/timestep)
+    back_start = int((init_buffer + emp_delay + meas_window + post_buffer)/timestep)
     window_width = int(meas_window/timestep)
     
     data_x = xaxis[data_start:data_start+window_width]
@@ -100,10 +101,10 @@ def read_and_process(card, settings, plot):
     mixer_config = settings['exp_globals']['mixer_config']
     Ipp, Qpp = remove_IQ_ellipse(Ip, Qp, mixer_config)
 
-    xaxis = np.linspace(0, card.samples, card.samples)/card.sampleRate
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
 
-    Idata, Itime, Ifull, timefull = extract_data(Ipp, xaxis, settings)
-    Qdata, Qtime, Qfull, timefull = extract_data(Qpp, xaxis, settings)
+    Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+    Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
 
     amp_full = np.sqrt(Ifull**2+Qfull**2)
     phase_full = np.arctan2(Qfull, Ifull)*180/np.pi
@@ -119,8 +120,8 @@ def read_and_process(card, settings, plot):
 def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     plt.figure(99)
     plt.clf()
-    plt.plot(time_extract, amp_extract, 'b')
     plt.plot(time_full, amp_full, 'r')
+    plt.plot(time_extract, amp_extract,'b')
     plt.xlabel('Time (us)')
     plt.title('Data window check')
     plt.show()
@@ -132,12 +133,12 @@ def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     plt.xlabel('Time (us)')
     plt.title('I')    
 
-    plt.subplot(1,3,1)
+    plt.subplot(1,3,2)
     plt.plot(time_full, Q, 'r')
     plt.xlabel('Time (us)')
     plt.title('Q')    
 
-    plt.subplot(1,3,1)
+    plt.subplot(1,3,3)
     plt.plot(time_full, I, 'b')
     plt.plot(time_full, Q, 'r')
     plt.xlabel('Time (us)')

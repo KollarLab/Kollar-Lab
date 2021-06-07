@@ -55,7 +55,7 @@ def pulsed_spec(instruments, settings):
     project_name = exp_globals['project_name']
     device_name = exp_globals['device_name']
     device_dir = os.path.join(root_dir, project_name, device_name)
-    saveDir = userfuncs.saveDir(exp_globals, settings['meas_type'])
+    saveDir = userfuncs.saveDir(device_dir, exp_settings['meas_type'])
     stamp = userfuncs.timestamp()
     filename = exp_settings['scanname'] + '_' + stamp
     
@@ -85,7 +85,7 @@ def pulsed_spec(instruments, settings):
     qubitgen.Freq   = 4e9
     qubitgen.Power  = -20
     
-    if settings['Quasi_CW']:
+    if exp_settings['Quasi_CW']:
         qubitgen.IQ.Mod = 'Off'
     else:
         qubitgen.IQ.Mod = 'On'
@@ -98,7 +98,7 @@ def pulsed_spec(instruments, settings):
     LO.Freq = CAV_freq - exp_globals['IF']
     LO.Output = 'On'
     
-    configure_card(card, fullsettings)
+    configure_card(card, settings)
 
     ##HDAWG settings
     hdawg.AWGs[0].samplerate = '2.4GHz'
@@ -118,7 +118,7 @@ def pulsed_spec(instruments, settings):
     loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
     loadprog = loadprog.replace('_tau_',str(q_pulse['delay']))
     loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
-    loadprog = loadprog.replace('_num_sigma_',str(q_pulse['sigma']))
+    loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
 
     hdawg.AWGs[0].load_program(loadprog)
 
@@ -140,8 +140,9 @@ def pulsed_spec(instruments, settings):
         qubitgen.Power = powers[powerind]
         time.sleep(0.2)
         
-        amps = numpy.zeros((len(freqs), len(xaxis) ))
-        phases = numpy.zeros((len(freqs),len(xaxis) ))
+        meas_samples = exp_globals['measurement_pulse']['meas_window']*card.sampleRate
+        amps = numpy.zeros((len(freqs), int(meas_samples)))
+        phases = numpy.zeros((len(freqs),int(meas_samples)))
 
         amps_full = numpy.zeros((len(freqs), len(xaxis) ))
         phases_full = numpy.zeros((len(freqs),len(xaxis) ))
@@ -215,7 +216,7 @@ def pulsed_spec(instruments, settings):
 
     simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
     plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-    simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces', time_labels, identifier=identifier, fig_num=2)
+    simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces\n'+filename, time_labels, identifier=identifier, fig_num=2)
     plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
        
     userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','xaxis_us', 'full_time'], locals(), expsettings=settings)

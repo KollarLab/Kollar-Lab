@@ -3,7 +3,7 @@
 //Configure 
 const qbit_sigma = _qsigma_;
 const num_sigma  = _num_sigma_;
-const qbitTime   = qbitSigma*num_sigma;
+const qbitTime   = qbit_sigma*num_sigma;
 const measTime   = _meas_window_;
 
 //Timing control 

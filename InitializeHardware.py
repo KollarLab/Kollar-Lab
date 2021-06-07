@@ -30,14 +30,14 @@ rm.close()
 qubitgen = SGS100A('TCPIP0::rssgs100a110425::inst0::INSTR')
 cavitygen = SGS100A('TCPIP0::rssgs100a110739::inst0::INSTR')
 #SGS_coupling(qubitgen,cavitygen)
-qubitgen.Ref.Source = 'Ext'
-qubitgen.Ref.Freq = 10e6
-
-qubitgen.RefOut.Source = 'Ref'
-qubitgen.RefOut.Freq = 1e9
-
 cavitygen.Ref.Source = 'Ext'
-cavitygen.Ref.Freq = 1e9
+cavitygen.Ref.Frequency = 10e6
+
+cavitygen.RefOut.Source = 'Ref'
+cavitygen.RefOut.Frequency = 1e9
+
+qubitgen.Ref.Source = 'Ext'
+qubitgen.Ref.Frequency = 1e9
 
 qubitgen.IQ.Imp = 'On'
 qubitgen.IQ.Ileak = exp_globals['qubitgen_config']['Ileak']
