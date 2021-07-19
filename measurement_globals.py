@@ -22,6 +22,7 @@ exp_globals['Gain'] = '50dB'
 
 #SW config
 exp_globals['trigger_rate'] = 1e3
+exp_globals['hanger'] = False
 exp_globals['IF'] = 2e6
 
 #Pulse config
