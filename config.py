@@ -4,7 +4,7 @@ import sys
 
 site_directory = site.getusersitepackages()
 
-site_directory = r'C:\Users\Kollarlab\Anaconda3\Lib\site-packages'
+site_directory = r'C:\Users\Martin\AppData\Local\Programs\Python\Python39\Lib\site-packages'
 package_directory = os.getcwd()
 
 filepath = os.path.join(site_directory+"\kollar_measurement.pth")

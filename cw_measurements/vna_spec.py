@@ -6,6 +6,7 @@ Created on Sun Nov  8 18:31:45 2020
 """
 import time
 import os
+from utility.measurement_helpers import estimate_time
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -18,11 +19,11 @@ def get_default_settings():
     #Save location
     settings['scanname']    = 'initial_power_scan_q4'
     settings['meas_type']   = 'Spec'
-    settings['project_dir'] = r'Z:\Data\HouckQuadTransmon'
+    #settings['project_dir'] = r'Z:\Data\HouckQuadTransmon'
 
     #Sweep parameters
-    settings['CAV_Attenuation'] = 30
-    settings['Qbit_Attenuation'] = 10
+    #settings['CAV_Attenuation'] = 30
+    #settings['Qbit_Attenuation'] = 10
 
     settings['start_power']  = -20
     settings['stop_power']   = 10
@@ -51,65 +52,62 @@ def vna_spec(instruments, settings):
     vna = instruments['VNA']
 
     vna.reset()
+
+    exp_globals  = settings['exp_globals']
+    exp_settings = settings['exp_settings']
     
     #Data saving and naming
-    saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
-    stamp = userfuncs.timestamp()
+    #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
+    stamp    = userfuncs.timestamp()
+    saveDir  = userfuncs.saveDir(settings)
     filename = settings['scanname'] + '_' + stamp
 
-    CAV_Attenuation = settings['CAV_Attenuation']
-    Qbit_Attenuation = settings['Qbit_Attenuation']
-    settings['CAVpower'] = settings['CAVpower'] + CAV_Attenuation
-    scanname = settings['scanname']
+    CAV_Attenuation  = exp_globals['CAV_Attenuation']
+    Qbit_Attenuation = exp_globals['Qbit_Attenuation']
 
-    start_power = settings['start_power'] + Qbit_Attenuation
-    stop_power = settings['stop_power'] + Qbit_Attenuation
-    power_points = settings['power_points']
+    settings['CAVpower'] = exp_settings['CAVpower'] + CAV_Attenuation
+
+    start_power  = exp_settings['start_power'] + Qbit_Attenuation
+    stop_power   = exp_settings['stop_power'] + Qbit_Attenuation
+    power_points = exp_settings['power_points']
     powers = np.linspace(start_power, stop_power, power_points)
 
-    mags = np.zeros((len(powers), settings['freq_points']))
-    phases = np.zeros((len(powers), settings['freq_points']))
+    mags = np.zeros((len(powers), exp_settings['freq_points']))
+    phases = np.zeros((len(powers), exp_settings['freq_points']))
 
     tstart = time.time()
     for powerind in range(len(powers)):
         power = powers[powerind]
         print('Power: {}, final power: {}'.format(power-Qbit_Attenuation, powers[-1]-Qbit_Attenuation))
-        settings['RFpower'] = power
+        exp_settings['RFpower'] = power
 
-        data = vna.spec_meas(settings)
+        data = vna.spec_meas(exp_settings)
 
         vna.autoscale()
 
-        mags[powerind] = data['mag']
+        mags[powerind]   = data['mag']
         phases[powerind] = data['phase']
 
         if powerind==0:
             tstop = time.time()
-            singlePointTime = tstop-tstart
-                
-            estimatedTime = singlePointTime*len(powers)
-            
-            print('    ')
-            print('estimated time for this scan : ' + str(np.round(estimatedTime/60, 1)) + ' minutes')
-            print('estimated time for this scan : ' + str(np.round(estimatedTime/60/60, 2)) + ' hours')
-            print('    ')
+            estimate_time(tstart, tstop, len(powers))
 
         freqs = data['xaxis']
     
         full_data = {}
-        full_data['xaxis'] = freqs
-        full_data['mags'] = mags[0:powerind+1]
+        full_data['xaxis']  = freqs
+        full_data['mags']   = mags[0:powerind+1]
         full_data['phases'] = phases[0:powerind+1]
     
         single_data = data
+
         yaxis = powers[0:powerind+1] - Qbit_Attenuation
         labels = ['Freq (GHz)', 'Powers (dBm)']
     
         plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
+        userfuncs.SaveFull(saveDir, filename, ['full_data', 'single_data', 'powers', 'labels', 'filename'], 
+                            locals(), expsettings=settings, instruments=instruments)
+        plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
     
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
-
-#    userfuncs.SaveFull(saveDir, filename, ['mags', 'phases', 'freqs', 'powers'], locals(), expsettings=settings)
-    userfuncs.SaveFull(saveDir, filename, ['full_data', 'single_data', 'powers', 'labels', 'filename'], locals(), expsettings=settings)
-    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)

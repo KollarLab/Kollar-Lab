@@ -127,6 +127,14 @@ def pulsed_spec(instruments, settings):
     
     ###########################################
     
+    #Replace with extract data function
+    data_window = int(settings['meas_window']*card.sampleRate)
+    data_start  = int((settings['empirical_delay']+settings['init_buffer'])*card.sampleRate)
+    back_start  = int((settings['empirical_delay']+settings['init_buffer']+settings['meas_window']+settings['pulse_buffer'])*card.sampleRate)
+#    start_points = int((settings['meas_pos'] - card.settings['triggerDelay'] + settings['empirical_delay'])*card.sampleRate)
+#    print(start_points)
+#    start_points = int(1.2e-6*card.sampleRate)
+    
     xaxis = (numpy.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6
     
@@ -163,8 +171,30 @@ def pulsed_spec(instruments, settings):
 
             if powerind == 0 and find == 0:
                 tstop = time.time()
-                estimate_time(tstart, tstop, powers, freqs)
-                plot_single_IQ = False
+                singlePointTime = tstop-tstart
+                
+                estimatedTime = singlePointTime*len(freqs)*len(powers)
+                print('    ')
+                print('estimated time for this scan : ' + str(numpy.round(estimatedTime/60, 1)) + ' minutes')
+                print('estimated time for this scan : ' + str(numpy.round(estimatedTime/60/60, 2)) + ' hours')
+                print('    ')
+            
+            # mixer correction
+#            Ip, Qp = remove_IQ_ellipse(I[0], Q[0], axes, center, phi)
+            
+#            # No mixer correction
+#            Ip, Qp = I[0], Q[0]
+            
+            # no mixer correction, but average different segments together.
+            Ip = numpy.mean(I, 0)
+            Qp = numpy.mean(Q, 0)
+            
+            DC_I = numpy.mean(Ip[back_start:])
+            DC_Q = numpy.mean(Qp[back_start:])
+            Idat = Ip-DC_I
+            Qdat = Qp-DC_Q
+#            Idat = Ip
+#            Qdat = Qp
             
             amps[find,:]   = amp
             phases[find,:] = phase
@@ -174,7 +204,7 @@ def pulsed_spec(instruments, settings):
 
         powerslice = numpy.mean(amps[:,:], axis=1)
         phaseslice = numpy.mean(phases[:,:], axis=1)
-         
+        
         
         powerdat[powerind,:] = powerslice
         phasedat[powerind,:] = phaseslice

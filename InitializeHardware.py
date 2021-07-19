@@ -51,13 +51,12 @@ triggergen  = Keysight33500B('USB0::0x0957::0x2507::MY58000681::0::INSTR')
 
 triggergen.Ref.Source = 'Ext'
 triggergen.Waveform   = 'SQU'
-triggergen.Freq       = '50 kHz'
+triggergen.Freq       = exp_globals['trigger_rate']
 triggergen.Volt       = '2 V'
 triggergen.Output     = 'ON'
+triggergen.Duty_cycle = '0.1'
 
 SRS = DC205('ASRL3::INSTR', reset = False)
-#
+SRS2 = DC205('ASRL5::INSTR', reset = False)
+
 vna = VNA('TCPIP0::192.168.1.7::inst0::INSTR', reset = False)
-#
-#vars_to_save = dir()
-#vars_to_save += ['vars_to_save']

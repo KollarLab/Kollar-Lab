@@ -2,12 +2,16 @@ import pyvisa
 
 class SCPIinst(object):
     
-    def __init__(self, address, commands, errcmd, reset = True):
+    def __init__(self, address, commands, errcmd, reset = True, baud_rate=115200):
         
         self.init = True
             
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
+        try:
+            self.inst.baud_rate = baud_rate
+        except:
+            pass
         if reset:
             self.inst.write('*RST; *CLS')
         self.errcmd = errcmd
