@@ -6,6 +6,7 @@ Created on Wed Nov 18 14:07:57 2020
 """
 import time
 import os
+from utility.measurement_helpers import estimate_time
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -19,7 +20,7 @@ def get_default_settings():
     #Save location
     settings['scanname']    = 'flux_Scan'
     settings['meas_type']   = 'trans_flux_scan'
-    settings['project_dir'] = r'Z:\Data'
+    #settings['project_dir'] = r'Z:\Data'
     
     #Sweep parameter
     settings['CAV_Attenuation'] = 30
@@ -50,21 +51,24 @@ def vna_trans_flux_scan(instruments, settings):
     vna = instruments['VNA']
     SRS = instruments['DCsupply']
 
-    ##Data saving and naming
-    saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
-    stamp = userfuncs.timestamp()
-    filename = settings['scanname'] + '_' + stamp
+    vna.reset()
 
-    CAV_Attenuation = settings['CAV_Attenuation']
-    scanname = settings['scanname']
-    
-    SRS.Range = '10 V'
+    exp_globals  = settings['exp_globals']
+    exp_settings = settings['exp_settings']
+
+    ##Data saving and naming
+    #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
+    stamp    = userfuncs.timestamp()
+    saveDir  = userfuncs.saveDir(settings)
+    filename = settings['scanname'] + '_power{}dBm_' + stamp
+
+    CAV_Attenuation = exp_globals['CAV_Attenuation']
     
     #set voltage sweep
-    start_voltage = settings['start_voltage']
-    stop_voltage  = settings['stop_voltage']
+    start_voltage  = settings['start_voltage']
+    stop_voltage   = settings['stop_voltage']
     voltage_points = settings['voltage_points']
-    voltages = np.round(np.linspace(settings['start_voltage'], settings['stop_voltage'], settings['voltage_points']),6)
+    voltages = np.round(np.linspace(start_voltage, stop_voltage, voltage_points),6)
     max_voltage = 3.5
     if np.max(voltages) > max_voltage:
         raise ValueError('max voltage too! large')
@@ -72,33 +76,32 @@ def vna_trans_flux_scan(instruments, settings):
         settings['voltages'] = voltages
     
     #optional power sweep
-    start_power = settings['start_power'] + CAV_Attenuation
-    stop_power = settings['stop_power'] + CAV_Attenuation
-    power_points = settings['power_points']
+    start_power  = exp_settings['start_power'] + CAV_Attenuation
+    stop_power   = exp_settings['stop_power'] + CAV_Attenuation
+    power_points = exp_settings['power_points']
     powers = np.linspace(start_power, stop_power, power_points)
-    
-    avg_times = settings['avg_times']
     
     if len(settings['avg_times']) != len(powers):
         raise ValueError('incorrect number of averaging times specified')
     
-    mags = np.zeros((settings['voltage_points'], settings['freq_points']))
+    mags   = np.zeros((settings['voltage_points'], settings['freq_points']))
     phases = np.zeros((settings['voltage_points'], settings['freq_points']))
     
-    SRS.Volt = 0
     SRS.Output = 'On'
+    SRS.voltage_ramp(0)
     
     tstart = time.time()
     for pind in range(len(powers)):
         power = powers[pind]
-        settings['RFpower'] = power
-        settings['avg_time'] = settings['avg_times'][pind]
-        identifier = 'Cav Power : ' + str(settings['RFpower'] - CAV_Attenuation) + ' dB'
+        exp_settings['RFpower']  = power
+        exp_settings['avg_time'] = exp_settings['avg_times'][pind]
+        identifier = 'Cav Power : ' + str(exp_settings['RFpower'] - CAV_Attenuation) + ' dB'
         
-        stamp = userfuncs.timestamp()
-        scanname = 'transFluxScan_' + settings['scanname'] + '_Power'+str(settings['RFpower'] - CAV_Attenuation) + '_' + stamp
+        stamp    = userfuncs.timestamp()
+        filename = filename.format(power - CAV_Attenuation)
+        #filename = 'transFluxScan_' + settings['scanname'] + '_Power'+str(exp_settings['RFpower'] - CAV_Attenuation) + '_' + stamp
         
-        print('Power: {}'.format(settings['RFpower'] - CAV_Attenuation))
+        print('Power: {}'.format(exp_settings['RFpower'] - CAV_Attenuation))
         
         for vind in range(len(voltages)):
             voltage = voltages[vind]
@@ -108,50 +111,37 @@ def vna_trans_flux_scan(instruments, settings):
             time.sleep(0.1)
             t0 = time.time()
             
-            data = vna.trans_meas(settings)
+            data = vna.trans_meas(exp_settings)
             
             vna.autoscale()
             
-            mags[vind] = data['mag']
+            mags[vind]   = data['mag']
             phases[vind] = data['phase']
+
             freqs = data['xaxis']  
             
             if vind==0 and pind == 0:
-                t1=time.time()
-                tdiff = t1-t0
-    #            ttotal = tdiff*len(voltages)*len(settings['powers'])
-                
-                timePer = tdiff/settings['avg_time'] #time needed pwer second of avergaing time
-                totalAveraging = np.sum(settings['avg_times'])
-                estimatedTime = timePer*len(voltages)*totalAveraging
-                
-                print('    ')
-                print('Single run time: {}'.format(np.round(tdiff,1)))
-                print('    ')
-                print('estimated time for this scan : ' + str(np.round(estimatedTime/60, 1)) + ' minutes')
-                print('estimated time for this scan : ' + str(np.round(estimatedTime/60/60, 2)) + ' hours')
-                print('    ')
+                tstop=time.time()
+                scaling = exp_settings['avg_time']/np.sum(exp_settings['avg_times'])
+                estimate_time(tstart, tstop, len(voltages)*scaling)
                 
             freqs = data['xaxis']   
 
             full_data = {}
-            full_data['xaxis'] = freqs
-            full_data['mags'] = mags[0:vind+1]
+            full_data['xaxis']  = freqs
+            full_data['mags']   = mags[0:vind+1]
             full_data['phases'] = phases[0:vind+1]
     
             single_data = data
     
             labels = ['Freq (GHz)', 'Voltage (V)']
-            yaxis = voltages[0:vind+1]
-            plots.simplescan_plot(full_data, single_data, yaxis, scanname, labels, identifier=identifier, fig_num=2)
+            yaxis  = voltages[0:vind+1]
+            plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier=identifier, fig_num=2)
     
-            userfuncs.SaveFull(saveDir, scanname, ['full_data', 'single_data', 'powers', 'scanname', 'labels'], locals(), expsettings=settings)
+            userfuncs.SaveFull(saveDir, filename, ['full_data', 'single_data', 'powers', 'voltages', 'scanname', 'labels'], 
+                                locals(), expsettings=settings, instruments=instruments)
+            plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
             
-        #end loop over voltages
-#        userfuncs.SaveFull(saveDir, scanname, ['mags', 'phases', 'freqs', 'powers', 'CAV_Attenuation'], locals(), expsettings=settings)
-        userfuncs.SaveFull(saveDir, scanname, ['full_data', 'single_data', 'voltages', 'powers', 'scanname', 'labels'], locals(), expsettings=settings)
-        plt.savefig(os.path.join(saveDir, scanname+'.png'), dpi = 150)
-    
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
     

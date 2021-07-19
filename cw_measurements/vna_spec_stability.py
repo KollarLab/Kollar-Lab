@@ -7,6 +7,7 @@ Created on Wed Jul 14 17:37:06 2021
 
 import time
 import os
+from utility.measurement_helpers import estimate_time
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -20,11 +21,11 @@ def get_default_settings():
     #Save location
     settings['scanname']    = 'initial_power_scan_q4'
     settings['meas_type']   = 'stability'
-    settings['project_dir'] = r'Z:\Data'
+    #settings['project_dir'] = r'Z:\Data'
 
     #Sweep parameters
-    settings['CAV_Attenuation'] = 30
-    settings['Qbit_Attenuation'] = 10
+    #settings['CAV_Attenuation'] = 30
+    #settings['Qbit_Attenuation'] = 10
 
     settings['num_points'] = 10
 
@@ -51,48 +52,45 @@ def vna_spec_stability(instruments, settings):
     vna = instruments['VNA']
     
     vna.reset()
+
+    exp_globals  = settings['exp_globals']
+    exp_settings = settings['exp_settings']
     
     #Data saving and naming
-    saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
-    stamp = userfuncs.timestamp()
+    #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
+    stamp    = userfuncs.timestamp()
+    saveDir  = userfuncs.saveDir(settings)
     filename = settings['scanname'] + '_' + stamp
 
-    CAV_Attenuation = settings['CAV_Attenuation']
-    Qbit_Attenuation = settings['Qbit_Attenuation']
-    settings['CAVpower'] = settings['CAVpower'] + CAV_Attenuation
-    settings['RFpower'] = settings['RFpower'] + Qbit_Attenuation
-    scanname = settings['scanname']
-    
-    timing = np.linspace(0, settings['num_points']*settings['avg_time'], settings['num_points'])
+    CAV_Attenuation  = exp_globals['CAV_Attenuation']
+    Qbit_Attenuation = exp_globals['Qbit_Attenuation']
 
-    mags   = np.zeros((settings['num_points'], settings['freq_points']))
-    phases = np.zeros((settings['num_points'], settings['freq_points']))
+    exp_settings['CAVpower'] = exp_settings['CAVpower'] + CAV_Attenuation
+    exp_settings['RFpower']  = exp_settings['RFpower'] + Qbit_Attenuation
     
-    centers = np.zeros(settings['num_points'])
-    widths  = np.zeros(settings['num_points'])
-    amps    = np.zeros(settings['num_points'])
+    timing = np.linspace(0, exp_settings['num_points']*exp_settings['avg_time'], exp_settings['num_points'])
+
+    mags   = np.zeros((exp_settings['num_points'], exp_settings['freq_points']))
+    phases = np.zeros((exp_settings['num_points'], exp_settings['freq_points']))
+    
+    centers = np.zeros(exp_settings['num_points'])
+    widths  = np.zeros(exp_settings['num_points'])
+    amps    = np.zeros(exp_settings['num_points'])
     
     tstart = time.time()
     for tind in range(len(timing)):
-        print('Measurement {} out of {}'.format(tind, settings['num_points']))
+        print('Measurement {} out of {}'.format(tind, exp_settings['num_points']))
 
-        data = vna.spec_meas(settings)
+        data = vna.spec_meas(exp_settings)
 
         vna.autoscale()
 
-        mags[tind] = data['mag']
+        mags[tind]   = data['mag']
         phases[tind] = data['phase']
 
         if tind==0:
             tstop = time.time()
-            singlePointTime = tstop-tstart
-                
-            estimatedTime = singlePointTime*len(timing)
-            
-            print('    ')
-            print('estimated time for this scan : ' + str(np.round(estimatedTime/60, 1)) + ' minutes')
-            print('estimated time for this scan : ' + str(np.round(estimatedTime/60/60, 2)) + ' hours')
-            print('    ')
+            estimate_time(tstart, tstop, len(timing))
 
         freqs = data['xaxis']
     
