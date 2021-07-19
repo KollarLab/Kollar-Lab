@@ -39,7 +39,8 @@ triggergen.Freq       = '50 kHz'
 triggergen.Volt       = '2 V'
 triggergen.Output     = 'ON'
 
-SRS = DC205('ASRL3::INSTR', False)
+SRS = DC205('ASRL3::INSTR', reset = False)
+SRS2 = DC205('ASRL5::INSTR', reset = False)
 #
 vna = VNA('TCPIP0::192.168.1.7::inst0::INSTR', False)
 #
