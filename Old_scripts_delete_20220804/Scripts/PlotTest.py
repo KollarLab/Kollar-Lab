@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 import userfuncs
 #import VNAplottingTools as VNAplots
-import  plotting_tools as VNAplots
+import  utility.plotting_tools as VNAplots
 
 
 def general_colormap_subplot(ax,xaxis, yaxis, data, cmap = 'jet_r', vmax = np.NaN, vmin = np.NaN):
@@ -63,40 +63,41 @@ def general_colormap_subplot(ax,xaxis, yaxis, data, cmap = 'jet_r', vmax = np.Na
 #dat = userfuncs.LoadFull(r'Z:\Data\Fluxonium_Raman\CRF01_A3\spec_flux_scan\20210118\plasmonCrosingFollowUp_20210118_115030.pkl')
 #dat = userfuncs.LoadFull(r'Z:\Data\Fluxonium_Raman\CRF01_A3\spec_flux_scan\20210118\plasmonCrosingFollowUp2_20210118_132316.pkl')
 #dat = userfuncs.LoadFull(r'Z:\Data\HouckDualHangerFluxonium\spec_flux_scan\20210119\20kHzfilter_finescan_fluxon_tracking_20210119_234214.pkl')
-saveDir = r'Z:\Data\Fluxonium_Raman\CRF01_A3\Spec\20210401'
-filename = 'fluxon_linewidth_20210401_161843.pkl'
+saveDir = r'Z:\Data\Fluxonium_Raman\WTF01_B3\spec_flux_scan\20210607'
+filename = 'cavity1_spec_scan_0_spec_20210607_170153.pkl'
 dat = userfuncs.LoadFull(os.path.join(saveDir, filename))
 
 data = dat[0]
 expsettings = dat[1]
 #voltages = expsettings['voltages']
 #yaxis = data['autler_freqs']
-#yaxis = data['voltages']
-yaxis = data['powers']
+yaxis = data['voltages']
+#yaxis = data['powers']
 scanname = expsettings['scanname']
 
 #testData = {}
 #testData['xaxis'] = specdata['xaxis']
 #testData['mags'] = specdata['mags']
 #testData['phases'] = specdata['phases']
-testData = data['full_data']
+#testData = data['full_data']
+testData = data['specdata']
 #testData['xaxis'] = data['freqs']
 #testData['mags'] = data['mags']
 #testData['phases'] = data['phases']
 
-#specdata = data['specdata']
+specdata = data['specdata']
 ##specdata['xaxis'] = data['freqs']
 ##specdata['mags'] = data['mags']
 ##specdata['phases'] = data['phases']
 #
 #
-#singledata = data['singledata']
+singledata = data['singledata']
 ##singledata['xaxis'] = data['freqs']
 ##singledata['mag'] = data['mags'][-1,:]
 ##singledata['phase'] = data['phases'][-1,:]
 #
 #
-#transdata = data['transdata']
+transdata = data['transdata']
 ##transdata['xaxis'] = data['trans_freqs']
 ##transdata['mags'] = data['trans_mags']
 ##transdata['phases'] = data['trans_phases']
@@ -145,27 +146,27 @@ defaultcmap = 'hot'
 #
 fig = plt.figure(4, figsize=(13,8))
 plt.clf()
-#
-#ax = plt.subplot(3,2,1)
-#general_colormap_subplot(ax,transdata['xaxis'], yaxis, transdata['mags'], cmap = defaultcmap)
-#plt.xlabel(trans_labels[0])
-#plt.ylabel(trans_labels[1])
-#plt.title('Trans mag')
-#
-#ax = plt.subplot(3,2,2)
-#general_colormap_subplot(ax,transdata['xaxis'], yaxis, transdata['phases'], cmap = defaultcmap)
-#plt.xlabel(trans_labels[0])
-#plt.ylabel(trans_labels[1])
-#plt.title('Trans phase')
+
+ax = plt.subplot(3,2,1)
+general_colormap_subplot(ax,transdata['xaxis'], yaxis, transdata['mags'], cmap = defaultcmap)
+plt.xlabel(trans_labels[0])
+plt.ylabel(trans_labels[1])
+plt.title('Trans mag')
+
+ax = plt.subplot(3,2,2)
+general_colormap_subplot(ax,transdata['xaxis'], yaxis, transdata['phases'], cmap = defaultcmap)
+plt.xlabel(trans_labels[0])
+plt.ylabel(trans_labels[1])
+plt.title('Trans phase')
 
 
 
-ax = plt.subplot(1,2,1)
+ax = plt.subplot(3,2,3)
 ampMin = -2
 ampMax = 1
 
 ampMin = -5
-ampMax = 5
+ampMax = 2
 
 #ampMin = -1
 #ampMax = 0
@@ -183,7 +184,7 @@ plt.xlabel(labels[0])
 plt.ylabel(labels[1])
 plt.title('mag')
 
-ax = plt.subplot(1,2,2)
+ax = plt.subplot(3,2,4)
 phaseMin = -30
 phaseMax = 30
 general_colormap_subplot(ax,testData['xaxis'], yaxis, testData['phases'], vmin = phaseMin, vmax = phaseMax, cmap = defaultcmap)

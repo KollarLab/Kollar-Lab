@@ -40,6 +40,8 @@ def get_default_settings():
     settings['RFpower'] = -15
     settings['ifBW'] = .2e3
     
+    settings['high_power_spec'] = False
+    
     settings['CAV_Attenuation'] = 30
     settings['Qbit_Attenuation'] = 10
     
@@ -78,7 +80,11 @@ def vna_spec_flux_scan(instruments, fullsettings):
     
     settings['CAVpower'] = settings['CAVpower'] + CAV_Attenuation
     settings['RFpower'] = settings['RFpower'] + Qbit_Attenuation
-    autoscan_set['RFpower'] = settings['CAVpower']
+    if not settings['high_power_spec']:
+        print('Using CAVpower from general settings, ignoring autoscan power')
+        autoscan_set['RFpower'] = settings['CAVpower']
+    else:
+        autoscan_set['RFpower'] = autoscan_set['RFpower'] + CAV_Attenuation
     
     #set voltage sweep
     start_voltage = settings['start_voltage']
@@ -86,7 +92,9 @@ def vna_spec_flux_scan(instruments, fullsettings):
     voltage_points = settings['voltage_points']
     voltages = np.round(np.linspace(settings['start_voltage'], settings['stop_voltage'], settings['voltage_points']),6)
     max_voltage = 3.5
-    SRS.range = '10 V'
+#    SRS.voltage_ramp(0)
+#    SRS.Output = 'Off'
+#    SRS.range = '10 V'
     if np.max(voltages) > max_voltage:
         raise ValueError('max voltage too large!')
     else:
@@ -98,7 +106,6 @@ def vna_spec_flux_scan(instruments, fullsettings):
     mags = np.zeros((settings['voltage_points'], settings['freq_points']))
     phases = np.zeros((settings['voltage_points'], settings['freq_points']))
     
-    SRS.Volt = 0
     SRS.Output = 'On'
     
     t0 = time.time()
@@ -205,7 +212,7 @@ def vna_spec_flux_scan(instruments, fullsettings):
         if np.mod(vind,5) == 1:
             userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'voltages', 
                                            'filename', 'trans_labels', 'spec_labels'], 
-                                           locals(), expsettings=settings)
+                                           locals(), expsettings=settings, instruments=instruments)
             plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
             
     
@@ -213,8 +220,8 @@ def vna_spec_flux_scan(instruments, fullsettings):
     print('Elapsed time: {}'.format(t2-t0))
     
     #return to zero voltage
-    SRS.voltage_ramp(0)
-    SRS.Output = 'Off'
+#    SRS.voltage_ramp(0)
+#    SRS.Output = 'Off'
     vna.Output = 'Off'
     
     transdata = {}
@@ -240,6 +247,6 @@ def vna_spec_flux_scan(instruments, fullsettings):
     
     userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'voltages', 
                                            'filename', 'trans_labels', 'spec_labels'], 
-                                           locals(), expsettings=settings)
+                                           locals(), expsettings=settings, instruments=instruments)
     
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)

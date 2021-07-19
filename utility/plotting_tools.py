@@ -31,7 +31,7 @@ def general_VNAplot(xaxis, mags, phases, yaxis, scanname, HWattenuation = 0,
     fig.canvas.flush_events()
     return
 
-def simplescan_plot(full_data, singledata, yaxis, scanname, labels, identifier='', fig_num=''):
+def simplescan_plot(full_data, singledata, yaxis, scanname, labels, identifier='', fig_num='', cmap='hot', vmin=np.NaN, vmax=np.NaN):
     if fig_num == '':
         fig = plt.figure(figsize=(13,8))
     else:
@@ -39,10 +39,10 @@ def simplescan_plot(full_data, singledata, yaxis, scanname, labels, identifier='
     plt.clf()
     
     ax = plt.subplot(2,2,1)
-    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data['mags'], labels, 'Mag')
+    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data['mags'], labels, 'Mag', cmap, vmin, vmax)
     
     ax = plt.subplot(2,2,2)
-    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data['phases'], labels, 'Phase')
+    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data['phases'], labels, 'Phase', cmap)
     
     ax = plt.subplot(2,2,3)
     plt.plot(singledata['xaxis'], singledata['mag'])

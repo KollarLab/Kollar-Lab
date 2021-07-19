@@ -56,6 +56,10 @@ triggergen.Volt       = '2 V'
 triggergen.Output     = 'ON'
 
 SRS = DC205('ASRL3::INSTR', reset = False)
+<<<<<<< HEAD
+=======
+SRS2 = DC205('ASRL5::INSTR', reset = False)
+>>>>>>> master
 #
 vna = VNA('TCPIP0::192.168.1.7::inst0::INSTR', reset = False)
 #
