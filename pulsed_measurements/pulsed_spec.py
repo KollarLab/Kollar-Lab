@@ -141,9 +141,11 @@ def pulsed_spec(instruments, settings):
     
     #Replace with extract data function
     data_window = int(settings['meas_window']*card.sampleRate)
+    data_start  = int((settings['empirical_delay']+settings['init_buffer'])*card.sampleRate)
+    back_start  = int((settings['empirical_delay']+settings['init_buffer']+settings['meas_window']+settings['pulse_buffer'])*card.sampleRate)
 #    start_points = int((settings['meas_pos'] - card.settings['triggerDelay'] + settings['empirical_delay'])*card.sampleRate)
 #    print(start_points)
-    start_points = int(1.2e-6*card.sampleRate)
+#    start_points = int(1.2e-6*card.sampleRate)
     
     xaxis = (numpy.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6
@@ -198,8 +200,8 @@ def pulsed_spec(instruments, settings):
             Ip = numpy.mean(I, 0)
             Qp = numpy.mean(Q, 0)
             
-            DC_I = numpy.mean(Ip[-data_window:])
-            DC_Q = numpy.mean(Qp[-data_window:])
+            DC_I = numpy.mean(Ip[back_start:])
+            DC_Q = numpy.mean(Qp[back_start:])
             Idat = Ip-DC_I
             Qdat = Qp-DC_Q
 #            Idat = Ip
@@ -218,7 +220,11 @@ def pulsed_spec(instruments, settings):
                 plt.clf()
                 ax = plt.subplot(1,1,1)
                 plt.plot(xaxis_us, amp, 'r')
-                plt.plot(xaxis_us[start_points:start_points+data_window], amp[start_points:start_points+data_window], 'b')
+                plt.plot(xaxis_us[data_start:data_start+data_window], amp[data_start:data_start+data_window], 'b')
+                plt.vlines(xaxis_us[data_start], 0, 1.1*max(amp))
+                plt.vlines(xaxis_us[data_start+data_window], 0, 1.1*max(amp))
+                plt.vlines(xaxis_us[back_start], 0, 1.1*max(amp))
+                plt.vlines(xaxis_us[back_start+data_window-2], 0, 1.1*max(amp))
                 plt.xlabel('time (us)')
                 plt.title('data window check')
                 plt.show()
@@ -246,8 +252,8 @@ def pulsed_spec(instruments, settings):
                 plt.show()
                 
         
-        powerslice = numpy.mean(amps[:,start_points:start_points+data_window], axis=1)
-        phaseslice = numpy.mean(phases[:,start_points:start_points+data_window], axis=1)
+        powerslice = numpy.mean(amps[:,data_start:data_start+data_window], axis=1)
+        phaseslice = numpy.mean(phases[:,data_start:data_start+data_window], axis=1)
          
         
         powerdat[powerind,:] = powerslice
