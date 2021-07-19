@@ -45,6 +45,10 @@ def GetDefaultSettings():
     settings['Measurement_pos'] = Meas_pos
     settings['pulse_width'] = 80e-9
     
+    #fit settings
+    settings['T1_guess'] = 10e-6
+    settings['fit_polarity'] = 'negative'
+    
     return settings
     
 def meas_T1(instruments, settings):
@@ -92,13 +96,13 @@ def meas_T1(instruments, settings):
     card.sampleRate     = settings['sampleRate']
     card.activeChannels = settings['activeChannels']
     card.triggerDelay   = settings['trigger_buffer']
-    card.timeout        = 30
-    card.samples        = int(meas_samples*2.1)
+    card.timeout        = 60
+    card.samples        = int(meas_samples*2.5)
     card.channelRange   = 0.5
     card.SetParams()
     
     data_window = int(meas_samples)
-    start_points = int(1.2e-6*card.sampleRate)
+    start_points = int(1.55e-6*card.sampleRate)
     
     xaxis = (np.array(range(card.samples))/card.sampleRate)
     xaxis_us = xaxis*1e6 + settings['trigger_buffer']
@@ -144,6 +148,7 @@ def meas_T1(instruments, settings):
         hdawg.AWGs[0].load_program(finalprog)
         hdawg.AWGs[0].run_loop()
         time.sleep(0.1)
+        
         
         card.ArmAndWait()
         I,Q = card.ReadAllData()
@@ -221,9 +226,15 @@ def meas_T1(instruments, settings):
     
     print('Elapsed time: {}'.format(t2-tstart))
 
-    tau0 = 50e-6
+    tau0 = settings['T1_guess']
     offset0 = np.mean(amp_int[-2])
-    amp0 = np.mean(max(amp_int)-offset0)
+    if settings['fit_polarity'] == 'positive':
+        amp0 = np.mean(max(amp_int)-offset0)
+    elif settings['fit_polarity'] == 'negative':
+        amp0 = np.mean(min(amp_int)-offset0)
+    else:
+        print('Polarity should be psotive or negative. Defaulting to negative polarity.')
+        amp0 = np.mean(min(amp_int)-offset0)
     
     fig = plt.figure(1,figsize=(13,8))
     plt.clf()
