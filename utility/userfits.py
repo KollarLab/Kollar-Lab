@@ -7,6 +7,7 @@ Created on Tue Dec  8 15:27:44 2020
 import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
+from lmfit.models import LorentzianModel, ConstantModel
 
 def expff(x, tau, amp, offset):
     vals = amp*np.exp(- (x)/tau) + offset
@@ -50,3 +51,45 @@ def fit_T2(taus, amps, fit_guess):
     plt.ylabel('Amp')
 
     return fit_out[0], fit_out[3]
+
+def convert_to_linear(yvals):
+    linear = 10**(yvals/10)  
+    return linear
+
+def fit_lorentzian(freqs, mags, plot=False, fig_num=None):
+    line = convert_to_linear(mags)
+    data_test = -(line-max(line))
+    
+    peak = LorentzianModel()
+    const = ConstantModel()
+    mod = peak + const
+    
+    center = 0
+    sigma = 0
+    amp   = 0
+    try:
+        pars = peak.guess(data_test, x=freqs)
+        pars += const.make_params()
+        
+        out = mod.fit(data_test, pars, x=freqs)
+        fit_params = out.best_values
+        center = fit_params['center']
+        sigma  = fit_params['sigma']
+        amp    = fit_params['amplitude']/(np.pi*sigma)
+        model  = mod.eval(params=out.params, x=freqs)
+        amp_dB = 10*np.log10(min(model)/max(model))
+    except:
+        print('Fit did not converge, returning zeros')
+        return center, sigma
+    
+    if plot:
+        if fig_num is None:
+            plt.figure()
+        else:
+            plt.figure(fig_num)
+        plt.clf()
+        plt.plot(freqs, data_test)
+        plt.plot(freqs, model)
+        plt.show()
+        
+    return center, 2*sigma, amp_dB
