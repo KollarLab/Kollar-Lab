@@ -259,14 +259,37 @@ def timestamp():
     stamp = date.strftime('%Y%m%d_%H%M%S')
     return stamp
 
-def saveDir(project_dir, meas_type):
+def saveDir(settings):
+    exp_globals  = settings['exp_globals']
+    exp_settings = settings['exp_settings']
+    
     today = date.today().strftime('%Y%m%d')
-    fullpath = os.path.join(project_dir, meas_type, today)
+    
+    root    = exp_globals['root_folder']
+    project = exp_globals['project_name']
+    device  = exp_globals['device_name']
+    
+    try:
+        meas_type = exp_settings['meas_type']
+    except:
+        meas_type = exp_settings['spec']['meas_type']
+    
+    fullpath = os.path.join(root, project, device, meas_type, today)
+
     try:
         os.makedirs(fullpath)
     except:
         print('Dir already exists')
     return fullpath
+
+#def saveDir(project_dir, meas_type):
+#    today = date.today().strftime('%Y%m%d')
+#    fullpath = os.path.join(project_dir, meas_type, today)
+#    try:
+#        os.makedirs(fullpath)
+#    except:
+#        print('Dir already exists')
+#    return fullpath
 
 def reset_local_vars(local_dict, global_dict, vars_to_save):
     
