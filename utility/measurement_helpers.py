@@ -6,6 +6,7 @@ Created on Wed Mar  3 09:20:52 2021
 """
 import numpy as np
 import matplotlib.pyplot as plt
+from datetime import timedelta, datetime
 
 def check_inputs(inputs, defaults):
     '''
@@ -84,14 +85,27 @@ def extract_data(raw_data, xaxis, settings):
     else:
         return data, data_x, raw_data, xaxis
 
-def estimate_time(t1, t2, array1, array2):
+def estimate_time(t1, t2, steps):
     one_step = t2-t1
-    steps = len(array1)*len(array2)
     total_time = one_step*steps
+    
+    final_time = datetime.now() + timedelta(seconds=(total_time-one_step))
+    mins = np.round(total_time/60,1)
+    hours = np.round(total_time/3600, 2)
+    
     print('    ')
-    print('estimated time for this scan : ' + str(np.round(total_time/60, 1)) + ' minutes')
-    print('estimated time for this scan : ' + str(np.round(total_time/60/60, 2)) + ' hours')
+    print('estimated time for this scan : {} mins or {} hours'.format(mins, hours))
+    print('expected finish time: {}'.format(final_time.ctime()))
     print('    ')
+    
+#def estimate_time(t1, t2, array1, array2):
+#    one_step = t2-t1
+#    steps = len(array1)*len(array2)
+#    total_time = one_step*steps
+#    print('    ')
+#    print('estimated time for this scan : ' + str(np.round(total_time/60, 1)) + ' minutes')
+#    print('estimated time for this scan : ' + str(np.round(total_time/60/60, 2)) + ' hours')
+#    print('    ')
 
 def read_and_process(card, settings, plot):
     card.ArmAndWait()
