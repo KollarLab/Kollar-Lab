@@ -78,9 +78,9 @@ def vna_spec_flux_scan(instruments, settings):
 
     ##Data saving and naming
     #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
-    stamp = userfuncs.timestamp()
-    saveDir = userfuncs.saveDir(settings)
-    filename = settings['scanname'] + '_' + stamp
+    stamp    = userfuncs.timestamp()
+    saveDir  = userfuncs.saveDir(settings)
+    filename = exp_settings['scanname'] + '_' + stamp
 
     CAV_Attenuation  = exp_globals['CAV_Attenuation']
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']

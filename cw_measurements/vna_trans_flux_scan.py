@@ -60,20 +60,20 @@ def vna_trans_flux_scan(instruments, settings):
     #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
-    filename = settings['scanname'] + '_power{}dBm_' + stamp
+    filename = exp_settings['scanname'] + '_power{}dBm_' + stamp
 
     CAV_Attenuation = exp_globals['CAV_Attenuation']
     
     #set voltage sweep
-    start_voltage  = settings['start_voltage']
-    stop_voltage   = settings['stop_voltage']
-    voltage_points = settings['voltage_points']
+    start_voltage  = exp_settings['start_voltage']
+    stop_voltage   = exp_settings['stop_voltage']
+    voltage_points = exp_settings['voltage_points']
     voltages = np.round(np.linspace(start_voltage, stop_voltage, voltage_points),6)
     max_voltage = 3.5
     if np.max(voltages) > max_voltage:
         raise ValueError('max voltage too! large')
     else:
-        settings['voltages'] = voltages
+        pass
     
     #optional power sweep
     start_power  = exp_settings['start_power'] + CAV_Attenuation
@@ -81,11 +81,11 @@ def vna_trans_flux_scan(instruments, settings):
     power_points = exp_settings['power_points']
     powers = np.linspace(start_power, stop_power, power_points)
     
-    if len(settings['avg_times']) != len(powers):
+    if len(exp_settings['avg_times']) != len(powers):
         raise ValueError('incorrect number of averaging times specified')
     
-    mags   = np.zeros((settings['voltage_points'], settings['freq_points']))
-    phases = np.zeros((settings['voltage_points'], settings['freq_points']))
+    mags   = np.zeros((voltage_points, exp_settings['freq_points']))
+    phases = np.zeros((voltage_points, exp_settings['freq_points']))
     
     SRS.Output = 'On'
     SRS.voltage_ramp(0)
@@ -137,8 +137,8 @@ def vna_trans_flux_scan(instruments, settings):
             labels = ['Freq (GHz)', 'Voltage (V)']
             yaxis  = voltages[0:vind+1]
             plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier=identifier, fig_num=2)
-    
-            userfuncs.SaveFull(saveDir, filename, ['full_data', 'single_data', 'powers', 'voltages', 'scanname', 'labels'], 
+            
+            userfuncs.SaveFull(saveDir, filename, ['full_data', 'single_data', 'powers', 'voltages', 'filename', 'labels'], 
                                 locals(), expsettings=settings, instruments=instruments)
             plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
             

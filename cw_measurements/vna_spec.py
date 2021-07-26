@@ -60,7 +60,7 @@ def vna_spec(instruments, settings):
     #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
-    filename = settings['scanname'] + '_' + stamp
+    filename = exp_settings['scanname'] + '_' + stamp
 
     CAV_Attenuation  = exp_globals['CAV_Attenuation']
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']

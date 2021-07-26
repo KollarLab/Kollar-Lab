@@ -55,7 +55,7 @@ def vna_trans(instruments, settings):
     saveDir  = userfuncs.saveDir(settings)
     filename = exp_settings['scanname'] + '_' + stamp
 
-    CAV_Attenuation = exp_globals['CAV_attenuation']
+    CAV_Attenuation = exp_globals['CAV_Attenuation']
 
     start_power  = exp_settings['start_power'] + CAV_Attenuation
     stop_power   = exp_settings['stop_power'] + CAV_Attenuation
