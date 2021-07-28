@@ -4,77 +4,68 @@ Created on Fri Dec  4 16:52:18 2020
 
 @author: Kollarlab
 """
-import time
 import os
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-from utility.plotting_tools import base_power_plot_imshow
 from utility.userfits import fit_T1
+from utility.plotting_tools import general_colormap_subplot
+from utility.measurement_helpers import configure_card, estimate_time, read_and_process
 
-def GetDefaultSettings():
+def get_default_settings():
     settings = {}
     
     settings['scanname'] = 'T1_meas'
-    settings['project_dir'] = r'Z:\Data\HouckQuadTransmon'
     settings['meas_type'] = 'Tmeas'
-
     
-    settings['Q_Freq'] = 4.21109e9
+    settings['Q_Freq']  = 4.21109e9
     settings['Q_Power'] = -18
-    settings['CAV_Freq'] = 8.12357e9
+
+    settings['CAV_Freq']  = 8.12357e9
     settings['CAV_Power'] = -42.9
     
-    Meas_pos = 80e-6
-    #Card settings
-    settings['segments']         = 1
-    settings['reads']            = 1
-    settings['averages']         = 25e3
-    settings['activeChannels']   = [1,2]
-    settings['sampleRate']       = 2e9/8
-    settings['trigger_buffer']   = Meas_pos
-    settings['meas_window']      = 20e-6
+    settings['segments'] = 1
+    settings['reads']    = 1
+    settings['averages'] = 25e3
     
-    settings['Tau_min'] = 200e-9
-    settings['Tau_max'] = 30e-6
+    settings['Tau_min']    = 200e-9
+    settings['Tau_max']    = 30e-6
     settings['Tau_points'] = 5
-    settings['spacing'] = 'Linear'
+    settings['spacing']    = 'Linear'
     
-    #Pulse settings
-    settings['Measurement_pos'] = Meas_pos
-    settings['pulse_width'] = 80e-9
-    
-    #fit settings
     settings['T1_guess'] = 10e-6
-    settings['fit_polarity'] = 'negative'
     
     return settings
     
 def meas_T1(instruments, settings):
-    ##Instruments used
+    ## Instruments used
     qubitgen  = instruments['qubitgen']
     cavitygen = instruments['cavitygen']
     card      = instruments['card']
     hdawg     = instruments['AWG']
     LO        = instruments['LO']
     
-    Q_Freq    = settings['Q_Freq']
-    Q_Power   = settings['Q_Power']
-    CAV_Freq  = settings['CAV_Freq']
-    CAV_Power = settings['CAV_Power']
+    ## Bookkeeping and setting up the save directory
+    exp_globals  = settings['exp_globals']
+    exp_settings = settings['exp_settings']
+
+    Q_Freq    = exp_settings['Q_Freq']
+    Q_Power   = exp_settings['Q_Power']
+    CAV_Freq  = exp_settings['CAV_Freq']
+    CAV_Power = exp_settings['CAV_Power']
     
-    CAV_Attenuation  = settings['CAV_Attenuation']
-    Qbit_Attenuation = settings['Qbit_Attenuation']
+    CAV_Attenuation  = exp_globals['CAV_Attenuation']
+    Qbit_Attenuation = exp_globals['Qbit_Attenuation']
       
-    stamp = userfuncs.timestamp()
-    filename = settings['scanname'] + '_' + stamp
-    saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
+    stamp    = userfuncs.timestamp()
+    saveDir  = userfuncs.saveDir(settings)
+    filename = exp_settings['scanname'] + '_' + stamp
     
-    ## Generator settings
-    LO.Ref.Source = 'EXT'
-    LO.Power = 12
-    LO.Freq = CAV_Freq - 1e6
+    ## Configure generators
+    LO.Power  = 12
+    LO.Freq   = CAV_Freq - 1e6
     LO.Output = 'On'
     
     cavitygen.Freq   = CAV_Freq
@@ -86,28 +77,12 @@ def meas_T1(instruments, settings):
     qubitgen.IQ.Mod = 'On'
     
     cavitygen.Output = 'On'
-    qubitgen.Output = 'On'
+    qubitgen.Output  = 'On'
     
-    ## Card Settings
-    meas_samples = settings['sampleRate']*settings['meas_window']
-    
-    card.averages       = settings['averages']
-    card.segments       = settings['segments']
-    card.sampleRate     = settings['sampleRate']
-    card.activeChannels = settings['activeChannels']
-    card.triggerDelay   = settings['trigger_buffer']
-    card.timeout        = 60
-    card.samples        = int(meas_samples*2.5)
-    card.channelRange   = 0.5
-    card.SetParams()
-    
-    data_window = int(meas_samples)
-    start_points = int(1.55e-6*card.sampleRate)
-    
-    xaxis = (np.array(range(card.samples))/card.sampleRate)
-    xaxis_us = xaxis*1e6 + settings['trigger_buffer']
-    
-    ## HDAWG
+    ## Configure card
+    configure_card(card, settings)
+   
+    ## Configure HDAWG
     hdawg.AWGs[0].samplerate = '2.4GHz'
     hdawg.channelgrouping = '1x4'
     hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
@@ -119,26 +94,30 @@ def meas_T1(instruments, settings):
     loadprog = rawprog
     progFile.close()
     
-    loadprog = loadprog.replace('_max_time_', str(settings['Measurement_pos']))
-    loadprog = loadprog.replace('_meas_window_', str(settings['meas_window']))
-    loadprog = loadprog.replace('_qwidth_', str(settings['pulse_width']))
+    q_pulse = exp_globals['qubit_pulse']
+    m_pulse = exp_globals['measurement_pulse']
+    loadprog = loadprog.replace('_max_time_', str(m_pulse['meas_pos']))
+    loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
+    loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
+    loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
+
+    ## Set up array of taus and randomize it
     if settings['spacing']=='Log':
         tau_list = np.logspace(np.log10(settings['Tau_min']), np.log10(settings['Tau_max']), settings['Tau_points'])
     else:
-#        tau_list1 = np.linspace(settings['Tau_min'], 20e-6, int(0.5*settings['Tau_points']))
-#        tau_list2 = np.linspace(25e-6, settings['Tau_max'], int(0.5*settings['Tau_points']))
-#        tau_list = np.concatenate((tau_list1, tau_list2))
          tau_list = np.linspace(settings['Tau_min'], settings['Tau_max'], settings['Tau_points'])
-    taus = np.round(tau_list, 8)
+    taus = np.round(tau_list, 9)
     
     indices = list(range(len(taus)))
     np.random.shuffle(indices)
-    
+
+    ## Start the main measurement loop 
     amp_int = np.zeros(len(taus))
     amps    = np.zeros((len(taus),card.samples))
     
     tstart = time.time()
     first_it = True
+
     for tind in indices:
         
         tau = taus[tind]
@@ -149,108 +128,55 @@ def meas_T1(instruments, settings):
         hdawg.AWGs[0].run_loop()
         time.sleep(0.1)
         
+        amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it) 
         
-        card.ArmAndWait()
-        I,Q = card.ReadAllData()
-        
-#        #version with one secoment only
-#        DC_I = np.mean(I[0][-data_window:])
-#        DC_Q = np.mean(Q[0][-data_window:])
-#        
-#        Idat = I[0]-DC_I
-#        Qdat = Q[0]-DC_Q
-        
-        # no mixer correction, but average different segments together.
-        Ip = np.mean(I, 0)
-        Qp = np.mean(Q, 0)
-        
-        DC_I = np.mean(Ip[-data_window:])
-        DC_Q = np.mean(Qp[-data_window:])
-        
-        Idat = Ip-DC_I
-        Qdat = Qp-DC_Q
-        
-        amp = np.sqrt(Idat**2+Qdat**2)
-        
-        amps[tind] = amp
-        amp_int[tind] = np.mean(amp[start_points:start_points+data_window])
+        amps[tind] = amp_full
+        amp_int[tind] = amp 
+
         if first_it:
             tstop = time.time()
-            singlePointTime = tstop-tstart
-            
-            estimatedTime = singlePointTime*len(taus)
-            print('    ')
-            print('estimated time for this scan : ' + str(np.round(estimatedTime/60, 1)) + ' minutes')
-            print('estimated time for this scan : ' + str(np.round(estimatedTime/60/60, 2)) + ' hours')
-            print('    ')
-        
-        
-            fig = plt.figure(42)
-            plt.clf()
-            ax = plt.subplot(1,1,1)
-            plt.plot(xaxis_us, amp, 'r')
-            plt.plot(xaxis_us[start_points:start_points+data_window], amp[start_points:start_points+data_window], 'b')
-            plt.xlabel('time (us)')
-            plt.title('data window check')
-            plt.show()
-            
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-            
-            fig2 = plt.figure(44)
-            plt.clf()
-            ax = plt.subplot(1,3,1)
-            plt.plot(xaxis_us, Idat, 'b')
-            plt.xlabel('time (us)')
-            plt.title('I')
-            
-            ax = plt.subplot(1,3,2)
-            plt.plot(xaxis_us, Qdat, 'r')
-            plt.xlabel('time (us)')
-            plt.title('Q')
-            
-            ax = plt.subplot(1,3,3)
-            plt.plot(xaxis_us, Idat, 'b')
-            plt.plot(xaxis_us, Qdat, 'r')
-            plt.xlabel('time (us)')
-            plt.title('I and Q')
-            
-            plt.suptitle('sampe single read I and Q')
-            
-            plt.show()
-            fig2.canvas.draw()
-            fig2.canvas.flush_events()
-        first_it = False        
+            estimate_time(tstart, tstop, len(taus))
+            first_it = False      
+
+        fig = plt.figure(1, figsize=(13,8))
+        plt.clf()
+        plt.plot(taus*1e6, amps)
+        plt.title('Live T1 data (no fit)\n'+filename)
+        plt.xlabel('Tau (us)')
+        plt.ylabel('Amplitude')  
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
+
+        fig2 = plt.figure(2,figsize=(13,8))
+        plt.clf()
+
+        ax = plt.subplot(1,1,1)
+        general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
+
+        plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
+        userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
+
     t2 = time.time()
-    
-    
     print('Elapsed time: {}'.format(t2-tstart))
 
-    tau0 = settings['T1_guess']
-    offset0 = np.mean(amp_int[-2])
-    if settings['fit_polarity'] == 'positive':
-        amp0 = np.mean(max(amp_int)-offset0)
-    elif settings['fit_polarity'] == 'negative':
-        amp0 = np.mean(min(amp_int)-offset0)
-    else:
-        print('Polarity should be psotive or negative. Defaulting to negative polarity.')
-        amp0 = np.mean(min(amp_int)-offset0)
-    
-    fig = plt.figure(1,figsize=(13,8))
-    plt.clf()
-    fit_guess = [1e6*tau0, amp0, offset0]
-    T1 = fit_T1(1e6*taus, amp_int, fit_guess)
-    plt.suptitle(filename)
-    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
-    
-    fig = plt.figure(2,figsize=(13,8))
-    plt.clf()
-        
-    ax = plt.subplot(1,1,1)
-    base_power_plot_imshow(fig, ax, xaxis_us, taus*1e6, amps, ['Time (us)', 'Tau (us)', 'Amp'], attenuation=0)
-    
-    plt.suptitle(filename)
-    plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis_us', 'amps', 'amp_int'], locals(), expsettings=settings)
-    
+    T1_guess = exp_settings['T1_guess']
+    amp_guess = max(amps)-min(amps)
+    offset_guess = np.mean(amps[-10:])
+
+    fit_guess = [T1_guess, amp_guess, offset_guess]
+    T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
+    fig3 = plt.figure(3)
+    plt.plot(fit_xvals*1e6, amps)
+    plt.plot(fit_xvals*1e6, fit_yvals)
+    plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
+    plt.xlabel('Time (us)')
+    plt.ylabel('Amplitude')
+    fig3.canvas.draw()
+    fig3.canvas.flush_events()
+    plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
+
+    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 'tau', 'amp', 'offset', 'fit_guess'],
+                         locals(), expsettings=settings, instruments=instruments)
+
     return T1, taus, amp_int
