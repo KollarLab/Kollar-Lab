@@ -13,8 +13,6 @@ from kollar_instruments.Generator import Keysight33500B
 from kollar_instruments.DC205 import DC205
 from kollar_instruments.VNA import VNA
 
-from kollar_instruments.SGShelper import SGS_coupling
-
 #Digitizer
 hardwareAddress = "PXI23::0::0::INSTR" 
 card = Acqiris(hardwareAddress)
