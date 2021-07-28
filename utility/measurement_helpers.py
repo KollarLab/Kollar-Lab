@@ -98,15 +98,6 @@ def estimate_time(t1, t2, steps):
     print('expected finish time: {}'.format(final_time.ctime()))
     print('    ')
     
-#def estimate_time(t1, t2, array1, array2):
-#    one_step = t2-t1
-#    steps = len(array1)*len(array2)
-#    total_time = one_step*steps
-#    print('    ')
-#    print('estimated time for this scan : ' + str(np.round(total_time/60, 1)) + ' minutes')
-#    print('estimated time for this scan : ' + str(np.round(total_time/60/60, 2)) + ' hours')
-#    print('    ')
-
 def read_and_process(card, settings, plot):
     card.ArmAndWait()
     I, Q = card.ReadAllData()
@@ -129,18 +120,20 @@ def read_and_process(card, settings, plot):
     if plot:
         plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
 
-    return amp, phase, amp_full, phase_full
+    return amp, phase, amp_full, phase_full, xaxis
 
 def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
-    plt.figure(99)
+    fig = plt.figure(99)
     plt.clf()
     plt.plot(time_full, amp_full, 'r')
     plt.plot(time_extract, amp_extract,'b')
     plt.xlabel('Time (us)')
     plt.title('Data window check')
     plt.show()
+    fig.canvas.draw()
+    fig.canvas.flush_events()
 
-    plt.figure(98)
+    fig2 = plt.figure(98)
     plt.clf()
     plt.subplot(1,3,1)
     plt.plot(time_full, I, 'b')
@@ -160,6 +153,8 @@ def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
 
     plt.suptitle('Single read I and Q')
     plt.show()
+    fig2.canvas.draw()
+    fig2.canvas.flush_events()
 
 def configure_card(card, settings):
     '''
