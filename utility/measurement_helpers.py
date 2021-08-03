@@ -125,8 +125,8 @@ def read_and_process(card, settings, plot):
 def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     fig = plt.figure(99)
     plt.clf()
-    plt.plot(time_full, amp_full, 'r')
-    plt.plot(time_extract, amp_extract,'b')
+    plt.plot(time_full*1e6, amp_full, 'r')
+    plt.plot(time_extract*1e6, amp_extract,'b')
     plt.xlabel('Time (us)')
     plt.title('Data window check')
     plt.show()
@@ -136,18 +136,18 @@ def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     fig2 = plt.figure(98)
     plt.clf()
     plt.subplot(1,3,1)
-    plt.plot(time_full, I, 'b')
+    plt.plot(time_full*1e6, I, 'b')
     plt.xlabel('Time (us)')
     plt.title('I')    
 
     plt.subplot(1,3,2)
-    plt.plot(time_full, Q, 'r')
+    plt.plot(time_full*1e6, Q, 'r')
     plt.xlabel('Time (us)')
     plt.title('Q')    
 
     plt.subplot(1,3,3)
-    plt.plot(time_full, I, 'b')
-    plt.plot(time_full, Q, 'r')
+    plt.plot(time_full*1e6, I, 'b')
+    plt.plot(time_full*1e6, Q, 'r')
     plt.xlabel('Time (us)')
     plt.title('I and Q')    
 
@@ -156,6 +156,16 @@ def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     fig2.canvas.draw()
     fig2.canvas.flush_events()
 
+def configure_hdawg(hdawg, settings):
+    hdawg_config = settings['exp_globals']['hdawg_config']
+    amp = hdawg_config['amplitude']
+    trigger_slope = hdawg_config['trigger_slope']
+    hdawg.AWGs[0].samplerate = hdawg_config['samplerate']
+    hdawg.channelgrouping = hdawg_config['channelgrouping']
+    hdawg.Channels[0].configureChannel(amp=amp,marker_out='Marker', hold='False')
+    hdawg.Channels[1].configureChannel(amp=amp,marker_out='Marker', hold='False')
+    hdawg.AWGs[0].Triggers[0].configureTrigger(slope=trigger_slope,channel='Trigger in 1')
+    
 def configure_card(card, settings):
     '''
     Helper function to configure the card from a set of settings. This will
@@ -205,6 +215,7 @@ def configure_card(card, settings):
     card.timeout        = card_config['timeout']
     card.sampleRate     = card_config['sampleRate']
     card.activeChannels = card_config['activeChannels']
+    card.triggerSlope   = card_config['triggerSlope']
     card.averages       = exp_settings['averages']
     card.segments       = exp_settings['segments']
     card.triggerDelay   = trigger_delay
