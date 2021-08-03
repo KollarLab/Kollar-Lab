@@ -55,6 +55,10 @@ triggergen.Output     = 'ON'
 triggergen.Duty_cycle = '0.1'
 
 SRS = DC205('ASRL3::INSTR', reset = False)
+SRS.Output = 'Off'
+SRS.Range = '10 V'
 SRS2 = DC205('ASRL5::INSTR', reset = False)
+SRS2.Output = 'Off'
+SRS2.Range = '10 V'
 
 vna = VNA('TCPIP0::192.168.1.7::inst0::INSTR', reset = False)
