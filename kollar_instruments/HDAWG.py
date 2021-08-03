@@ -787,7 +787,7 @@ class HDAWGchannel():
                 #This gives us the 'best'/ closest representation on the AWG
                 delta = abs(np.round(val/x,3)-val/x)*1e4
                 if delta>0.001:
-                    print('delta is too large: {}'.format(delta))
+#                    print('delta is too large: {}'.format(delta))
                     continue
                 self.fullscale = np.round(x,3)
                 self.AWGamp    = np.round(val/x,3)
