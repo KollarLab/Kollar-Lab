@@ -10,8 +10,8 @@ exp_globals = {}
 
 #Project naming
 exp_globals['root_folder'] = r'Z:\Data'
-exp_globals['project_name'] = 'testing'
-exp_globals['device_name'] = 'ABC000'
+exp_globals['project_name'] = 'Fluxonium_Raman'
+exp_globals['device_name'] = 'WTF01_B3'
 
 #HW config
 exp_globals['CAV_Attenuation'] = 30
@@ -29,12 +29,12 @@ exp_globals['IF'] = 2e6
 measurement_pulse = {}
 measurement_pulse['meas_pos'] = 50e-6
 measurement_pulse['init_buffer'] = 1e-6
-measurement_pulse['emp_delay'] = 0
+measurement_pulse['emp_delay'] = 1.3e-6
 measurement_pulse['meas_window'] = 10e-6
 measurement_pulse['post_buffer'] = 1e-6
 
 qubit_pulse = {}
-qubit_pulse['sigma'] = 50e-9
+qubit_pulse['sigma'] = 200e-9
 qubit_pulse['num_sigma'] = 4
 qubit_pulse['delay'] = 1e-7
 
@@ -63,4 +63,12 @@ card_config['activeChannels'] = [1,2]
 card_config['sampleRate'] = 2e9/8
 card_config['channelRange'] = 2.5
 card_config['timeout'] = 30
+card_config['triggerSlope'] = 'Falling'
 exp_globals['card_config'] = card_config
+
+hdawg_config = {}
+hdawg_config['trigger_slope'] = 'falling'
+hdawg_config['samplerate'] = '2.4GHz'
+hdawg_config['channelgrouping'] = '1x4'
+hdawg_config['amplitude'] = 0.5 #NOTE: THE SGS PORT ONLY TAKES IN +-0.5V MAX      
+exp_globals['hdawg_config'] = hdawg_config
