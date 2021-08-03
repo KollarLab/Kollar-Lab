@@ -60,7 +60,7 @@ def vna_trans_flux_scan(instruments, settings):
     #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
-    filename = exp_settings['scanname'] + '_power{}dBm_' + stamp
+    filename_template = exp_settings['scanname'] + '_power{}dBm_' + stamp
 
     CAV_Attenuation = exp_globals['CAV_Attenuation']
     
@@ -98,7 +98,7 @@ def vna_trans_flux_scan(instruments, settings):
         identifier = 'Cav Power : ' + str(exp_settings['RFpower'] - CAV_Attenuation) + ' dB'
         
         stamp    = userfuncs.timestamp()
-        filename = filename.format(power - CAV_Attenuation)
+        filename = filename_template.format(power - CAV_Attenuation)
         #filename = 'transFluxScan_' + settings['scanname'] + '_Power'+str(exp_settings['RFpower'] - CAV_Attenuation) + '_' + stamp
         
         print('Power: {}'.format(exp_settings['RFpower'] - CAV_Attenuation))
@@ -122,8 +122,8 @@ def vna_trans_flux_scan(instruments, settings):
             
             if vind==0 and pind == 0:
                 tstop=time.time()
-                scaling = exp_settings['avg_time']/np.sum(exp_settings['avg_times'])
-                estimate_time(tstart, tstop, len(voltages)*scaling)
+                mean_avg_time = np.mean(exp_settings['avg_times'])/exp_settings['avg_times'][0]
+                estimate_time(tstart, tstop, len(powers)*len(voltages)*mean_avg_time)
                 
             freqs = data['xaxis']   
 

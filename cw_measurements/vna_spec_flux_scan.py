@@ -80,7 +80,7 @@ def vna_spec_flux_scan(instruments, settings):
     #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
-    filename = exp_settings['scanname'] + '_' + stamp
+    filename = spec_set['scanname'] + '_' + stamp
 
     CAV_Attenuation  = exp_globals['CAV_Attenuation']
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']
@@ -88,7 +88,7 @@ def vna_spec_flux_scan(instruments, settings):
     
     spec_set['CAVpower'] = spec_set['CAVpower'] + CAV_Attenuation
     spec_set['RFpower']  = spec_set['RFpower']  + Qbit_Attenuation
-    if not settings['high_power_spec']:
+    if not spec_set['high_power_spec']:
         print('Using CAVpower from general settings, ignoring autoscan power')
         autoscan_set['RFpower'] = spec_set['CAVpower']
     else:
@@ -108,8 +108,8 @@ def vna_spec_flux_scan(instruments, settings):
     trans_mags   = np.zeros((voltage_points, autoscan_set['freq_points']))
     trans_phases = np.zeros((voltage_points, autoscan_set['freq_points']))
     
-    mags   = np.zeros((voltage_points, settings['freq_points']))
-    phases = np.zeros((voltage_points, settings['freq_points']))
+    mags   = np.zeros((voltage_points, spec_set['freq_points']))
+    phases = np.zeros((voltage_points, spec_set['freq_points']))
     
     SRS.Output = 'On'
     
@@ -164,7 +164,7 @@ def vna_spec_flux_scan(instruments, settings):
         
         if vind==0:
             tstop=time.time()
-            estimate_time(tstart, tstop, len(voltage_points))
+            estimate_time(tstart, tstop, len(voltages))
             
         transdata = {}
         transdata['xaxis'] = trans_freqs
