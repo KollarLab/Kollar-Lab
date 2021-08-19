@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import userfuncs
 from utility.userfits import fit_T2
 from utility.plotting_tools import general_colormap_subplot
-from utility.measurement_helpers import configure_card, estimate_time, read_and_process
+from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
 
 def GetDefaultSettings():
     settings = {}
@@ -86,11 +86,7 @@ def meas_T2_phase_rotation(instruments, settings):
     configure_card(card, settings)
     
     ## Configure HDAWG
-    hdawg.AWGs[0].samplerate = '2.4GHz'
-    hdawg.channelgrouping = '1x4'
-    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
-    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
-    hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
+    configure_hdawg(hdawg, settings)
     
     HDAWG_dir = r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes"
     progFile = open(os.path.join(HDAWG_dir,'T2_echo_phase_rotation.cpp'),'r')

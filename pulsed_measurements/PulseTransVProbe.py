@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 import userfuncs
 from utility.plotting_tools import simplescan_plot
-from utility.measurement_helpers import configure_card, estimate_time, read_and_process
+from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
 
 def get_default_settings():
     settings = {}
@@ -90,11 +90,7 @@ def pulsed_trans_v_probe(instruments, settings):
     configure_card(card, settings)
 
     ##HDAWG settings
-    hdawg.AWGs[0].samplerate = '2.4GHz'
-    hdawg.channelgrouping = '1x4'
-    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='True')
-    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='True')
-    hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
+    configure_hdawg(hdawg, settings)
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\Control\HDAWG_sequencer_codes\pulsedtrans.cpp",'r')
     rawprog  = progFile.read()

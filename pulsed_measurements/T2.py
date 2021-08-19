@@ -6,7 +6,7 @@ Created on Fri Dec  4 16:52:18 2020
 """
 import time
 import os
-from utility.measurement_helpers import configure_card, estimate_time, read_and_process
+from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -80,11 +80,7 @@ def meas_T2(instruments, settings):
     configure_card(card, settings)
 
     ## HDAWG
-    hdawg.AWGs[0].samplerate = '2.4GHz'
-    hdawg.channelgrouping = '1x4'
-    hdawg.Channels[0].configureChannel(amp=1.0,marker_out='Marker', hold='False')
-    hdawg.Channels[1].configureChannel(amp=1.0,marker_out='Marker', hold='False')
-    hdawg.AWGs[0].Triggers[0].configureTrigger(slope='rising',channel='Trigger in 1')
+    configure_hdawg(hdawg, settings)
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T2.cpp",'r')
     rawprog  = progFile.read()
