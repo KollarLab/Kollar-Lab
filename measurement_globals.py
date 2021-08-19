@@ -16,8 +16,8 @@ exp_globals['device_name'] = 'WTF01_B3'
 #HW config
 exp_globals['CAV_Attenuation'] = 30
 exp_globals['Qbit_Attenuation'] = 10
-exp_globals['Input_filters'] = 'none'
-exp_globals['Output_filters'] = 'LPF 8GHz, HPF 4GHz'
+exp_globals['Input_filters'] = 'LPF 6.4GHz'
+exp_globals['Output_filters'] =  'LPF 8GHz, HPF 4GHz'
 exp_globals['Gain'] = '50dB'
 
 #SW config
