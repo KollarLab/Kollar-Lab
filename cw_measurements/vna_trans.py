@@ -101,3 +101,5 @@ def vna_trans(instruments, settings):
         
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
+
+    return full_data
