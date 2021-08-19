@@ -164,6 +164,8 @@ def configure_hdawg(hdawg, settings):
     hdawg.channelgrouping = hdawg_config['channelgrouping']
     hdawg.Channels[0].configureChannel(amp=amp,marker_out='Marker', hold='False')
     hdawg.Channels[1].configureChannel(amp=amp,marker_out='Marker', hold='False')
+    hdawg.Channels[2].configureChannel(amp=amp,marker_out='Marker', hold='False')
+    hdawg.Channels[3].configureChannel(amp=amp,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope=trigger_slope,channel='Trigger in 1')
     
 def configure_card(card, settings):
