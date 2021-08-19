@@ -107,6 +107,11 @@ def vna_spec_stability(instruments, settings):
         plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
         center, width, amp = fit_lorentzian(freqs, data['mag'], plot=True, fig_num=4)
         
+        fig = plt.figure(1)
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        
+        
         centers[tind] = center
         widths[tind]  = width
         amps[tind]    = amp
