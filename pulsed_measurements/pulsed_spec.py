@@ -1,3 +1,11 @@
+'''
+8-25-21 AK modifying to normalize the amplitudes to the drive power. Undid that.
+
+9-2-21 AK made it return the data
+
+'''
+
+
 import os
 import time
 import numpy as np
@@ -120,6 +128,9 @@ def pulsed_spec(instruments, settings):
     tstart = time.time()
     first_it = True
     
+#    drive_powers_lin = 10**(powers/10)
+#    drive_amps_lin = np.sqrt(drive_powers_lin)
+    
     for powerind in range(len(powers)):
         qubitgen.Power = powers[powerind]
         time.sleep(0.2)
@@ -153,6 +164,12 @@ def pulsed_spec(instruments, settings):
         full_data['xaxis'] = freqs/1e9
         full_data['mags'] = powerdat[0:powerind+1]
         full_data['phases'] = phasedat[0:powerind+1]
+        
+#        #rescale to fractional amplitude for the plots.
+#        plot_data = {}
+#        plot_data['xaxis']  = freqs/1e9
+#        plot_data['mags']   = np.transpose(   np.transpose(powerdat[0:powerind+1])/drive_amps_lin[0:powerind+1])
+#        plot_data['phases'] = phasedat[0:powerind+1]
 
         single_data = {}
         single_data['xaxis'] = freqs/1e9
@@ -161,7 +178,8 @@ def pulsed_spec(instruments, settings):
 
         yaxis = powers[0:powerind+1] - Qbit_Attenuation
         labels = ['Freq (GHz)', 'Power (dBm)']
-        simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
+        simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) #unscaled amplitudes
+#        simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)#scaled amplitudes
         plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
         full_time = {}
@@ -190,3 +208,5 @@ def pulsed_spec(instruments, settings):
     cavitygen.Output = 'Off'
     qubitgen.Output = 'Off'
     LO.Output = 'Off'
+    
+    return full_data

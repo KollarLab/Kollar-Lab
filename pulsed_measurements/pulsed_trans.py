@@ -1,3 +1,11 @@
+'''
+8-25-21 AK modifying to normalize the amplitudes to the drive power.
+
+8-25-21 AK modifying to return the raw data.
+
+'''
+
+
 import os
 import time
 import numpy as np 
@@ -92,6 +100,9 @@ def pulsed_trans(instruments, settings):
     tstart = time.time()
     first_it = True
 
+    drive_powers_lin = 10**(powers/10)
+    drive_amps_lin = np.sqrt(drive_powers_lin)
+
     for powerind in range(len(powers)):
         cavitygen.Power = powers[powerind]
         time.sleep(0.2)
@@ -122,12 +133,18 @@ def pulsed_trans(instruments, settings):
             amps[find,:]   = amp_full
             phases[find,:] = phase_full
             powerdat[powerind, find] = np.mean(amp)
-            phasedat[powerind, find] = np.mean(phase)
+            phasedat[powerind, find] = np.mean(phase)   ####!!!! this does not work with heterodyne. Because the phase is wrapping.
             
         full_data = {}
         full_data['xaxis']  = freqs/1e9
         full_data['mags']   = powerdat[0:powerind+1]
         full_data['phases'] = phasedat[0:powerind+1]
+        
+        #rescale to fractional amplitude for the plots.
+        plot_data = {}
+        plot_data['xaxis']  = freqs/1e9
+        plot_data['mags']   = np.transpose(   np.transpose(powerdat[0:powerind+1])/drive_amps_lin[0:powerind+1])
+        plot_data['phases'] = phasedat[0:powerind+1]
 
         single_data = {}
         single_data['xaxis'] = freqs/1e9
@@ -136,7 +153,8 @@ def pulsed_trans(instruments, settings):
 
         yaxis  = powers[0:powerind+1] - CAV_Attenuation
         labels = ['Freq (GHz)', 'Power (dBm)']
-        simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) 
+#        simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) #unnormalized plot
+        simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1) #normalized to drive level
         plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
         full_time = {}
@@ -159,3 +177,5 @@ def pulsed_trans(instruments, settings):
     t2 = time.time()
     
     print('elapsed time = ' + str(t2-tstart))
+    
+    return full_data

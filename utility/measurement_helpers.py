@@ -2,6 +2,10 @@
 """
 Created on Wed Mar  3 09:20:52 2021
 
+
+8-25-21 AK trying to unwarpp the phase of pulse homodyne data. Messing 
+with the extract data function.
+
 @author: Kollarlab
 """
 import numpy as np
@@ -112,10 +116,30 @@ def read_and_process(card, settings, plot):
     Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
 
     amp_full = np.sqrt(Ifull**2+Qfull**2)
-    phase_full = np.arctan2(Qfull, Ifull)*180/np.pi
+    if settings['exp_globals']['IF'] == 0:
+        phase_full = np.arctan2(Qfull, Ifull)*180/np.pi
+    else:
+        raw_angle = np.arctan2(Qfull, Ifull)*180/np.pi
+        phase_full = np.mod(raw_angle + 360*settings['exp_globals']['IF']*xaxis, 360)
+        
+#        plt.figure(101)
+#        plt.clf()
+#        ax = plt.subplot(1,2,1)
+#        plt.plot(xaxis, raw_angle)
+#        plt.title('raw phase angle')
+#        
+#        ax = plt.subplot(1,2,2)
+#        plt.plot(xaxis, phase_full)
+#        plt.show()
+#        plt.title('(hopefully) corrected phase angle')
 
     amp = np.sqrt(Idata**2+Qdata**2)
-    phase = np.arctan2(Qdata, Idata)*180/np.pi
+    
+    if settings['exp_globals']['IF'] == 0:
+        phase = np.arctan2(Qdata, Idata)*180/np.pi
+    else:
+        raw_angle = np.arctan2(Qdata, Idata)*180/np.pi
+        phase = np.mod(raw_angle + 360*settings['exp_globals']['IF']*Itime, 360)
 
     if plot:
         plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)

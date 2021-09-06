@@ -10,13 +10,13 @@ exp_globals = {}
 
 #Project naming
 exp_globals['root_folder'] = r'Z:\Data'
-exp_globals['project_name'] = 'Fluxonium_Raman'
-exp_globals['device_name'] = 'WTF01_B3'
+exp_globals['project_name'] = 'Qubit_Development'
+exp_globals['device_name'] = 'FPS01_01_B2'
 
 #HW config
-exp_globals['CAV_Attenuation'] = 30
-exp_globals['Qbit_Attenuation'] = 10
-exp_globals['Input_filters'] = 'LPF 6.4GHz'
+exp_globals['CAV_Attenuation'] = 20
+exp_globals['Qbit_Attenuation'] = 0
+exp_globals['Input_filters'] = ''#'LPF 6.4GHz'
 exp_globals['Output_filters'] =  'LPF 8GHz, HPF 4GHz'
 exp_globals['Gain'] = '50dB'
 
@@ -29,7 +29,7 @@ exp_globals['IF'] = 2e6
 measurement_pulse = {}
 measurement_pulse['meas_pos'] = 50e-6
 measurement_pulse['init_buffer'] = 1e-6
-measurement_pulse['emp_delay'] = 1.3e-6
+measurement_pulse['emp_delay'] = 0#1.3e-6
 measurement_pulse['meas_window'] = 10e-6
 measurement_pulse['post_buffer'] = 1e-6
 
@@ -62,7 +62,7 @@ card_config = {}
 card_config['activeChannels'] = [1,2]
 card_config['sampleRate'] = 2e9/8
 card_config['channelRange'] = 2.5
-card_config['timeout'] = 30
+card_config['timeout'] = 40
 card_config['triggerSlope'] = 'Falling'
 exp_globals['card_config'] = card_config
 

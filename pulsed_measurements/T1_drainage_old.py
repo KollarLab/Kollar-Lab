@@ -2,23 +2,6 @@
 """
 Created on Fri Dec  4 16:52:18 2020
 
-
-08-30-20 AK making a lot of changes. Differentiating settinds and exp_settings
--It also looks like the data extraction is not quite right. The integration of the trace in time 
-is missing.
--switched to plotting amp_int instead of amps, because amps is the raw time traces.
--And fixed offset subtraction since we were cutting the 2D array amps in a funny way.
--switched built-in max and min to np.max, np.min
-- fixed the live plot so that it only plots the tau points that have been done 
-instead of plotting all of them and getting lost of fake zeros. Also switched to 
-plotting dots instead of lines.
--updated IF to follow expt globals.
--switched hold in HDAWG config command to 1 instead of True. That still doesn't fix it.
--In the old version, there was no counter to keep track of where in the loop over randomized taus you are.
-This makes autoplotting very hard.
--Had to change the randomized tau list to draw from exp_settings instead of settings, because the higher-level
-settings dictionary doesn't have the right fields.
-
 @author: Kollarlab
 """
 import os
@@ -82,8 +65,7 @@ def meas_T1(instruments, settings):
     
     ## Configure generators
     LO.Power  = 12
-#    LO.Freq   = CAV_Freq - 1e6 #old hard coded version
-    LO.Freq   = CAV_Freq- exp_globals['IF']
+    LO.Freq   = CAV_Freq - 1e6
     LO.Output = 'On'
     
     cavitygen.Freq   = CAV_Freq
@@ -104,9 +86,8 @@ def meas_T1(instruments, settings):
     configure_hdawg(hdawg, settings)
 
     # We'll be using the "hold" utility to keep the qubit drive high by default and pulse it low when we are measuring
-#    hdawg.Channels[1].configureChannel(amp=exp_globals['hdawg_config']['amplitude'], marker_out='Marker', hold=True)#hold needs to a string 'True'
-    hdawg.Channels[1].configureChannel(amp=exp_globals['hdawg_config']['amplitude'], marker_out='Marker', hold='True')
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T1_drainage_generalized.cpp",'r')
+    hdawg.Channels[1].configureChannel(amp=exp_globals['hdawg_config']['amplitude'], marker_out='Marker', hold=True) 
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T1_drainage.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -116,10 +97,10 @@ def meas_T1(instruments, settings):
     loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
 
     ## Set up array of taus and randomize it
-    if exp_settings['spacing']=='Log':
-        tau_list = np.logspace(np.log10(exp_settings['Tau_min']), np.log10(exp_settings['Tau_max']), exp_settings['Tau_points'])
+    if settings['spacing']=='Log':
+        tau_list = np.logspace(np.log10(settings['Tau_min']), np.log10(settings['Tau_max']), settings['Tau_points'])
     else:
-         tau_list = np.linspace(exp_settings['Tau_min'], exp_settings['Tau_max'], exp_settings['Tau_points'])
+         tau_list = np.linspace(settings['Tau_min'], settings['Tau_max'], settings['Tau_points'])
     taus = np.round(tau_list, 9)
     
     indices = list(range(len(taus)))
@@ -132,9 +113,7 @@ def meas_T1(instruments, settings):
     tstart = time.time()
     first_it = True
 
-#    for tind in indices: #old version that has no explicit counter for the loop
-    for lind in range(0,len(indices)):
-        tind = indices[lind] #tind is the index in the tau array. lind is the index in the loop
+    for tind in indices:
         
         tau = taus[tind]
         print('Tau: {}'.format(tau))
@@ -146,13 +125,8 @@ def meas_T1(instruments, settings):
         
         amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it) 
         
-#        #old version that errors because amp is a vector
-#        amps[tind] = amp_full
-#        amp_int[tind] = amp 
-        
-        #new version
         amps[tind] = amp_full
-        amp_int[tind] = np.mean(amp)
+        amp_int[tind] = amp 
 
         if first_it:
             tstop = time.time()
@@ -161,11 +135,7 @@ def meas_T1(instruments, settings):
 
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
-#        plt.plot(taus*1e6, amps)#old version. Plotted a ton of raw data. amps is a matrix of the full time traces
-#        plt.plot(taus*1e6, amp_int) #this plots all taus, including ones that aren't done yet
-#        plt.plot(taus[indices[0:tind]]*1e6, amp_int[indices[0:tind]], 'o') #hopefully this does only the ones that have been done
-        #nope. it takes the wrong cut. 
-        plt.plot(taus[indices[0:lind+1]]*1e6, amp_int[indices[0:lind+1]], 'o') # this should take the right one
+        plt.plot(taus*1e6, amps)
         plt.title('Live T1 data (no fit)\n'+filename)
         plt.xlabel('Tau (us)')
         plt.ylabel('Amplitude')  
@@ -186,18 +156,13 @@ def meas_T1(instruments, settings):
     print('Elapsed time: {}'.format(t2-tstart))
 
     T1_guess = exp_settings['T1_guess']
-#    amp_guess = max(amps)-min(amps) # this crashes because amps is 2D
-    amp_guess = np.max(amps)-np.min(amps)
-#    offset_guess = np.mean(amps[-10:]) #this is also wierd. amps is 2D
-    offset_guess = np.mean(amps[:,-50:]) #now this will take the end of each row of faw data
+    amp_guess = max(amps)-min(amps)
+    offset_guess = np.mean(amps[-10:])
 
     fit_guess = [T1_guess, amp_guess, offset_guess]
     T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
     fig3 = plt.figure(3)
-    plt.clf() #adding a clear figure
-#    plt.plot(fit_xvals*1e6, amps) #old version. amps is a matrix of the full time traces
-#    plt.plot(fit_xvals*1e6, amp_int) #next problems. fit_xvals is not the same shape as taus
-    plt.plot(taus*1e6, amp_int)
+    plt.plot(fit_xvals*1e6, amps)
     plt.plot(fit_xvals*1e6, fit_yvals)
     plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
     plt.xlabel('Time (us)')
