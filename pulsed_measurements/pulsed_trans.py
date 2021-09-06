@@ -166,11 +166,6 @@ def pulsed_trans(instruments, settings):
             powerdat[powerind, find] = np.sqrt(I_final**2 + Q_final**2)
             phasedat[powerind, find] = np.arctan2(Q_final, I_final)*180/np.pi
             
-#            print('   ')
-#            print(str(I_final))
-#            print(str(Q_final))
-#            print(str(phasedat[powerind, find]))
-            
         full_data = {}
         full_data['xaxis']  = freqs/1e9
         full_data['mags']   = powerdat[0:powerind+1]
