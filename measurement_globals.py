@@ -6,7 +6,6 @@ folder. This is an early version so feel free to add more settings to the list. 
 will have to go through the other scripts though to implement those changes as well
 '''
 
-"""Hello World """
 
 exp_globals = {}
 
@@ -42,6 +41,13 @@ qubit_pulse['delay'] = 1e-7
 
 exp_globals['measurement_pulse'] = measurement_pulse
 exp_globals['qubit_pulse'] = qubit_pulse
+
+#digitial down conversion, assuming Chebychev type II filter
+ddc = {}
+ddc['order'] = 5
+ddc['stop_atten'] = 40
+ddc['cutoff'] = exp_globals['IF']
+exp_globals['ddc_config'] = ddc
 
 #HW corrections and mixer corrections
 mixer_config = {}

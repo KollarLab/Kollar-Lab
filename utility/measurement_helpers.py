@@ -12,6 +12,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import timedelta, datetime
 
+import scipy.signal as signal
+
 def check_inputs(inputs, defaults):
     '''
     Checks that the given input dictionary has the correct settings. It's easy
@@ -88,6 +90,59 @@ def extract_data(raw_data, xaxis, settings):
         return data - back_val, data_x, raw_data - back_val, xaxis
     else:
         return data, data_x, raw_data, xaxis
+        
+        
+def extract_data_heterodyne(raw_data, xaxis, settings):
+    '''
+    Extracts the data from a trace. Finds the indices of start/ stop for both
+    data and background (assumes that they are the same length, which should
+    be enforced by the card samples in the actual exp script) and splices the 
+    correct ranges from the raw data. Returns a time axis for the data window 
+    and subtracts mean of background if specified
+    Key input params:
+    ALL VALUES SHOULD BE IN TIME UNITS (base seconds)
+        init_buffer: buffer specified to card before the measurement tone
+        emp_delay: combination of line delay and other delays that correctly
+                   shifts the digitizer to match the HDAWG time axis
+        meas_window: width of the measurement pulse
+        post_buffer: time to wait after the pulse before measuring background
+        
+    modified from extract_data so that it will work with heterodyne and digital 
+    down conversion
+        
+    '''
+    measurement_pulse = settings['exp_globals']['measurement_pulse']
+    init_buffer = measurement_pulse['init_buffer']
+    emp_delay   = measurement_pulse['emp_delay']
+    meas_window = measurement_pulse['meas_window']
+    post_buffer = measurement_pulse['post_buffer']
+    
+    timestep   = xaxis[1] - xaxis[0]
+    data_start = int((init_buffer + emp_delay)/timestep)
+    back_start = int((init_buffer + emp_delay + meas_window + post_buffer)/timestep)
+    window_width = int(meas_window/timestep)
+    
+    data_x = xaxis[data_start:data_start+window_width]
+    background = raw_data[back_start:back_start+window_width]
+    back_val = np.mean(background)
+
+    if settings['exp_settings']['subtract_background']:
+        raw_data = raw_data-back_val
+
+    #now I am ready to filter the data.
+    LPF = settings['LPF']
+    digLO_sin = settings['digLO_sin']
+    digLO_cos = settings['digLO_cos']
+    
+    filtered_sin_full = signal.sosfilt(LPF, raw_data*digLO_sin)
+    filtered_cos_full = signal.sosfilt(LPF, raw_data*digLO_cos)
+    
+    filtered_sin = filtered_sin_full[data_start:data_start+window_width]
+    filtered_cos = filtered_cos_full[data_start:data_start+window_width]
+    
+    return filtered_cos, filtered_sin, data_x, filtered_cos_full, filtered_sin_full, xaxis
+        
+
 
 def estimate_time(t1, t2, steps):
     one_step = t2-t1
@@ -102,7 +157,15 @@ def estimate_time(t1, t2, steps):
     print('expected finish time: {}'.format(final_time.ctime()))
     print('    ')
     
-def read_and_process(card, settings, plot):
+def read_and_process(card, settings, plot, IQstorage = True):
+    '''The original version of this function wanted to convert to 
+    amplitude(t) and phase(t). This has been found to be problematic.
+    To get the old version of operation, set
+    IQstorage = False
+    
+    IQstorage = True will instead return I(t) and Q(t) for 
+    later processing.
+    '''
     card.ArmAndWait()
     I, Q = card.ReadAllData()
     Ip = np.mean(I, 0)
@@ -112,39 +175,85 @@ def read_and_process(card, settings, plot):
 
     xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
 
-    Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
-    Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
-
-    amp_full = np.sqrt(Ifull**2+Qfull**2)
-    if settings['exp_globals']['IF'] == 0:
-        phase_full = np.arctan2(Qfull, Ifull)*180/np.pi
-    else:
-        raw_angle = np.arctan2(Qfull, Ifull)*180/np.pi
-        phase_full = np.mod(raw_angle + 360*settings['exp_globals']['IF']*xaxis, 360)
-        
-#        plt.figure(101)
-#        plt.clf()
-#        ax = plt.subplot(1,2,1)
-#        plt.plot(xaxis, raw_angle)
-#        plt.title('raw phase angle')
-#        
-#        ax = plt.subplot(1,2,2)
-#        plt.plot(xaxis, phase_full)
-#        plt.show()
-#        plt.title('(hopefully) corrected phase angle')
-
-    amp = np.sqrt(Idata**2+Qdata**2)
+#    Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+#    Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
     
-    if settings['exp_globals']['IF'] == 0:
-        phase = np.arctan2(Qdata, Idata)*180/np.pi
+    if not IQstorage:
+        Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+        Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+        
+        amp_full = np.sqrt(Ifull**2+Qfull**2)
+        if settings['exp_globals']['IF'] == 0:
+            phase_full = np.arctan2(Qfull, Ifull)*180/np.pi
+        else:
+            raw_angle = np.arctan2(Qfull, Ifull)*180/np.pi
+            phase_full = np.mod(raw_angle + 360*settings['exp_globals']['IF']*xaxis, 360)
+            
+    #        plt.figure(101)
+    #        plt.clf()
+    #        ax = plt.subplot(1,2,1)
+    #        plt.plot(xaxis, raw_angle)
+    #        plt.title('raw phase angle')
+    #        ax = plt.subplot(1,2,2)
+    #        plt.plot(xaxis, phase_full)
+    #        plt.show()
+    #        plt.title('(hopefully) corrected phase angle')
+    
+        amp = np.sqrt(Idata**2+Qdata**2)
+        
+        if settings['exp_globals']['IF'] == 0:
+            phase = np.arctan2(Qdata, Idata)*180/np.pi
+        else:
+            raw_angle = np.arctan2(Qdata, Idata)*180/np.pi
+            phase = np.mod(raw_angle + 360*settings['exp_globals']['IF']*Itime, 360)
+    
+        if plot:
+            plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+    
+        return amp, phase, amp_full, phase_full, xaxis
     else:
-        raw_angle = np.arctan2(Qdata, Idata)*180/np.pi
-        phase = np.mod(raw_angle + 360*settings['exp_globals']['IF']*Itime, 360)
-
-    if plot:
-        plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
-
-    return amp, phase, amp_full, phase_full, xaxis
+        #do not convert to amp(t) and phase(t)
+#        if plot:
+#            amp = np.sqrt(Idata**2+Qdata**2) #this is just a guide to theeye for locating the pulse
+#            amp_full = np.sqrt(Ifull**2+Qfull**2)
+#            plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+        
+        if settings['exp_globals']['IF'] == 0:
+            Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+            Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+            if plot:
+                amp = np.sqrt(Idata**2+Qdata**2) #this is just a guide to theeye for locating the pulse
+                amp_full = np.sqrt(Ifull**2+Qfull**2)
+                plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+        else:
+            I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
+            Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
+            
+            
+                
+            #rotate the mixer Q signal back into I so they can be averaged properly
+            theta = -np.pi/2
+            Qprime_sin = Q_sin*np.cos(theta) + -Q_cos *np.sin(theta) 
+            Qprime_cos = Q_sin*np.sin(theta) + Q_cos*np.cos(theta)
+            
+            Qprime_sin_full = Q_sin_full*np.cos(theta) + -Q_cos_full *np.sin(theta) 
+            Qprime_cos_full = Q_sin_full*np.sin(theta) + Q_cos_full*np.cos(theta)
+            
+            
+            Q_window  = (I_sin +  Qprime_sin)/2
+            I_window = (I_cos + Qprime_cos)/2
+            
+            Q_full  = (I_sin_full +  Qprime_sin_full)/2
+            I_full = (I_cos_full + Qprime_cos_full)/2
+            
+            if plot:
+                amp = np.sqrt(Q_window**2+I_window**2) #this is just the I signal
+                amp_full = np.sqrt(I_full**2+Q_full**2)
+                plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
+        
+        return I_window, Q_window, I_full, Q_full, xaxis
+            
+        
 
 def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     fig = plt.figure(99)

@@ -31,28 +31,58 @@ def general_VNAplot(xaxis, mags, phases, yaxis, scanname, HWattenuation = 0,
     fig.canvas.flush_events()
     return
 
-def simplescan_plot(full_data, singledata, yaxis, scanname, labels, identifier='', fig_num='', cmap='hot', vmin=np.NaN, vmax=np.NaN):
+def simplescan_plot(full_data, singledata, 
+                    yaxis, 
+                    scanname, 
+                    labels, 
+                    identifier='', 
+                    fig_num='', 
+                    cmap='hot', 
+                    vmin=np.NaN, vmax=np.NaN,
+                    IQdata = False):
     if fig_num == '':
         fig = plt.figure(figsize=(13,8))
     else:
         fig = plt.figure(fig_num, figsize=(13,8))
     plt.clf()
     
+    #modifying this function so that it can plot mag/phase data or I/Q data
+    if not IQdata:
+        key1 = 'mags'
+        title1 = 'Mag'
+        
+        key2 = 'phases'
+        title2 = 'Phase'
+    else:
+        key1 = 'Is'
+        title1 = 'I'
+        
+        key2 = 'Qs'
+        title2 = 'Q'
+    
     ax = plt.subplot(2,2,1)
-    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data['mags'], labels, 'Mag', cmap, vmin, vmax)
+#    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data['mags'], labels, 'Mag', cmap, vmin, vmax)
+    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data[key1], labels, title1, cmap, vmin, vmax)
     
     ax = plt.subplot(2,2,2)
-    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data['phases'], labels, 'Phase', cmap)
+#    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data['phases'], labels, 'Phase', cmap)
+    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data[key2], labels, title2, cmap)
     
     ax = plt.subplot(2,2,3)
-    plt.plot(singledata['xaxis'], singledata['mag'])
+    key = key1[0:-1]
+#    plt.plot(singledata['xaxis'], singledata['mag'])
+    plt.plot(singledata['xaxis'], singledata[key])
     plt.xlabel(labels[0])
-    plt.title('Single shot mag')
+#    plt.title('Single shot mag')
+    plt.title('Single shot ' + key)
     
     ax = plt.subplot(2,2,4)
-    plt.plot(singledata['xaxis'], singledata['phase'])
+    key = key2[0:-1]
+#    plt.plot(singledata['xaxis'], singledata['phase'])
+    plt.plot(singledata['xaxis'], singledata[key])
     plt.xlabel(labels[0])
-    plt.title('Single shot phase')
+#    plt.title('Single shot phase')
+    plt.title('Single shot ' + key)
     
     plt.suptitle('Filename: {}, {}'.format(scanname, identifier))
     
