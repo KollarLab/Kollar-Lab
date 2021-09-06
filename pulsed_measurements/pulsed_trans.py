@@ -96,11 +96,11 @@ def pulsed_trans(instruments, settings):
     time.sleep(0.1)
     
     ##create the digital down conversion filter if needed.
-    if exp_globals['IF']> 0:
+    if exp_globals['IF'] != 0:
         #create Chebychev type II digital filter
         filter_N = exp_globals['ddc_config']['order']
         filter_rs = exp_globals['ddc_config']['stop_atten']
-        filter_cutoff = exp_globals['ddc_config']['cutoff']
+        filter_cutoff = np.abs(exp_globals['ddc_config']['cutoff'])
         LPF = signal.cheby2(filter_N, filter_rs, filter_cutoff, btype='low', analog=False, output='sos', fs=card.sampleRate)
         
         xaxis = np.arange(0, card.samples, 1) * 1/card.sampleRate
