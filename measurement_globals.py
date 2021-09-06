@@ -6,6 +6,8 @@ folder. This is an early version so feel free to add more settings to the list. 
 will have to go through the other scripts though to implement those changes as well
 '''
 
+"""Hello World """
+
 exp_globals = {}
 
 #Project naming
@@ -16,14 +18,14 @@ exp_globals['device_name'] = 'FPS01_01_B2'
 #HW config
 exp_globals['CAV_Attenuation'] = 20
 exp_globals['Qbit_Attenuation'] = 0
-exp_globals['Input_filters'] = ''#'LPF 6.4GHz'
+exp_globals['Input_filters'] = ''     #'LPF 6.4GHz'
 exp_globals['Output_filters'] =  'LPF 8GHz, HPF 4GHz'
 exp_globals['Gain'] = '50dB'
 
 #SW config
 exp_globals['trigger_rate'] = 1e3
 exp_globals['hanger'] = False
-exp_globals['IF'] = 2e6
+exp_globals['IF'] = 1e6
 
 #Pulse config
 measurement_pulse = {}
