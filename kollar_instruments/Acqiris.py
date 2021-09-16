@@ -43,6 +43,8 @@ from userfuncs import freeze
 class Acqiris(object):
     
     def __init__(self, ResourceName, simulate = False):  
+        self.instrument_type = 'Acqiris'
+        
         #look to the right place.
         IVIbinPath = "C:\\Program Files\\IVI Foundation\\IVI\\Bin\\"
         

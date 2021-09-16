@@ -43,4 +43,6 @@ class SGS100A(SCPIinst):
     commandlist['RefOut'] = RefOut
 
     def __init__(self, address):
+        self.instrument_type = 'SGS'
+        
         super().__init__(address, self.commandlist, self.errcmds) 

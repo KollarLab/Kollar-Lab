@@ -62,6 +62,8 @@ class VNA(SCPIinst):
         '''
         Initialize connection with instrument, reset it and clear all errors
         '''
+        self.instrument_type = 'vna'
+        
         super().__init__(address, self.commandlist, self.errcmds, reset) 
         self.Ref.Source = 'EXT'
         self.Output = 'Off'
