@@ -55,30 +55,53 @@ class HS9000B():
 class reference(object):
     def __init__(self, inst):
         self.inst = inst
-        self._source = 'INT'
-        self._frequency = '100MHz'
+        
+        #strings to have around because source and frequency cannot be set separately at the bottom later
+        self._source_str = 'INT'
+        self._frequency_str = '100MHz'
     
+        #make sure that the actual setting match the stored strings, to start with
+        self.source = 'INT'
+        self.frequency = 100e6
+        
     @property
     def source(self):
-        print('reading ref')
+#        print('reading ref')
         [mode, freq] = self.inst.query(':REF:STATUS?').split()
         return mode
     @source.setter
     def source(self, mode):
-        print('setting mode')
-        self.inst.query(':REF:{}:{}'.format(mode, self._frequency))
-        self._source = mode
+#        print('setting mode')
+        if mode in ['INT', 'Int', 'Internal']:
+            mode_str = 'INT'
+            self.frequency = 100e6
+        elif mode in ['EXT', 'Ext', 'External']:
+            mode_str = 'EXT'
+        else:
+            raise ValueError('Unknown refernce source mode. Try Ext, Int')
+        self.inst.query(':REF:{}:{}'.format(mode_str, self._frequency_str))
+        self._source_str = mode_str
     
     @property
     def frequency(self):
-        print('reading ref(freq)')
-        [mode, freq] = self.inst.query(':REF:STATUS?').split()
+#        print('reading ref(freq)')
+        [mode, freq_str] = self.inst.query(':REF:STATUS?').split()
+        freq = float(freq_str[:-3])*1e6
         return freq
     @frequency.setter
     def frequency(self, value):
-        print('{},{}'.format(self._source, value))
-        self.inst.query(':REF:{}:{}'.format(self._source, value))
-        self._frequency  = value
+#        print('trying to set {}'.format(value))
+        value_MHz = value/1e6
+        value_int = int(np.round(value_MHz,0))
+        if self._source_str == 'INT':
+            if not value_int== 100:
+                raise ValueError('Internal reference frequency must be 100 MHz')
+        elif self._source_str == 'EXT':
+            if not value_int in [10,100]:
+                raise ValueError('External ref freq must be 10 or 100 MHz')
+        value_str = str(value_int) + 'MHz'
+        self.inst.query(':REF:{}:{}'.format(self._source_str, value_str))
+        self._frequency_str  = value_str
     
     @property
     def settings(self):
