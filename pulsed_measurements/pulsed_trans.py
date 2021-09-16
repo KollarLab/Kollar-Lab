@@ -66,15 +66,28 @@ def pulsed_trans(instruments, settings):
     powers = np.round(np.linspace(start_power,stop_power,power_points),2)
     
     ## Generator settings
-    cavitygen.Freq   = freqs[0]
-    cavitygen.Power  = powers[0]
-    cavitygen.IQ.Mod = 'On'
+#    cavitygen.Freq   = freqs[0]
+#    cavitygen.Power  = powers[0]
+#    cavitygen.IQ.Mod = 'On'
+#    cavitygen.Output = 'On'
 
-    cavitygen.Output = 'On'
+    #terrible hack to get this to work with a holzworth channel object
+    cavitygen.freq   = freqs[0]
+    cavitygen.power  = powers[0]
+    prop_dict = cavitygen.__dict__['props']
+    channel = cavitygen.__dict__['channel']
+    cavitygen.inst.query(channel+prop_dict['ext_mod']+':{}'.format('PULSE:SRC:EXT'))
+#    cavitygen.inst.query(channel+prop_dict['ext_mod']+':{}'.format('OFF'))
+    cavitygen.output = 'On'
+
     
-    LO.Power  = 12
-    LO.Freq   = freqs[0] - exp_globals['IF']
-    LO.Output = 'On'
+    
+#    LO.Power  = 12
+#    LO.Freq   = freqs[0] - exp_globals['IF']
+#    LO.Output = 'On'
+    LO.power  = 12
+    LO.freq   = freqs[0] - exp_globals['IF']
+    LO.output = 'On'
     
     ##Card settings
     configure_card(card, settings)
@@ -123,7 +136,9 @@ def pulsed_trans(instruments, settings):
     drive_amps_lin = np.sqrt(drive_powers_lin)
 
     for powerind in range(len(powers)):
-        cavitygen.Power = powers[powerind]
+#        cavitygen.Power = powers[powerind]
+        cavitygen.power = powers[powerind]
+        
         time.sleep(0.2)
 
         total_samples = card.samples 

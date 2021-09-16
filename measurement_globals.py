@@ -22,7 +22,7 @@ exp_globals['Output_filters'] =  'LPF 8GHz, HPF 4GHz'
 exp_globals['Gain'] = '50dB'
 
 #SW config
-exp_globals['trigger_rate'] = 1e3
+exp_globals['trigger_rate'] = 2e3
 exp_globals['hanger'] = False
 exp_globals['IF'] = 1e6
 
