@@ -94,6 +94,7 @@ class VNA(SCPIinst):
         settings['CAVfreq']      = '7 GHz'
         settings['ifBW']         = 1e3
         settings['mode']         = 'MOV'
+        settings['unwrap_phase'] = True
         
         return settings
 
@@ -121,6 +122,7 @@ class VNA(SCPIinst):
         cav_freq     = settings['CAVfreq']
         ifBW         = settings['ifBW']
         mode         = settings['mode']
+        unwrap_phase = settings['unwrap_phase']
         
         #Turn off output and switch to single sweep mode instead of continuous sweeps
         self.output = 'OFF'
@@ -130,7 +132,7 @@ class VNA(SCPIinst):
         self.configure_averages(channel, 1e4, mode)
 
         #Clear old traces on channels and define a new trace to measure 'S21'
-        self.configure_measurement(channel, measurement)
+        self.configure_measurement(channel, measurement, unwrap_phase = unwrap_phase)
   
         #Configure frequency sweep and RF power
         self.configure_frequency(channel, start, stop, sweep_points)
@@ -181,6 +183,7 @@ class VNA(SCPIinst):
         settings['RFpower']      = -20
         settings['ifBW']         = 1e3
         settings['mode']         = 'MOV'
+        settings['unwrap_phase'] = False
         
         return settings
 
@@ -202,13 +205,14 @@ class VNA(SCPIinst):
         rf_power     = settings['RFpower']
         ifBW         = settings['ifBW']
         mode         = settings['mode']
+        unwrap_phase = settings['unwrap_phase']
         #Turn off output and switch to single sweep mode instead of continuous sweeps
         self.output = 'OFF'
         self.inst.write('INIT:CONT OFF')
         
         #Configure averaging
         self.configure_averages(channel, 1e4, mode) #high number so that VNA keeps averaging regardless of user averaging time
-        self.configure_measurement(channel, measurement)
+        self.configure_measurement(channel, measurement, unwrap_phase = unwrap_phase)
 
         #Configure frequency sweep and RF power
         self.configure_frequency(channel, start, stop, sweep_points)
@@ -298,7 +302,7 @@ class VNA(SCPIinst):
             self.inst.write('SENS{}:SWE:POIN {}'.format(channel, sweep_points))
         self.inst.query('*OPC?')
     
-    def configure_measurement(self, channel, measurement, window = 1):
+    def configure_measurement(self, channel, measurement, window = 1, unwrap_phase = False):
         '''
         Set up a basic 'Sij' measurement configuring traces for magnitude and 
         phase. If the traces already exist, the code will ignore the clearing
@@ -307,17 +311,32 @@ class VNA(SCPIinst):
             channel (int): channel number for measurement
             measurement (string): measurement to be performed (e.g 'S21')
             window (int): window to display the traces in (default 1)
+            
+        10-6 Adding option to have unwrapped versus normal phase and new optional argument to go with.
+        When switching from UPH to PHAS, it's not obvious how to querry which mode the current
+        trace is in. So, we have set it to always reconfigure the traces. A more elegant solution
+        is a tomorrow problem.
         '''
-        traces = self.get_channel_traces(channel)
-        reinit = True
-        if 'mag' in traces and 'phase' in traces:
-            reinit = False
-        if reinit:
-            self.clear_channel_traces(channel)
-            self.configure_trace(channel, 'mag', measurement, 'MLOG')
-            self.configure_trace(channel, 'phase', measurement, 'PHAS')
-            self.display_trace('mag',tracenum=1, window=window)
-            self.display_trace('phase',tracenum=2, window=window)
+#        traces = self.get_channel_traces(channel)
+#        reinit = True
+#        if 'mag' in traces and 'phase' in traces:
+#            reinit = False
+#        if reinit:
+#            self.clear_channel_traces(channel)
+#            self.configure_trace(channel, 'mag', measurement, 'MLOG')
+#            self.configure_trace(channel, 'phase', measurement, 'PHAS') #10-5-21 AK trying unwrapped phase, was 'PHAS'
+#            self.display_trace('mag',tracenum=1, window=window)
+#            self.display_trace('phase',tracenum=2, window=window)
+        
+        if unwrap_phase:
+            phase_str = 'UPH'
+        else:
+            phase_str = 'PHAS'
+        self.clear_channel_traces(channel)
+        self.configure_trace(channel, 'mag', measurement, 'MLOG')
+        self.configure_trace(channel, 'phase', measurement, phase_str) 
+        self.display_trace('mag',tracenum=1, window=window)
+        self.display_trace('phase',tracenum=2, window=window)
 
     def configure_trace(self, channel, name, meastype, measformat):
         '''
@@ -408,6 +427,7 @@ class VNA(SCPIinst):
             if auto_scale:
                 self.autoscale()
                 auto_scale = False
+                
     def power_sweep(self, settings, powers):
 
         channel = settings['channel']
@@ -416,11 +436,19 @@ class VNA(SCPIinst):
         averages = settings['averages']
         freq = settings['frequency']
         span = settings['span']
+        unwrap_phase = settings['unwrap_phase']########## MA
         
+         
+            
         self.ifBW = ifBW
         
         self.configure_trace(channel, 'Trc1', 'S21', 'MLOG')
-        self.configure_trace(channel, 'Trc2', 'S21', 'UPH')
+#        self.configure_trace(channel, 'Trc2', 'S21', 'UPH')
+        if unwrap_phase:
+            phase_str = 'UPH'
+        else:
+            phase_str = 'PHAS'
+        self.configure_trace(channel, 'phase', 'S21', phase_str)#########MA
         self.display_trace('Trc1',1,1)
         self.display_trace('Trc2',2,1)
         

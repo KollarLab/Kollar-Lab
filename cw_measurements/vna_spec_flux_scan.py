@@ -42,9 +42,10 @@ def get_default_settings():
     settings['ifBW'] = .2e3
     
     settings['high_power_spec'] = False
+    settings['unwrap_phase'] = True
     
-    settings['CAV_Attenuation'] = 30
-    settings['Qbit_Attenuation'] = 10
+#    settings['CAV_Attenuation'] = 30
+#    settings['Qbit_Attenuation'] = 10
     
     autoscan_settings['channel'] = 1
     autoscan_settings['measurement'] = 'S21'
@@ -55,6 +56,7 @@ def get_default_settings():
     autoscan_settings['stop_freq'] = 7.7e9
     autoscan_settings['RFpower'] = settings['CAVpower']
     autoscan_settings['background_subtract'] = False
+    autoscan_settings['unwrap_phase'] = False
     
     fullsettings['spec'] = settings
     fullsettings['autoscan'] = autoscan_settings

@@ -37,6 +37,7 @@ def get_default_settings():
     settings['stop_freq']   = 8.8*1e9 
     settings['freq_points'] = 1001
     settings['ifBW'] = 1e3
+    settings['unwrap_phase'] = False
 
     return settings
 

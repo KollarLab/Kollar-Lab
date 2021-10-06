@@ -44,6 +44,7 @@ def get_default_settings():
     settings['CAVfreq'] = 8.12555e9
     settings['ifBW'] = 2e2
     settings['mode'] = 'MOV'
+    settings['unwrap_phase'] = True
     
     return settings
 
@@ -65,7 +66,8 @@ def vna_spec(instruments, settings):
     CAV_Attenuation  = exp_globals['CAV_Attenuation']
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']
 
-    settings['CAVpower'] = exp_settings['CAVpower'] + CAV_Attenuation
+#    settings['CAVpower'] = exp_settings['CAVpower'] + CAV_Attenuation
+    exp_settings['CAVpower'] = exp_settings['CAVpower'] + CAV_Attenuation
 
     start_power  = exp_settings['start_power'] + Qbit_Attenuation
     stop_power   = exp_settings['stop_power'] + Qbit_Attenuation

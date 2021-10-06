@@ -23,7 +23,7 @@ def get_default_settings():
     #settings['project_dir'] = r'Z:\Data'
     
     #Sweep parameter
-    settings['CAV_Attenuation'] = 30
+#    settings['CAV_Attenuation'] = 30
 
     settings['start_voltage']  = 0.4
     settings['stop_voltage']   = 0.9
@@ -43,6 +43,7 @@ def get_default_settings():
     settings['stop_freq']   = 7.576e9+40e6 
     settings['freq_points'] = 501
     settings['ifBW'] = 4e3
+    settings['unwrap_phase'] = False
 
     return settings
 
