@@ -15,6 +15,8 @@ from utility.userfits import fit_T2
 from utility.plotting_tools import general_colormap_subplot
 from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
 
+import scipy.signal as signal
+
 def GetDefaultSettings():
     settings = {}
     
@@ -68,7 +70,7 @@ def meas_T2_phase_rotation(instruments, settings):
     
     ## Configure generators
     LO.Power = 12
-    LO.Freq = CAV_Freq - 1e6
+    LO.Freq = CAV_Freq - exp_globals['IF']
     LO.Output = 'On'
 
     cavitygen.Freq   = CAV_Freq
@@ -117,11 +119,28 @@ def meas_T2_phase_rotation(instruments, settings):
     
     ## Start main measurement loop
     amp_int = np.zeros(len(taus))
+    ang_int = np.zeros(len(taus))
     amps    = np.zeros((len(taus),card.samples))
     
     tstart = time.time()
     first_it = True
-
+    
+    if exp_globals['IF'] != 0:
+        #create Chebychev type II digital filter
+        filter_N = exp_globals['ddc_config']['order']
+        filter_rs = exp_globals['ddc_config']['stop_atten']
+        filter_cutoff = np.abs(exp_globals['ddc_config']['cutoff'])
+        LPF = signal.cheby2(filter_N, filter_rs, filter_cutoff, btype='low', analog=False, output='sos', fs=card.sampleRate)
+        
+        xaxis = np.arange(0, card.samples, 1) * 1/card.sampleRate
+        digLO_sin = np.sin(2*np.pi*exp_globals['IF']*xaxis)
+        digLO_cos = np.cos(2*np.pi*exp_globals['IF']*xaxis)
+        
+        #store in settings so that the processing functions can get to them
+        settings['digLO_sin'] = digLO_sin 
+        settings['digLO_cos'] = digLO_cos
+        settings['LPF'] = LPF
+        
     for tind in range(len(taus)):
             
         tau = taus[tind]
@@ -132,10 +151,11 @@ def meas_T2_phase_rotation(instruments, settings):
         hdawg.AWGs[0].run_loop()
         time.sleep(0.1)
 
-        amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it)    
+        I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, plot=first_it, IQstorage=True)    
   
-        amps[tind] = amp_full
-        amp_int[tind] = amp
+        amps[tind] = (I_full**2+Q_full**2)
+        amp_int[tind] = np.mean(I_window)**2+np.mean(Q_window)**2
+        ang_int[tind] = np.arctan2(np.mean(Q_window),np.mean(I_window))
         if first_it:
             tstop = time.time()
             estimate_time(tstart, tstop, len(taus))
@@ -143,10 +163,14 @@ def meas_T2_phase_rotation(instruments, settings):
         
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
-        plt.plot(taus*1e6, amps)
-        plt.title('Live T2 data (no fit), {} pi pulses'.format(exp_settings['pulse_count']))
+        plt.subplot(121)
+        plt.plot(taus*1e6, amp_int)
+        plt.suptitle('Live T2 data (no fit), {} pi pulses'.format(exp_settings['pulse_count']))
         plt.xlabel('Tau (us)')
-        plt.ylabel('Amplitude')  
+        plt.ylabel('Amplitude')
+        plt.subplot(122)
+        plt.plot(taus*1e6, ang_int)
+        plt.ylabel('Angle')
         fig.canvas.draw()
         fig.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
@@ -165,8 +189,8 @@ def meas_T2_phase_rotation(instruments, settings):
     print('Elapsed time: {}'.format(t2-tstart))
     
     T2_guess     = exp_settings['T2_guess']
-    amp_guess    = max(amps)-min(amps)
-    offset_guess = np.mean(amps[-10:])
+    amp_guess    = max(amp_int)-min(amp_int)
+    offset_guess = np.mean(amp_int[-10:])
     if exp_settings['T2_mode']=='detuning':
         freq_guess = exp_settings['detuning']
     else:
@@ -176,7 +200,8 @@ def meas_T2_phase_rotation(instruments, settings):
     fit_guess = [T2_guess, amp_guess, offset_guess, freq_guess, phi_guess]
     T2, amp, offset, freq, phi, fit_xvals, fit_yvals = fit_T2(taus, amp_int, fit_guess)
     fig3 = plt.figure(3)
-    plt.plot(fit_xvals*1e6, amps)
+    plt.clf()
+    plt.plot(taus*1e6, amp_int)
     plt.plot(fit_xvals*1e6, fit_yvals)
     plt.title('T2:{}us freq:{}MHz. {} pi pulses \n {}'.format(np.round(T2*1e6,3), np.round(freq/1e6, 3), exp_settings['pulse_count'], filename))
     plt.xlabel('Time (us)')
