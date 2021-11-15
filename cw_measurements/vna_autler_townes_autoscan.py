@@ -21,7 +21,7 @@ def get_default_settings():
     
     #Save location
     settings['scanname']    = 'scanname'
-    settings['meas_type']   = 'Autler_Townes'
+    settings['meas_type']   = 'Autler_Townes_Autoscan'
 
     settings['ext_flux'] = 0
     settings['autler_power'] = -20
@@ -59,17 +59,19 @@ def get_default_settings():
     
     fullsettings['AT'] = settings
     fullsettings['autoscan'] = autoscan_settings
+    fullsettings['meas_type'] = 'Autler_Townes_Autoscan' #this needs to be at this level for SaveDir to find it
     
     return fullsettings
 
 
-def vna_autler_townes(instruments, settings):
+def vna_autler_townes_autoscan(instruments, settings):
     #Instruments used
     vna = instruments['VNA']
     SRS = instruments['SRS']
     autlergen = instruments['RFsource']
 
     vna.reset()
+#    vna.output = 'on'
 
     autlergen.IQ.Mod = 'Off'
 
@@ -78,6 +80,7 @@ def vna_autler_townes(instruments, settings):
     
     AT_set = exp_settings['AT']
     autoscan_set = exp_settings['autoscan']
+#    exp_settings['meas_type'] = AT_set['meas_type'] #this is iportant for getting the save directory working
     
     background_subtract = autoscan_set['background_subtract']
 
@@ -136,8 +139,10 @@ def vna_autler_townes(instruments, settings):
         
         autlergen.freq = autler_freq
         vna.reset()
+        vna.output = 'on'
         
-
+        autlergen.output = 'Off'
+        
         print('trans')
         trans_data  = vna.trans_meas(autoscan_set)
         trans_freqs = trans_data['xaxis']
@@ -157,6 +162,7 @@ def vna_autler_townes(instruments, settings):
 
         print('AT, CAV power: {}, cav freq: {}'.format(AT_set['CAVpower'], AT_set['CAVfreq']))
 
+        autlergen.output = 'On'
         data = vna.spec_meas(AT_set)
 
         vna.autoscale()
