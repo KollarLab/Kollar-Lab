@@ -14,6 +14,8 @@ import userfuncs
 from utility.plotting_tools import simplescan_plot
 from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
 
+import scipy.signal as signal
+
 def get_default_settings():
     settings = {}
     
@@ -90,7 +92,7 @@ def rabi_chevron(instruments, settings):
     qubitgen.Output  = 'On'
     
     LO.Power  = 12
-    LO.Freq   = CAV_freq - 1e6
+    LO.Freq   = CAV_freq - exp_globals['IF']
     LO.Output = 'On'
     
     ##Card settings
@@ -116,6 +118,22 @@ def rabi_chevron(instruments, settings):
     timedat  = np.zeros((len(times), len(freqs)))
     phasedat = np.zeros((len(times), len(freqs)))
     
+    if exp_globals['IF'] != 0:
+        #create Chebychev type II digital filter
+        filter_N = exp_globals['ddc_config']['order']
+        filter_rs = exp_globals['ddc_config']['stop_atten']
+        filter_cutoff = np.abs(exp_globals['ddc_config']['cutoff'])
+        LPF = signal.cheby2(filter_N, filter_rs, filter_cutoff, btype='low', analog=False, output='sos', fs=card.sampleRate)
+        
+        xaxis = np.arange(0, card.samples, 1) * 1/card.sampleRate
+        digLO_sin = np.sin(2*np.pi*exp_globals['IF']*xaxis)
+        digLO_cos = np.cos(2*np.pi*exp_globals['IF']*xaxis)
+        
+        #store in settings so that the processing functions can get to them
+        settings['digLO_sin'] = digLO_sin 
+        settings['digLO_cos'] = digLO_cos
+        settings['LPF'] = LPF
+        
     tstart = time.time()
     first_it = True
     
@@ -125,9 +143,11 @@ def rabi_chevron(instruments, settings):
         hdawg.AWGs[0].load_program(finalprog)
         hdawg.AWGs[0].run_loop()
         time.sleep(0.1)
-        
-        amps   = np.zeros((len(freqs), card.samples))
-        phases = np.zeros((len(freqs), card.samples))
+        total_samples = card.samples
+#        amps   = np.zeros((len(freqs), card.samples))
+#        phases = np.zeros((len(freqs), card.samples))
+        Is_full  = np.zeros((len(freqs), total_samples)) #the very rawest data is thrown away for heterodyne! Warning
+        Qs_full  = np.zeros((len(freqs), total_samples))
         
         print('Current hold time:{}, max:{}'.format(hold_time, times[-1]))
     
@@ -135,20 +155,30 @@ def rabi_chevron(instruments, settings):
             freq = freqs[find]
             
             qubitgen.freq = freq
-            time.sleep(0.2)
+            time.sleep(0.1)
             
-            amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings)
+#            amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings)
+            I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
+                                                                         plot=first_it, 
+                                                                         IQstorage = True)
+            
+            I_final = np.mean(I_window) #compute <I> in the data window
+            Q_final = np.mean(Q_window) #compute <Q> in the data window
 
             if first_it:
                 tstop = time.time()
                 estimate_time(tstart, tstop, len(freqs)*len(times))
                 first_it = False
                            
-            amps[find,:]   = amp_full
-            phases[find,:] = phase_full
-
-            timedat[timeind, find]  = np.mean(amp)
-            phasedat[timeind, find] = np.mean(phase)
+#            amps[find,:]   = amp_full
+#            phases[find,:] = phase_full
+#
+#            timedat[timeind, find]  = np.mean(amp)
+#            phasedat[timeind, find] = np.mean(phase)
+            Is_full[find,:]   = I_full
+            Qs_full[find,:] = Q_full
+            timedat[timeind, find] = np.sqrt(I_final**2 + Q_final**2)
+            phasedat[timeind, find] = np.arctan2(Q_final, I_final)*180/np.pi
 
         full_data = {}
         full_data['xaxis']  = freqs/1e9
@@ -165,19 +195,28 @@ def rabi_chevron(instruments, settings):
         simplescan_plot(full_data, single_data, yaxis*1e6, filename, labels, identifier='', fig_num=1) 
         plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
+#        full_time = {}
+#        full_time['xaxis']  = xaxis*1e6
+#        full_time['mags']   = amps
+#        full_time['phases'] = phases
+#
+#        single_time = {}
+#        single_time['xaxis'] = xaxis*1e6
+#        single_time['mag']   = amp
+#        single_time['phase'] = phase
         full_time = {}
         full_time['xaxis']  = xaxis*1e6
-        full_time['mags']   = amps
-        full_time['phases'] = phases
+        full_time['Is']   = Is_full
+        full_time['Qs'] = Qs_full
 
         single_time = {}
         single_time['xaxis'] = xaxis*1e6
-        single_time['mag']   = amp
-        single_time['phase'] = phase
+        single_time['I']   = I_full
+        single_time['Q'] = Q_full
 
         time_labels = ['Time (us)', 'Freq (GHz)']
         identifier = 'Hold time: {}us'.format(hold_time*1e6)
-        simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces\n'+filename, time_labels, identifier, fig_num=2)
+        simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces\n'+filename, time_labels, identifier, fig_num=2, IQdata=True)
         plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
         
         userfuncs.SaveFull(saveDir, filename, ['times','freqs', 'timedat', 'phasedat','xaxis', 'full_data', 'single_data', 'full_time', 'single_time'], 
