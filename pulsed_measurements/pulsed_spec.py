@@ -72,7 +72,10 @@ def pulsed_spec(instruments, settings):
     start_freq  = exp_settings['start_freq']
     stop_freq   = exp_settings['stop_freq']
     freq_points = exp_settings['freq_points']
-    freqs  = np.round(np.linspace(start_freq,stop_freq,freq_points),-3)
+    if exp_settings['reverse']:
+        freqs  = np.round(np.linspace(start_freq,stop_freq,freq_points)[::-1],-3)
+    else:
+        freqs  = np.round(np.linspace(start_freq,stop_freq,freq_points),-3)
     
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']
     start_power  = exp_settings['start_power'] + Qbit_Attenuation
@@ -149,7 +152,7 @@ def pulsed_spec(instruments, settings):
     
 #    drive_powers_lin = 10**(powers/10)
 #    drive_amps_lin = np.sqrt(drive_powers_lin)
-    
+        
     for powerind in range(len(powers)):
         qubitgen.Power = powers[powerind]
         time.sleep(0.2)
