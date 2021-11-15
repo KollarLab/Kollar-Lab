@@ -1,8 +1,10 @@
 //Used .cpp extension to get nice syntax highlighting 
 
 //Configure 
-const qbitTime = _qwidth_;
-const measTime = _meas_window_;
+const qbit_sigma = _qsigma_;
+const num_sigma  = _num_sigma_;
+const qbitTime   = qbit_sigma*num_sigma;
+const measTime   = _meas_window_;
 const pi_count = _pi_count_;
 const IF       = _IF_;
 const piAmp    = 1;
@@ -41,9 +43,9 @@ wave measurement_tone = join(rise_clean, hold_high, fall_clean);
 const qbit_samples = qbitTime*sampleRate;
 const qbit_position = qbit_samples/2-0.5;
 const qbit_amp = 1.0;
-const qbit_sigma = qbit_samples/4;
+const sigma_samples = qbit_sigma*sampleRate;
 
-wave qbit  = gauss(qbit_samples, qbit_amp, qbit_position, qbit_sigma);
+wave qbit  = gauss(qbit_samples, qbit_amp, qbit_position, sigma_samples);
 wave blank = zeros(qbit_samples);
 wave qbit_clean = zeros(qbit_samples);
 
