@@ -14,6 +14,8 @@ from utility.userfits import fit_T1
 from utility.plotting_tools import general_colormap_subplot
 from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
 
+import scipy.signal as signal
+
 def get_default_settings():
     settings = {}
     
@@ -65,7 +67,7 @@ def meas_T1(instruments, settings):
     
     ## Configure generators
     LO.Power  = 12
-    LO.Freq   = CAV_Freq - 1e6
+    LO.Freq   = CAV_Freq - exp_globals['IF']
     LO.Output = 'On'
     
     cavitygen.Freq   = CAV_Freq
@@ -98,10 +100,10 @@ def meas_T1(instruments, settings):
     loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
 
     ## Set up array of taus and randomize it
-    if settings['spacing']=='Log':
-        tau_list = np.logspace(np.log10(settings['Tau_min']), np.log10(settings['Tau_max']), settings['Tau_points'])
+    if exp_settings['spacing']=='Log':
+        tau_list = np.logspace(np.log10(exp_settings['Tau_min']), np.log10(exp_settings['Tau_max']), exp_settings['Tau_points'])
     else:
-         tau_list = np.linspace(settings['Tau_min'], settings['Tau_max'], settings['Tau_points'])
+         tau_list = np.linspace(exp_settings['Tau_min'], exp_settings['Tau_max'], exp_settings['Tau_points'])
     taus = np.round(tau_list, 9)
     
     indices = list(range(len(taus)))
@@ -109,8 +111,27 @@ def meas_T1(instruments, settings):
 
     ## Start the main measurement loop 
     amp_int = np.zeros(len(taus))
+    ang_int = np.zeros(len(taus))
     amps    = np.zeros((len(taus),card.samples))
+    angles  = np.zeros((len(taus),card.samples))
     
+        ##create the digital down conversion filter if needed.
+    if exp_globals['IF'] != 0:
+        #create Chebychev type II digital filter
+        filter_N = exp_globals['ddc_config']['order']
+        filter_rs = exp_globals['ddc_config']['stop_atten']
+        filter_cutoff = np.abs(exp_globals['ddc_config']['cutoff'])
+        LPF = signal.cheby2(filter_N, filter_rs, filter_cutoff, btype='low', analog=False, output='sos', fs=card.sampleRate)
+        
+        xaxis = np.arange(0, card.samples, 1) * 1/card.sampleRate
+        digLO_sin = np.sin(2*np.pi*exp_globals['IF']*xaxis)
+        digLO_cos = np.cos(2*np.pi*exp_globals['IF']*xaxis)
+        
+        #store in settings so that the processing functions can get to them
+        settings['digLO_sin'] = digLO_sin 
+        settings['digLO_cos'] = digLO_cos
+        settings['LPF'] = LPF
+        
     tstart = time.time()
     first_it = True
 
@@ -124,11 +145,22 @@ def meas_T1(instruments, settings):
         hdawg.AWGs[0].run_loop()
         time.sleep(0.1)
         
-        amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it) 
+#        amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it) 
+#        
+#        amps[tind] = amp_full
+#        amp_int[tind] = amp 
+        I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
+                                                                         plot=first_it, 
+                                                                         IQstorage = True)
+            
+        I_final = np.mean(I_window) #compute <I> in the data window
+        Q_final = np.mean(Q_window) #compute <Q> in the data window
         
-        amps[tind] = amp_full
-        amp_int[tind] = amp 
-
+        amps[tind] = np.sqrt(I_full**2+Q_full**2)
+        angles[tind] = np.arctan2(Q_full, I_full)*180/np.pi
+        
+        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
+        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         if first_it:
             tstop = time.time()
             estimate_time(tstart, tstop, len(taus))
@@ -136,10 +168,15 @@ def meas_T1(instruments, settings):
 
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
-        plt.plot(taus*1e6, amps)
-        plt.title('Live T1 data (no fit)\n'+filename)
+        plt.subplot(121)
+        plt.plot(taus*1e6, amp_int, 'x')
         plt.xlabel('Tau (us)')
         plt.ylabel('Amplitude')  
+        plt.subplot(122)
+        plt.plot(taus*1e6, ang_int, 'x')
+        plt.xlabel('Tau (us)')
+        plt.ylabel('Phase')  
+        plt.title('Live T1 data (no fit)\n'+filename)
         fig.canvas.draw()
         fig.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
@@ -157,13 +194,14 @@ def meas_T1(instruments, settings):
     print('Elapsed time: {}'.format(t2-tstart))
 
     T1_guess = exp_settings['T1_guess']
-    amp_guess = max(amps)-min(amps)
-    offset_guess = np.mean(amps[-10:])
+    amp_guess = max(amp_int)-min(amp_int)
+    offset_guess = np.mean(amp_int[-10:])
 
     fit_guess = [T1_guess, amp_guess, offset_guess]
     T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
     fig3 = plt.figure(3)
-    plt.plot(fit_xvals*1e6, amps)
+    plt.clf()
+    plt.plot(taus*1e6, amp_int)
     plt.plot(fit_xvals*1e6, fit_yvals)
     plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
     plt.xlabel('Time (us)')
