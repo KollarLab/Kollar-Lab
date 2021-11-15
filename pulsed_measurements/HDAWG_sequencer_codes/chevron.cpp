@@ -42,8 +42,10 @@ wave measurement_tone = join(rise_clean, hold_high, fall_clean);
 const qbit_samples = min_q_time*sampleRate;
 const qbit_position = qbit_samples/2-0.5;
 const qbit_amp = 1.0;
+const sigma_samples = qbit_sigma*sampleRate;
 
-wave qbit  = gauss(qbit_samples, qbit_amp, qbit_position, qbit_sigma);
+wave qbit  = gauss(qbit_samples, qbit_amp, qbit_position, sigma_samples);
+
 wave q_rise = cut(qbit,0,qbit_samples/2-1);
 wave q_fall = cut(qbit,qbit_samples/2,qbit_samples-1);
 wave q_rise_clean = zeros(qbit_samples/2);
