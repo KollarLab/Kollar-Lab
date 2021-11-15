@@ -45,6 +45,8 @@ def get_default_settings():
     settings['ifBW'] = 2e2
     settings['mode'] = 'MOV'
     
+    settings['unwrap_phase'] = True
+    
     return settings
 
 def vna_spec_stability(instruments, settings):
