@@ -101,7 +101,7 @@ def vna_spec_flux_scan(instruments, settings):
     stop_voltage  = spec_set['stop_voltage']
     voltage_points = spec_set['voltage_points']
     voltages = np.round(np.linspace(start_voltage, stop_voltage, voltage_points),6)
-    max_voltage = 3.5
+    max_voltage = 10#3.5
     if np.max(voltages) > max_voltage:
         raise ValueError('max voltage too large!')
     else:
