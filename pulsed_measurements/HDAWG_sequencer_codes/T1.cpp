@@ -5,6 +5,8 @@ const qbit_sigma = _qsigma_;
 const num_sigma  = _num_sigma_;
 const qbitTime   = qbit_sigma*num_sigma;
 const measTime   = _meas_window_;
+const piAmp      = _piAmp_;
+const angle      = _piAngle_;
 
 //Timing control 
 const tau        = _tau_;
@@ -54,12 +56,15 @@ for (i=0; i<qbit_samples;i++){
 const init_wait_cycles = round((max_time-tau-qbitTime)*sequencerRate);
 const pulse_sep_cycles = round(tau*sequencerRate);
 
+const Iamp = cos(angle*M_PI/180);
+const Qamp = sin(angle*M_PI/180);
+
 while(true){
   //Wait for trigger on channel 1
   waitDigTrigger(1);
   wait(init_wait_cycles);
   //Qubit tone
-  playWave(blank, qbit_clean);
+  playWave(blank, Iamp*piAmp*qbit_clean, Qamp*piAmp*qbit_clean);
   waitWave();
   wait(pulse_sep_cycles);
   //Measurement tone

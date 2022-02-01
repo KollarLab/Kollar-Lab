@@ -19,8 +19,8 @@ import scipy.signal as signal
 def get_default_settings():
     settings = {}
     
-    settings['scanname'] = 'T1_meas'
-    settings['meas_type'] = 'Tmeas'
+    settings['scanname'] = 'rabi'
+    settings['meas_type'] = 'rabi'
     
     settings['Q_Freq']  = 4.21109e9
     settings['Q_Power'] = -18
@@ -32,16 +32,13 @@ def get_default_settings():
     settings['reads']    = 1
     settings['averages'] = 25e3
     
-    settings['Tau_min']    = 200e-9
-    settings['Tau_max']    = 30e-6
-    settings['Tau_points'] = 5
-    settings['spacing']    = 'Linear'
-    
-    settings['T1_guess'] = 10e-6
+    settings['amp_min']    = 200e-9
+    settings['amp_max']    = 30e-6
+    settings['amp_points'] = 5
     
     return settings
     
-def meas_T1(instruments, settings):
+def pi_amp_sweep(instruments, settings):
     ## Instruments used
     qubitgen  = instruments['qubitgen']
     cavitygen = instruments['cavitygen']
@@ -90,7 +87,7 @@ def meas_T1(instruments, settings):
     hdawg.Channels[0].configureChannel(amp=0.5,marker_out='Marker', hold='False', delay=30e-9)
     hdawg.Channels[1].configureChannel(amp=0.5,marker_out='Marker', hold='False', delay=30e-9)
     
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T1.cpp",'r')
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\rabi.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -98,27 +95,18 @@ def meas_T1(instruments, settings):
     q_pulse = exp_globals['qubit_pulse']
     m_pulse = exp_globals['measurement_pulse']
     loadprog = loadprog.replace('_max_time_', str(m_pulse['meas_pos']))
-    loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
+    loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']+2e-6))
     loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
     loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
-    loadprog = loadprog.replace('_piAmp_',str(q_pulse['piAmp']))
-    loadprog = loadprog.replace('_piAngle_',str(q_pulse['piAngle']))
+    loadprog = loadprog.replace('_tau_',str(q_pulse['delay']))
 
-    ## Set up array of taus and randomize it
-    if exp_settings['spacing']=='Log':
-        tau_list = np.logspace(np.log10(exp_settings['Tau_min']), np.log10(exp_settings['Tau_max']), exp_settings['Tau_points'])
-    else:
-         tau_list = np.linspace(exp_settings['Tau_min'], exp_settings['Tau_max'], exp_settings['Tau_points'])
-    taus = np.round(tau_list, 9)
-    
-    indices = list(range(len(taus)))
-#    np.random.shuffle(indices)
+    amp_vals = np.linspace(exp_settings['amp_min'], exp_settings['amp_max'], exp_settings['amp_points'])
 
     ## Start the main measurement loop 
-    amp_int = np.zeros(len(taus))
-    ang_int = np.zeros(len(taus))
-    amps    = np.zeros((len(taus),card.samples))
-    angles  = np.zeros((len(taus),card.samples))
+    amp_int = np.zeros(len(amp_vals))
+    ang_int = np.zeros(len(amp_vals))
+    amps    = np.zeros((len(amp_vals),card.samples))
+    angles  = np.zeros((len(amp_vals),card.samples))
     
         ##create the digital down conversion filter if needed.
     if exp_globals['IF'] != 0:
@@ -140,12 +128,11 @@ def meas_T1(instruments, settings):
     tstart = time.time()
     first_it = True
 
-    for tind in indices:
+    for ind, amp in enumerate(amp_vals):
         
-        tau = taus[tind]
-        print('Tau: {}'.format(tau))
+        print('Amp: {}'.format(amp))
         finalprog = loadprog
-        finalprog = finalprog.replace('_tau_',str(tau))
+        finalprog = finalprog.replace('_piAmp_',str(amp))
         hdawg.AWGs[0].load_program(finalprog)
         hdawg.AWGs[0].run_loop()
         time.sleep(0.1)
@@ -161,27 +148,27 @@ def meas_T1(instruments, settings):
         I_final = np.mean(I_window) #compute <I> in the data window
         Q_final = np.mean(Q_window) #compute <Q> in the data window
         
-        amps[tind] = np.sqrt(I_full**2+Q_full**2)
-        angles[tind] = np.arctan2(Q_full, I_full)*180/np.pi
+        amps[ind] = np.sqrt(I_full**2+Q_full**2)
+        angles[ind] = np.arctan2(Q_full, I_full)*180/np.pi
         
-        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
-        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
+        amp_int[ind] = np.sqrt(I_final**2+Q_final**2)
+        ang_int[ind] = np.arctan2(Q_final, I_final)*180/np.pi
         if first_it:
             tstop = time.time()
-            estimate_time(tstart, tstop, len(taus))
+            estimate_time(tstart, tstop, len(amp_vals))
             first_it = False      
 
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
         plt.subplot(121)
-        plt.plot(taus*1e6, amp_int, 'x')
-        plt.xlabel('Tau (us)')
+        plt.plot(amp_vals[:ind], amp_int[:ind], 'x')
+        plt.xlabel('pi pulse amplitude')
         plt.ylabel('Amplitude')  
         plt.subplot(122)
-        plt.plot(taus*1e6, ang_int, 'x')
-        plt.xlabel('Tau (us)')
+        plt.plot(amp_vals[:ind], ang_int[:ind], 'x')
+        plt.xlabel('pi pulse amplitude')
         plt.ylabel('Phase')  
-        plt.title('Live T1 data (no fit)\n'+filename)
+        plt.title('Rabi rate vs pi pulse amp\n'+filename)
         fig.canvas.draw()
         fig.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
@@ -190,32 +177,12 @@ def meas_T1(instruments, settings):
         plt.clf()
 
         ax = plt.subplot(1,1,1)
-        general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
+        general_colormap_subplot(ax, xaxis*1e6, amp_vals, amps, ['Time (us)', 'pi pulse amp'], 'Raw data\n'+filename)
 
         plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-        userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
+        userfuncs.SaveFull(saveDir, filename, ['amp_vals','xaxis', 'amps', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
 
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
 
-    T1_guess = exp_settings['T1_guess']
-    amp_guess = max(amp_int)-min(amp_int)
-    offset_guess = np.mean(amp_int[-10:])
-
-    fit_guess = [T1_guess, amp_guess, offset_guess]
-    T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
-    fig3 = plt.figure(3)
-    plt.clf()
-    plt.plot(taus*1e6, amp_int)
-    plt.plot(fit_xvals*1e6, fit_yvals)
-    plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
-    plt.xlabel('Time (us)')
-    plt.ylabel('Amplitude')
-    fig3.canvas.draw()
-    fig3.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
-
-    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 'tau', 'amp', 'offset', 'fit_guess'],
-                         locals(), expsettings=settings, instruments=instruments)
-
-    return T1, taus, amp_int
+    return amp_vals, amp_int

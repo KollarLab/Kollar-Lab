@@ -100,9 +100,10 @@ def pulsed_spec(instruments, settings):
     cavitygen.Output = 'On'
     qubitgen.Output  = 'On'
     
-    LO.Power = 12
-    LO.Freq = CAV_freq - exp_globals['IF']
-    LO.Output = 'On'
+    LO.power = 12
+    LO.freq = '{} GHz'.format((cavitygen.Freq-exp_globals['IF'])/1e9)
+    #LO.Freq = CAV_freq - exp_globals['IF']
+    LO.output = 'On'
     
     configure_card(card, settings)
 
@@ -121,7 +122,8 @@ def pulsed_spec(instruments, settings):
     loadprog = loadprog.replace('_tau_',str(q_pulse['delay']))
     loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
     loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
-
+    loadprog = loadprog.replace('_piAmp_',str(q_pulse['piAmp']))
+    
     hdawg.AWGs[0].load_program(loadprog)
 
     hdawg.AWGs[0].run_loop()
@@ -261,6 +263,6 @@ def pulsed_spec(instruments, settings):
        
     cavitygen.Output = 'Off'
     qubitgen.Output = 'Off'
-    LO.Output = 'Off'
+    LO.output = 'Off'
     
     return full_data

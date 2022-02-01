@@ -91,15 +91,17 @@ def rabi_chevron(instruments, settings):
     cavitygen.Output = 'On'
     qubitgen.Output  = 'On'
     
-    LO.Power  = 12
-    LO.Freq   = CAV_freq - exp_globals['IF']
-    LO.Output = 'On'
+    LO.power  = 12
+    LO.freq   = '{} GHz'.format((CAV_freq - exp_globals['IF'])/1e9)
+    LO.output = 'On'
     
     ##Card settings
     configure_card(card, settings)
 
     ##HDAWG settings
     configure_hdawg(hdawg, settings)
+    hdawg.Channels[0].configureChannel(amp=0.5,marker_out='Marker', hold='False', delay=30e-9)
+    hdawg.Channels[1].configureChannel(amp=0.5,marker_out='Marker', hold='False', delay=30e-9)
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\chevron.cpp",'r')
     rawprog  = progFile.read()

@@ -41,7 +41,7 @@ def get_default_settings():
     
     return settings
     
-def meas_T1(instruments, settings):
+def meas_T1_nonDDC(instruments, settings):
     ## Instruments used
     qubitgen  = instruments['qubitgen']
     cavitygen = instruments['cavitygen']
@@ -150,22 +150,30 @@ def meas_T1(instruments, settings):
         hdawg.AWGs[0].run_loop()
         time.sleep(0.1)
         
-#        amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it) 
+        
+        amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it,
+                                                                   IQstorage = False) 
+        
+        amps[tind] = amp_full
+        angles[tind] = phase_full
+        amp_int[tind] = np.mean(amp) 
+        ang_int[tind] = np.mean(phase) #I think that this is the right phase to store
+        
+        
+#        I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
+#                                                                         plot=first_it, 
+#                                                                         IQstorage = True)
+#            
+#        I_final = np.mean(I_window) #compute <I> in the data window
+#        Q_final = np.mean(Q_window) #compute <Q> in the data window
 #        
-#        amps[tind] = amp_full
-#        amp_int[tind] = amp 
-        I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
-                                                                         plot=first_it, 
-                                                                         IQstorage = True)
-            
-        I_final = np.mean(I_window) #compute <I> in the data window
-        Q_final = np.mean(Q_window) #compute <Q> in the data window
+#        amps[tind] = np.sqrt(I_full**2+Q_full**2)
+#        angles[tind] = np.arctan2(Q_full, I_full)*180/np.pi
+#        
+#        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
+#        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         
-        amps[tind] = np.sqrt(I_full**2+Q_full**2)
-        angles[tind] = np.arctan2(Q_full, I_full)*180/np.pi
         
-        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
-        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         if first_it:
             tstop = time.time()
             estimate_time(tstart, tstop, len(taus))

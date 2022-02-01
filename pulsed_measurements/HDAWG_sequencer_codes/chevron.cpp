@@ -61,16 +61,19 @@ for(i=0; i<qbit_samples/2; i++){
   q_fall_clean[i] = q_fall[i]-q_off;
 }
 wave q_tone = join(q_rise_clean, (1-q_off)*q_hold_high, q_fall_clean);
+wave q_blank = zeros(hold_samples+qbit_samples);
 
 const init_wait_cycles = round((max_time-meas_delay-min_q_time-hold_time)*sequencerRate);
 const pulse_sep_cycles = round(meas_delay*sequencerRate);
 
+const Iamp = 0.71;
+const Qamp = 0.71;
 while(true){
   //Wait for trigger on channel 1
   waitDigTrigger(1);
   wait(init_wait_cycles);
   //Qubit tone
-  playWave(2, q_tone);
+  playWave(q_blank, Iamp*q_tone, Qamp*q_tone);
   waitWave();
   wait(pulse_sep_cycles);
   //Measurement tone
