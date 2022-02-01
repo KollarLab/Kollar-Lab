@@ -295,7 +295,7 @@ class HDAWGawg:
     
     ###################################
     # Methods
-    ###################################
+    ################################### 
 
     def load_waveform(self, index, wave1, wave2=None, markers=None):
         '''
@@ -308,7 +308,7 @@ class HDAWGawg:
             markers (array) : array of int values for marker configuration (0 both off, 1 marker 1 on, 2 marker 2 on, 3 both on)
         '''
         wave_awg = ziUtils.convert_awg_waveform(wave1, wave2, markers)
-        node = self.nodepaths['waves'].replace('index',index)
+        node = self.nodepaths['waves'].replace('index',str(index))
         #path='/{:s}/awgs/0/waveform/waves/{:d}'.format(self.device, index)
         self.daq.setVector(node, wave_awg)
 
@@ -327,16 +327,25 @@ class HDAWGawg:
         '''
         self.daq.sync()
 
-        node = self.nodepaths['waves'].replace('index',index)
+        node = self.nodepaths['waves'].replace('index',str(index))
         #prepare data to be read out, unclear what this does exactly but in combination with the poll command this will read arbitrarily long data
-        checktime = 0.1 #time to record data for (s)
-        timeout   = 5 #timeout for poll command (ms)
-        self.daq.getAsEvent(node) 
-
-        #poll command returns dictionary so we need to access the actual array data
-        pollReturn = self.daq.poll(checktime,timeout,flat=True)
+        checktime = 2 #time to record data for (s)
+        timeout   = 2000 #timeout for poll command (ms)
+        pollReturn = {}
+        counter = 0
+        while(not pollReturn and counter<10):
+            #sleep(0.1)
+            self.daq.getAsEvent(node)
+            pollReturn = self.daq.poll(checktime, timeout,flat=True)
+            print(pollReturn)
+            counter+=1
+            
+        if(counter>=10):
+            print('Something went wrong, polled the AWG 10 times and got an empty dict')
+            return [[],[],[]]
+        
         wave_awg   = pollReturn[node][0]['vector']
-
+        
         #Use built in parse_awg_waveform to recover the channel data
         [ch1,ch2,markers] = ziUtils.parse_awg_waveform(wave_awg,channels,markers_present)
 
@@ -904,7 +913,7 @@ class HDAWGchannel():
             amps[i] = self.daq.getDouble(nodes[i])
             i = i + pairedChannel
 
-        return amps
+        return np.round(amps,3)
 
     @analog_outs.setter
     def analog_outs(self, amps=[]):
@@ -1060,7 +1069,7 @@ class HDAWGosc():
     def freq(self):
         node = self.nodepaths['freq']
         val = self.daq.getDouble(node)
-        return val
+        return np.round(val,4)
     @freq.setter
     def freq(self, val):
         node = self.nodepaths['freq']
