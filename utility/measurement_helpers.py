@@ -142,8 +142,6 @@ def extract_data_heterodyne(raw_data, xaxis, settings):
     
     return filtered_cos, filtered_sin, data_x, filtered_cos_full, filtered_sin_full, xaxis
         
-
-
 def estimate_time(t1, t2, steps):
     one_step = t2-t1
     total_time = one_step*steps
@@ -156,7 +154,46 @@ def estimate_time(t1, t2, steps):
     print('estimated time for this scan : {} mins or {} hours'.format(mins, hours))
     print('expected finish time: {}'.format(final_time.ctime()))
     print('    ')
+
+def heterodyne_martin(Ipp, Qpp, xaxis, settings):
+    I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
+    Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
+    Qprime_sin = Q_cos
+    Qprime_cos = -Q_sin
     
+    Qprime_sin_full = Q_cos_full
+    Qprime_cos_full = -Q_sin_full
+    
+    
+    Q_window  = (I_sin +  Qprime_sin)/2
+    I_window = (I_cos + Qprime_cos)/2
+    
+    Q_full  = (I_sin_full +  Qprime_sin_full)/2
+    I_full = (I_cos_full + Qprime_cos_full)/2
+    
+    return I_window, Q_window, Itime, I_full, Q_full, time_full
+
+def read_and_process_two_pulses(card, settings, plot):
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    Ipeven = np.mean(I[::2], 0)
+    Qpeven = np.mean(Q[::2], 0)
+    Ipodd = np.mean(I[1::2], 0)
+    Qpodd = np.mean(Q[1::2], 0)
+    
+    mixer_config = settings['exp_globals']['mixer_config']
+    Ippeven, Qppeven = remove_IQ_ellipse(Ipeven, Qpeven, mixer_config)
+    Ippodd, Qppodd = remove_IQ_ellipse(Ipodd, Qpodd, mixer_config)
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
+    
+    I1_window, Q1_window, time_window, I1_full, Q1_full, time_full = heterodyne_martin(Ippeven, Qppeven, xaxis, settings)
+    I2_window, Q2_window, time_window, I2_full, Q2_full, time_full = heterodyne_martin(Ippeven, Qppeven, xaxis, settings)
+    Inet = I1_window-I2_window
+    Qnet = Q1_window-Q2_window
+    Inet_full = I1_full-I2_full
+    Qnet_full = Q1_full-Q2_full
+    return Inet, Qnet, Inet_full, Qnet_full, xaxis
+            
 def read_and_process(card, settings, plot, IQstorage = True):
     '''The original version of this function wanted to convert to 
     amplitude(t) and phase(t). This has been found to be problematic.
@@ -219,12 +256,20 @@ def read_and_process(card, settings, plot, IQstorage = True):
 #            plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
         
         if settings['exp_globals']['IF'] == 0:
-            Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
-            Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+#            Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+#            Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+#            if plot:
+#                amp = np.sqrt(Idata**2+Qdata**2) #this is just a guide to theeye for locating the pulse
+#                amp_full = np.sqrt(Ifull**2+Qfull**2)
+#                plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+            
+            #matching newer names
+            I_window, Itime, I_full, time_full = extract_data(Ipp, xaxis, settings)
+            Q_window, Qtime, Q_full, time_full = extract_data(Qpp, xaxis, settings)
             if plot:
-                amp = np.sqrt(Idata**2+Qdata**2) #this is just a guide to theeye for locating the pulse
-                amp_full = np.sqrt(Ifull**2+Qfull**2)
-                plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+                amp = np.sqrt(I_window**2+Q_window**2) #this is just a guide to theeye for locating the pulse
+                amp_full = np.sqrt(I_full**2+Q_full**2)
+                plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
         else:
             I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
             Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
