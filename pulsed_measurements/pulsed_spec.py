@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import userfuncs
 from utility.plotting_tools import simplescan_plot
 from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
+from utility.scheduler import scheduler
 
 import scipy.signal as signal
 
@@ -86,48 +87,96 @@ def pulsed_spec(instruments, settings):
     ## Generator settings
     cavitygen.Freq   = CAV_freq
     cavitygen.Power  = CAV_power
-    cavitygen.IQ.Mod = 'On'
 
     #setting qubit generator to some safe starting point before we turn it on
     qubitgen.Freq   = 4e9
     qubitgen.Power  = -20
     
     if exp_settings['Quasi_CW']:
-        qubitgen.IQ.Mod = 'Off'
+        qubitgen.disable_pulse()
+        qubitgen.disable_IQ()
     else:
-        qubitgen.IQ.Mod = 'On'
+        qubitgen.enable_pulse()
+        qubitgen.enable_IQ()
 
     cavitygen.Output = 'On'
     qubitgen.Output  = 'On'
     
     LO.power = 12
-    LO.freq = '{} GHz'.format((cavitygen.Freq-exp_globals['IF'])/1e9)
-    #LO.Freq = CAV_freq - exp_globals['IF']
+    LO.freq = CAV_freq - exp_globals['IF']    
     LO.output = 'On'
+    
+    cavitygen.enable_pulse()
+    cavitygen.output = 'On'
     
     configure_card(card, settings)
 
     ##HDAWG settings
     configure_hdawg(hdawg, settings)
     
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T1.cpp",'r')
+#    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T1.cpp",'r')
+#    rawprog  = progFile.read()
+#    loadprog = rawprog
+#    progFile.close()
+#    
+#    q_pulse = exp_globals['qubit_pulse']
+#    m_pulse = exp_globals['measurement_pulse']
+#    loadprog = loadprog.replace('_max_time_', str(m_pulse['meas_pos']))
+#    loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
+#    loadprog = loadprog.replace('_tau_',str(q_pulse['delay']))
+#    loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
+#    loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
+#    loadprog = loadprog.replace('_piAmp_',str(q_pulse['piAmp']))
+    
+#    hdawg.AWGs[0].load_program(loadprog)
+#
+#    hdawg.AWGs[0].run_loop()
+#    time.sleep(0.1)
+    
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
     
-    q_pulse = exp_globals['qubit_pulse']
     m_pulse = exp_globals['measurement_pulse']
-    loadprog = loadprog.replace('_max_time_', str(m_pulse['meas_pos']))
-    loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
-    loadprog = loadprog.replace('_tau_',str(q_pulse['delay']))
-    loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
-    loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
-    loadprog = loadprog.replace('_piAmp_',str(q_pulse['piAmp']))
+    q_pulse = exp_globals['qubit_pulse']
     
-    hdawg.AWGs[0].load_program(loadprog)
+    start_time  = m_pulse['meas_pos']
+    window_time = m_pulse['meas_window']
+    
+    awg_sched = scheduler(total_time=start_time+2*window_time, sample_rate=2.4e9)
 
+    awg_sched.add_analog_channel(1, name='Qubit_I')
+    awg_sched.add_analog_channel(2, name='Qubit_Q')
+    
+    awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
+    awg_sched.add_digital_channel(2, name='Cavity_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
+    
+    
+    qubit_I       = awg_sched.analog_channels['Qubit_I']
+    qubit_marker  = awg_sched.digital_channels['Qubit_enable']
+    cavity_marker = awg_sched.digital_channels['Cavity_enable']
+    
+    delay = q_pulse['delay']
+    sigma = q_pulse['sigma']
+    num_sigma = q_pulse['num_sigma']
+
+    position = start_time-delay-num_sigma*sigma
+    qubit_I.add_pulse('gaussian', position=position, amplitude=q_pulse['piAmp'], sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+    
+    qubit_marker.add_window(position-num_sigma*sigma, position+2*num_sigma*sigma)
+    cavity_marker.add_window(start_time, start_time+window_time)
+    
+    awg_sched.plot_waveforms()
+    
+    [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
+    
+    loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
+    hdawg.AWGs[0].load_program(loadprog)
+    hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
     hdawg.AWGs[0].run_loop()
     time.sleep(0.1)
+    
     
     ##create the digital down conversion filter if needed.
     if exp_globals['IF'] != 0:
@@ -161,10 +210,10 @@ def pulsed_spec(instruments, settings):
         
         total_samples = card.samples
 
-#        amps_full = np.zeros((len(freqs), total_samples))
-#        phases_full = np.zeros((len(freqs), total_samples))
-        Is_full  = np.zeros((len(freqs), total_samples)) #the very rawest data is thrown away for heterodyne! Warning
-        Qs_full  = np.zeros((len(freqs), total_samples))
+        amps_full = np.zeros((len(freqs), total_samples))
+        phases_full = np.zeros((len(freqs), total_samples))
+#        Is_full  = np.zeros((len(freqs), total_samples)) #the very rawest data is thrown away for heterodyne! Warning
+#        Qs_full  = np.zeros((len(freqs), total_samples))
         
         print('Current power:{}, max:{}'.format(powers[powerind]-Qbit_Attenuation, powers[-1]-Qbit_Attenuation))
     
@@ -174,27 +223,27 @@ def pulsed_spec(instruments, settings):
             qubitgen.Freq = freq
             time.sleep(0.2)
 
-#            amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot = first_it)
-            I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
-                                                                         plot=first_it, 
-                                                                         IQstorage = True)
+            amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot = first_it, IQstorage=False)
+#            I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
+#                                                                         plot=first_it, 
+#                                                                         IQstorage = True)
             
-            I_final = np.mean(I_window) #compute <I> in the data window
-            Q_final = np.mean(Q_window) #compute <Q> in the data window
+#            I_final = np.mean(I_window) #compute <I> in the data window
+#            Q_final = np.mean(Q_window) #compute <Q> in the data window
 
             if first_it:
                 tstop = time.time()
                 estimate_time(tstart, tstop, len(powers)*len(freqs))
                 first_it = False
             
-#            powerdat[powerind, find] = np.mean(amp)
-#            phasedat[powerind, find] = np.mean(phase)
-#            amps_full[find,:]   = amp_full
-#            phases_full[find,:] = phase_full
-            Is_full[find,:]   = I_full
-            Qs_full[find,:] = Q_full
-            powerdat[powerind, find] = np.sqrt(I_final**2 + Q_final**2)
-            phasedat[powerind, find] = np.arctan2(Q_final, I_final)*180/np.pi
+            powerdat[powerind, find] = np.mean(amp)
+            phasedat[powerind, find] = np.mean(phase)
+            amps_full[find,:]   = amp_full
+            phases_full[find,:] = phase_full
+#            Is_full[find,:]   = I_full
+#            Qs_full[find,:] = Q_full
+#            powerdat[powerind, find] = np.sqrt(I_final**2 + Q_final**2)
+#            phasedat[powerind, find] = np.arctan2(Q_final, I_final)*180/np.pi
 
         full_data = {}
         full_data['xaxis'] = freqs/1e9
@@ -218,23 +267,23 @@ def pulsed_spec(instruments, settings):
 #        simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)#scaled amplitudes
         plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
-#        full_time = {}
-#        full_time['xaxis'] = xaxis*1e6
-#        full_time['mags'] = amps_full
-#        full_time['phases'] = phases_full
         full_time = {}
-        full_time['xaxis']  = xaxis*1e6
-        full_time['Is']   = Is_full
-        full_time['Qs'] = Qs_full
+        full_time['xaxis'] = xaxis*1e6
+        full_time['mags'] = amps_full
+        full_time['phases'] = phases_full
+#        full_time = {}
+#        full_time['xaxis']  = xaxis*1e6
+#        full_time['Is']   = Is_full
+#        full_time['Qs'] = Qs_full
 
-#        single_time = {}
-#        single_time['xaxis'] = xaxis*1e6
-#        single_time['mag'] = amp_full
-#        single_time['phase'] = phase_full
         single_time = {}
         single_time['xaxis'] = xaxis*1e6
-        single_time['I']   = I_full
-        single_time['Q'] = Q_full
+        single_time['mag'] = amp_full
+        single_time['phase'] = phase_full
+#        single_time = {}
+#        single_time['xaxis'] = xaxis*1e6
+#        single_time['I']   = I_full
+#        single_time['Q'] = Q_full
 
         time_labels = ['Time (us)', 'Freq (GHz)']
         identifier = 'Power: {}dBm'.format(powers[powerind]-Qbit_Attenuation)
@@ -251,7 +300,7 @@ def pulsed_spec(instruments, settings):
                         time_labels, 
                         identifier, 
                         fig_num=2,
-                        IQdata = True)
+                        IQdata = False)
         plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
 
         userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','full_data', 'single_data', 'full_time', 'single_time'],
