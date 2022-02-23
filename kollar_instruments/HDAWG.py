@@ -32,8 +32,8 @@ class HDAWG():
             Initialized HDAWG object with 4 channels and 2 AWGs with all settings set to defaults stored in default file
         '''
         (self.daq,self.device,self.props) = ziUtils.create_api_session(device, self.apilevel) #connect to device specified by string
-        ziUtils.disable_everything(self.daq,self.device) #disable all outputs of device
-        self.load_default()
+        #ziUtils.disable_everything(self.daq,self.device) #disable all outputs of device
+        #self.load_default()
         self.nodepaths = self.fill_paths()
         self.Channels = []
         self.AWGs     = []
