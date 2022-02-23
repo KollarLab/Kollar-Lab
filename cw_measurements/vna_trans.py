@@ -48,7 +48,7 @@ def vna_trans(instruments, settings):
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings']
     
-    vna.reset()
+    vna.reset()  
     
     ##Data saving and naming
     #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
