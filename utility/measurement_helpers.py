@@ -292,6 +292,27 @@ def read_and_process(card, settings, plot, IQstorage = True):
             I_full = (I_cos_full + Qprime_cos_full)/2
             
             if plot:
+                fig0 = plt.figure(97)
+                plt.clf()
+                ax = plt.subplot(1,2,1)
+                plt.plot(xaxis*1e6, Ip, label = 'raw V1')
+                plt.plot(xaxis*1e6, Qp, label = 'raw V2')
+                plt.xlabel('Time (us)')
+                plt.ylabel('Voltage')
+                plt.title('Card Voltages')
+                ax.legend(loc = 'upper right')
+                
+                ax = plt.subplot(1,2,2)
+                plt.plot(xaxis*1e6, np.sqrt(Ip**2 + Qp**2), label = 'crude amplitude')
+                plt.plot(xaxis*1e6, np.sqrt(Ipp**2 + Qpp**2), label = 'mixer corrected')
+                plt.xlabel('Time (us)')
+                plt.ylabel('Voltage')
+                plt.title('Rough Pulse Amplitude')
+                ax.legend(loc = 'upper right')
+                plt.show()
+                fig0.canvas.draw()
+                fig0.canvas.flush_events()
+                
                 amp = np.sqrt(Q_window**2+I_window**2) #this is just the I signal
                 amp_full = np.sqrt(I_full**2+Q_full**2)
                 plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
@@ -342,8 +363,8 @@ def configure_hdawg(hdawg, settings):
     hdawg.channelgrouping = hdawg_config['channelgrouping']
     hdawg.Channels[0].configureChannel(amp=amp,marker_out='Marker', hold='False')
     hdawg.Channels[1].configureChannel(amp=amp,marker_out='Marker', hold='False')
-    hdawg.Channels[2].configureChannel(amp=amp,marker_out='Marker', hold='False')
-    hdawg.Channels[3].configureChannel(amp=amp,marker_out='Marker', hold='False')
+#    hdawg.Channels[2].configureChannel(amp=amp,marker_out='Marker', hold='False')
+#    hdawg.Channels[3].configureChannel(amp=amp,marker_out='Marker', hold='False')
     hdawg.AWGs[0].Triggers[0].configureTrigger(slope=trigger_slope,channel='Trigger in 1')
     
 def configure_card(card, settings):
