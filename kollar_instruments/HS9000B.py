@@ -298,6 +298,12 @@ class channel(object):
     def Mod(self,val):
         self.mod = val
     
+    def enable_pulse(self):
+        self.mod = 'On'
+    
+    def disable_pulse(self):
+        self.mod = 'Off'
+    
     
 #    @property
 #    def triggerSlope(self):
