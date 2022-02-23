@@ -55,12 +55,12 @@ def fit_T2(taus, amps, fit_guess):
     return tau, amp, offset, freq, phi, ts, fit_curve 
 
 def convert_to_linear(yvals):
-    linear = 10**(yvals/10)  
+    linear = 10**(yvals/20)  
     return linear
 
 def fit_lorentzian(freqs, mags, plot=False, fig_num=None):
     line = convert_to_linear(mags)
-    data_test = -(line-max(line))
+    data_test = line#-(line-max(line))
     
     peak = LorentzianModel()
     const = ConstantModel()
