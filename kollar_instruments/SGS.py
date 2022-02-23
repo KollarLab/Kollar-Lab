@@ -25,6 +25,12 @@ class SGS100A(SCPIinst):
     IQ['Ileak'] = 'SOURce:IQ:IMPairment:LEAKage:I'
     IQ['Qleak'] = 'SOURce:IQ:IMPairment:LEAKage:Q'
     
+    Pulse = {}
+    Pulse['Mod']      = 'SOURce:PULM:STATe'
+    Pulse['Source']   = 'SOURce:PULM:SOURce'
+    Pulse['Polarity'] = 'SOURce:PULM:POLarity'
+    Pulse['Trig_out'] = 'CONNector:TRIGger:OMODe'
+    
     Ref = {}
     Ref['Source']    = 'SOURce:ROSCillator:SOURce'
     Ref['Frequency'] = 'SOURce:ROSCillator:EXTernal:FREQuency'
@@ -38,6 +44,7 @@ class SGS100A(SCPIinst):
     
     commandlist['core']   = core
     commandlist['IQ']     = IQ
+    commandlist['Pulse']  = Pulse
     commandlist['Ref']    = Ref
     commandlist['LO']     = LO
     commandlist['RefOut'] = RefOut
@@ -45,4 +52,23 @@ class SGS100A(SCPIinst):
     def __init__(self, address):
         self.instrument_type = 'SGS'
         
-        super().__init__(address, self.commandlist, self.errcmds) 
+        super().__init__(address, self.commandlist, self.errcmds)
+    
+    def enable_IQ(self, Ileak=0, Qleak=0):
+        self.IQ.Mod = 'On'
+        self.IQ.Imp = 'On'
+        self.IQ.Ileak = Ileak
+        self.IQ.Qleak = Qleak
+    
+    def disable_IQ(self):
+        self.IQ.Mod = 'Off'
+        
+    def enable_pulse(self, source='EXT', polarity='NORM', trig_conn='PEMSource'):
+        self.Pulse.Mod    = 'On'
+        self.Pulse.Source = source
+        self.Pulse.Polarity = polarity
+        self.Pulse.Trig_out = trig_conn
+    
+    def disable_pulse(self):
+        self.Pulse.Mod = 'Off'
+    
