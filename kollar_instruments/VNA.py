@@ -227,6 +227,46 @@ class VNA(SCPIinst):
         
         return data
     
+    def trans_meas_S21_real_imag(self, settings):
+        '''
+        Perform transmission measurement between user specified ports
+        Uses settings dictionary to configure instrument
+        Returns:
+            S21_real: array containing real part of S21
+            S21_imag: array containing imaginary part of S21
+            freqs: x axis for channel (frequency here)
+        '''
+        channel      = settings['channel']
+        time         = settings['avg_time']
+        measurement  = settings['measurement']
+        start        = settings['start_freq']
+        stop         = settings['stop_freq']
+        sweep_points = settings['freq_points']
+        rf_power     = settings['RFpower']
+        ifBW         = settings['ifBW']
+        mode         = settings['mode']
+
+        #Turn off output and switch to single sweep mode instead of continuous sweeps
+        self.output = 'OFF'
+        self.inst.write('INIT:CONT OFF')
+        
+        #Configure averaging
+        self.configure_averages(channel, 1e4, mode) #high number so that VNA keeps averaging regardless of user averaging time
+        self.configure_measurement(channel, measurement, polar=False)
+
+        #Configure frequency sweep and RF power
+        self.configure_frequency(channel, start, stop, sweep_points)
+        self.power = rf_power
+        self.ifBW = ifBW
+
+        self.error
+
+        self.avg_time(channel, time)
+
+        data = self.get_channel_data(channel)
+        
+        return data
+    
     ### Helpers and utility functions
     def autoscale(self, window=1, ref_trace=None):
         '''Autoscale window to match ref_trace range'''
@@ -302,7 +342,7 @@ class VNA(SCPIinst):
             self.inst.write('SENS{}:SWE:POIN {}'.format(channel, sweep_points))
         self.inst.query('*OPC?')
     
-    def configure_measurement(self, channel, measurement, window = 1, unwrap_phase = False):
+    def configure_measurement(self, channel, measurement, window = 1, unwrap_phase = False, polar=True):
         '''
         Set up a basic 'Sij' measurement configuring traces for magnitude and 
         phase. If the traces already exist, the code will ignore the clearing
@@ -327,16 +367,23 @@ class VNA(SCPIinst):
 #            self.configure_trace(channel, 'phase', measurement, 'PHAS') #10-5-21 AK trying unwrapped phase, was 'PHAS'
 #            self.display_trace('mag',tracenum=1, window=window)
 #            self.display_trace('phase',tracenum=2, window=window)
+        if polar:
+            if unwrap_phase:
+                phase_str = 'UPH'
+            else:
+                phase_str = 'PHAS'
+            self.clear_channel_traces(channel)
+            self.configure_trace(channel, 'mag', measurement, 'MLOG')
+            self.configure_trace(channel, 'phase', measurement, phase_str) 
+            self.display_trace('mag',tracenum=1, window=window)
+            self.display_trace('phase',tracenum=2, window=window)
         
-        if unwrap_phase:
-            phase_str = 'UPH'
         else:
-            phase_str = 'PHAS'
-        self.clear_channel_traces(channel)
-        self.configure_trace(channel, 'mag', measurement, 'MLOG')
-        self.configure_trace(channel, 'phase', measurement, phase_str) 
-        self.display_trace('mag',tracenum=1, window=window)
-        self.display_trace('phase',tracenum=2, window=window)
+            self.clear_channel_traces(channel)
+            self.configure_trace(channel, 'S21_real', measurement, 'Real')
+            self.configure_trace(channel, 'S21_imag', measurement, 'Imag') 
+            self.display_trace('S21_real',tracenum=1, window=window)
+            self.display_trace('S21_imag',tracenum=2, window=window)
 
     def configure_trace(self, channel, name, meastype, measformat):
         '''
@@ -419,7 +466,7 @@ class VNA(SCPIinst):
         t1 = time()
         while not opc&1:
             t2 = time()
-            print('waiting for command to complete, elapsed time:{}, total time est. {}'.format(t2-t1, total_time))
+            #print('waiting for command to complete, elapsed time:{}, total time est. {}'.format(t2-t1, total_time))
             opc = int(self.inst.query('*ESR?').strip("\n'"))
             if opc&1:
                 break
