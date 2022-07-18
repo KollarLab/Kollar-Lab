@@ -86,12 +86,14 @@ def fit_lorentzian(freqs, mags, plot=False, fig_num=None):
     
     if plot:
         if fig_num is None:
-            plt.figure()
+            fig = plt.figure()
         else:
-            plt.figure(fig_num)
+            fig = plt.figure(fig_num)
         plt.clf()
         plt.plot(freqs, data_test)
         plt.plot(freqs, model)
-        plt.show()
+#        plt.show()
+        fig.canvas.draw()
+        fig.canvas.flush_events()
         
     return center, 2*sigma, amp_dB
