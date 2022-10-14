@@ -812,7 +812,7 @@ class HDAWGchannel():
     def marker(self):
         node   = self.nodepaths['marker']
         status = self.daq.getInt(node)
-        val    = status-self.ID
+        val    = status-self.ID%2
         output = self._markerInt.inverse[val]   
         #print('Using {} function on marker channel'.format(output))
         return output
@@ -822,7 +822,7 @@ class HDAWGchannel():
         if val not in self._markerInt.keys():
             print('Error, acceptable inputs are {}'.format(list(self._markerInt)))
         else:
-            markindex = self.ID+self._markerInt[val]
+            markindex = self.ID%2+self._markerInt[val]
             #print('Setting marker output to {}'.format(val))
             self.daq.setInt(node,markindex)
             self.configured = True

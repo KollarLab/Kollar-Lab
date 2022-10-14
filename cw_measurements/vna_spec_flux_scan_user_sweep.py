@@ -19,13 +19,12 @@ def get_default_settings():
     settings = {}
     autoscan_settings = {}
     #Save location
-    settings['scanname']    = 'flux_Scan'
+    settings['scanname']    = 'flux_scan'
     settings['meas_type']   = 'spec_flux_scan'
     #settings['project_dir'] = r'Z:\Data'
     
-    settings['start_voltage'] = -2
-    settings['stop_voltage'] =  2
-    settings['voltage_points'] = 251
+    settings['q_volts'] = []
+    settings['c_volts'] = []
     
     settings['RFport'] = 3
     settings['Mport'] = 2
@@ -44,9 +43,6 @@ def get_default_settings():
     settings['high_power_spec'] = False
     settings['unwrap_phase'] = True
     
-#    settings['CAV_Attenuation'] = 30
-#    settings['Qbit_Attenuation'] = 10
-    
     autoscan_settings['channel'] = 1
     autoscan_settings['measurement'] = 'S21'
     autoscan_settings['freq_points'] = 501
@@ -63,10 +59,12 @@ def get_default_settings():
     
     return fullsettings
 
-def vna_spec_flux_scan(instruments, settings):
+def vna_spec_flux_scan_user_sweep(instruments, settings):
     ##Instruments used
     vna = instruments['VNA']
-    SRS = instruments['DCsupply']
+    FBL = instruments['FBL']
+#    qubit_bias = instruments['qubit']
+#    coupler_bias = instruments['coupler']
 
     vna.reset()
 
@@ -97,61 +95,70 @@ def vna_spec_flux_scan(instruments, settings):
         autoscan_set['RFpower'] = autoscan_set['RFpower'] + CAV_Attenuation
     
     #set voltage sweep
-    start_voltage = spec_set['start_voltage']
-    stop_voltage  = spec_set['stop_voltage']
-    voltage_points = spec_set['voltage_points']
-    voltages = np.round(np.linspace(start_voltage, stop_voltage, voltage_points),6)
-    max_voltage = 10#3.5
-    if np.max(voltages) > max_voltage:
-        raise ValueError('max voltage too large!')
-    else:
-        settings['voltages'] = voltages
     
-    trans_mags   = np.zeros((voltage_points, autoscan_set['freq_points']))
-    trans_phases = np.zeros((voltage_points, autoscan_set['freq_points']))
+    start  = spec_set['start_flux']
+    stop   = spec_set['stop_flux']
+    points = spec_set['flux_points']
+    flux_points = np.linspace(start, stop, points)
     
-    mags   = np.zeros((voltage_points, spec_set['freq_points']))
-    phases = np.zeros((voltage_points, spec_set['freq_points']))
+    swept_val = spec_set['sweep_name']
+    fixed_val = spec_set['fixed_name']
+    bias_flux = spec_set['bias_point']
     
-    SRS.Output = 'On'
+#    max_voltage = 10#3.5
+#    if np.max(voltages) > max_voltage:
+#        raise ValueError('max voltage too large!')
+#    else:
+#        settings['voltages'] = voltages
+    
+    trans_mags   = np.zeros((points, autoscan_set['freq_points']))
+    trans_phases = np.zeros((points, autoscan_set['freq_points']))
+    
+    mags   = np.zeros((points, spec_set['freq_points']))
+    phases = np.zeros((points, spec_set['freq_points']))
+    
+    FBL.ch1.Output = 'On'
+    FBL.ch2.Output = 'On'
     
     tstart = time.time()
     
-    identifier = 'Cav Power : ' + str(spec_set['CAVpower'] - CAV_Attenuation) + ' dB'
+    identifier = 'Cav Power : ' + str(spec_set['CAVpower'] - CAV_Attenuation) + ' dB\n{} parked at {} flux'.format(fixed_val, bias_flux)
     
     if background_subtract:
-        vna.reset()  
+        vna.reset()
         print('Collecting background ripple, turning cavity power to 0 dBm (on vna)')
         back_settings = copy.deepcopy(autoscan_set)
         back_settings['RFpower'] = 0
         back_data = vna.trans_meas(back_settings)
         
-    for vind in range(len(voltages)):
-        voltage = voltages[vind]
-        print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
+    for ind in range(points):
+        flux = flux_points[ind]
+        FBL.__setattr__(swept_val, flux)
+        FBL.__setattr__(fixed_val, bias_flux)
         
-        SRS.voltage_ramp(voltage)
+        print('Flux: {}, final flux: {}'.format(flux, flux_points[-1]))
+        
         time.sleep(0.1)
         
-        vna.reset()  
+        vna.reset()
         vna.output = 'on'
         
         print('trans')
         trans_data  = vna.trans_meas(autoscan_set)
         trans_freqs = trans_data['xaxis']
-        trans_mags[vind]   = trans_data['mag']
-        trans_phases[vind] = trans_data['phase']
+        trans_mags[ind]   = trans_data['mag']
+        trans_phases[ind] = trans_data['phase']
         
         if background_subtract:
-            trans_mags[vind] = trans_mags[vind] - back_data['mag']
+            trans_mags[ind] = trans_mags[ind] - back_data['mag']
         else:
-            trans_mags[vind] = trans_mags[vind]
+            trans_mags[ind] = trans_mags[ind]
 
         hanger = exp_globals['hanger']
         if hanger:
-            spec_set['CAVfreq'] = trans_freqs[np.argmin(trans_mags[vind])] 
+            spec_set['CAVfreq'] = trans_freqs[np.argmin(trans_mags[ind])] 
         else:
-            spec_set['CAVfreq'] = trans_freqs[np.argmax(trans_mags[vind])]
+            spec_set['CAVfreq'] = trans_freqs[np.argmax(trans_mags[ind])]
 
         print('spec, CAV power: {}, cav freq: {}'.format(spec_set['CAVpower'], spec_set['CAVfreq']))
 
@@ -159,32 +166,32 @@ def vna_spec_flux_scan(instruments, settings):
         
         vna.autoscale()
         
-        mags[vind]   = data['mag']
-        phases[vind] = data['phase']
+        mags[ind]   = data['mag']
+        phases[ind] = data['phase']
 
         freqs = data['xaxis']  
         
-        if vind==0:
+        if ind==0:
             tstop=time.time()
-            estimate_time(tstart, tstop, len(voltages))
+            estimate_time(tstart, tstop, len(flux_points))
             
         transdata = {}
         transdata['xaxis'] = trans_freqs/1e9
-        transdata['mags'] = trans_mags[0:vind+1,:]
-        transdata['phases'] = trans_phases[0:vind+1,:]
+        transdata['mags'] = trans_mags[0:ind+1,:]
+        transdata['phases'] = trans_phases[0:ind+1,:]
         
         specdata = {}
         specdata['xaxis'] = freqs/1e9
-        specdata['mags'] = mags[0:vind+1,:]
-        specdata['phases'] = phases[0:vind+1,:]
+        specdata['mags'] = mags[0:ind+1,:]
+        specdata['phases'] = phases[0:ind+1,:]
         
         singledata = {}
         singledata['xaxis'] = freqs/1e9
         singledata['mag'] = data['mag'] 
         singledata['phase'] = data['phase']
         
-        trans_labels = ['Freq (GHz)','Voltage (V)']
-        spec_labels  = ['Freq (GHz)','Voltage (V)']
+        trans_labels = ['Freq (GHz)','Flux quanta']
+        spec_labels  = ['Freq (GHz)','Flux quanta']
         
         #modify the spec data to subtract the offset in amp and phase
         #and then plot the modified version
@@ -203,9 +210,9 @@ def vna_spec_flux_scan(instruments, settings):
             mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
         specplotdata['phases'] = mat
         
-        plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
+        plots.autoscan_plot(transdata, specplotdata, singledata, flux_points[0:ind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
             
-        userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'voltages', 
+        userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'flux_points', 
                                        'filename', 'trans_labels', 'spec_labels'], 
                                        locals(), expsettings=settings, instruments=instruments)
         plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)

@@ -67,40 +67,32 @@ def meas_T1(instruments, settings):
     
     ## Configure generators
     LO.power  = 12
-    LO.freq = cavitygen.freq-exp_globals['IF']
+    LO.freq = CAV_Freq-exp_globals['IF']
     LO.output = 'On'
     
     cavitygen.freq   = CAV_Freq
     cavitygen.power  = CAV_Power + CAV_Attenuation
+    #cavitygen.power  = int(np.round(CAV_Power + CAV_Attenuation,0)) ###trying another stupid thing
     cavitygen.enable_pulse()
     
     qubitgen.Freq   = Q_Freq
     qubitgen.Power  = Q_Power + Qbit_Attenuation
     qubitgen.enable_IQ()
     qubitgen.enable_pulse()
+#    qubitgen.disable_pulse()
+#    qubitgen.disable_IQ()
     
     cavitygen.Output = 'On'
     qubitgen.Output  = 'On'
+    
+    cavitygen.output = 'On'
+    qubitgen.output  = 'On'
     
     ## Configure card
     configure_card(card, settings)
    
     ## Configure HDAWG
     configure_hdawg(hdawg, settings)
-    
-#    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\T1.cpp",'r')
-#    rawprog  = progFile.read()
-#    loadprog = rawprog
-#    progFile.close()
-#    
-#    q_pulse = exp_globals['qubit_pulse']
-#    m_pulse = exp_globals['measurement_pulse']
-#    loadprog = loadprog.replace('_max_time_', str(m_pulse['meas_pos']))
-#    loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
-#    loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
-#    loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
-#    loadprog = loadprog.replace('_piAmp_',str(q_pulse['piAmp']))
-#    loadprog = loadprog.replace('_piAngle_',str(q_pulse['piAngle']))
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
@@ -144,10 +136,14 @@ def meas_T1(instruments, settings):
 #    np.random.shuffle(indices)
 
     ## Start the main measurement loop 
+    total_samples = card.samples
+    
     amp_int = np.zeros(len(taus))
     ang_int = np.zeros(len(taus))
-    amps    = np.zeros((len(taus),card.samples))
-    angles  = np.zeros((len(taus),card.samples))
+    amps    = np.zeros((len(taus),total_samples))
+    angles  = np.zeros((len(taus),total_samples))
+    #amps    = np.zeros((len(taus),card.samples))
+    #angles  = np.zeros((len(taus),card.samples))
     
         ##create the digital down conversion filter if needed.
     if exp_globals['IF'] != 0:
@@ -181,10 +177,15 @@ def meas_T1(instruments, settings):
         position = start_time-delay-num_sigma*sigma
         qubit_time = num_sigma*sigma
         
+        #normal T1
         qubit_I.add_pulse('gaussian', position=position-tau, amplitude=q_pulse['piAmp'], sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
-        
         qubit_marker.add_window(position-qubit_time-tau, position+2*qubit_time-tau)
         awg_sched.plot_waveforms()
+        
+#        ###hack for drainage T1
+#        qubit_I.add_pulse('gaussian_square', position=1e-6, length = (position-1e-6 -tau), amplitude=q_pulse['piAmp'], ramp_sigma=1e-9, num_sigma=2)
+#        qubit_marker.add_window(0, position-tau)
+#        awg_sched.plot_waveforms()
         
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
         
@@ -192,26 +193,60 @@ def meas_T1(instruments, settings):
         hdawg.AWGs[0].load_program(loadprog)
         hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
         hdawg.AWGs[0].run_loop()
+        qubitgen.output='On'
         time.sleep(0.1)
         
-        amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it, IQstorage=False) 
+        ### Alicia is messing around
+        #card.SetParams()
+        #print(card.settings)
+        #print('   ')
+        #print(settings)
+        ###
+        I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
+                                                             plot=first_it, 
+                                                             IQstorage = True)
+        if exp_settings['subtract_background']:
+            #Acquire background trace
+            qubitgen.freq=3.8e9
+            #qubitgen.output='Off'
+            time.sleep(0.1)
+            I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
+                                                             plot=first_it, 
+                                                             IQstorage = True)
+            qubitgen.freq=Q_Freq
+        else:
+            I_window_b, Q_window_b, I_full_b, Q_full_b = 0,0,0,0
         
-        amps[tind] = amp_full
-        amp_int[tind] = np.mean(amp) 
-        angles[tind] = phase_full
-        ang_int[tind] = np.mean(phase)
-#        I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
-#                                                                         plot=first_it, 
-#                                                                         IQstorage = True)
-#            
-#        I_final = np.mean(I_window) #compute <I> in the data window
-#        Q_final = np.mean(Q_window) #compute <Q> in the data window
-#        
-#        amps[tind] = np.sqrt(I_full**2+Q_full**2)
-#        angles[tind] = np.arctan2(Q_full, I_full)*180/np.pi
-#        
-#        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
-#        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
+        ##Useful handles for variables
+        I_sig, Q_sig   = [np.mean(I_window), np.mean(Q_window)] #<I>, <Q> for signal trace
+        I_back, Q_back = [np.mean(I_window_b), np.mean(Q_window_b)] #<I>, <Q> for background trace
+        theta_sig  = np.arctan2(Q_sig,I_sig)*180/np.pi #angle relative to x axis in IQ plane
+        theta_back = np.arctan2(Q_back, I_back)*180/np.pi #angle relative to x axis in IQ plane 
+        
+        I_final = I_sig-I_back #compute <I_net> in the data window
+        Q_final = Q_sig-Q_back #compute <Q_net> in the data window
+        
+        amps[tind] = np.sqrt((I_full-I_full_b)**2+(Q_full-Q_full_b)**2)
+        angles[tind] = np.arctan2((Q_full-Q_full_b), (I_full-I_full_b))*180/np.pi
+        
+##        #hack plot for quasi CW
+#        fig = plt.figure(74)
+#        if tind == 0:
+#            plt.clf()
+#            ax = plt.subplot(1,1,1)
+#            plt.xlabel('time (us)')
+#            plt.ylabel('|dV|')
+#            plt.title
+#        plt.plot(xaxis*1e6, amps[tind], label = str(np.round(tau*1e6,1)) + 'us')
+#        ax.legend(loc = 'upper right')
+#        titleStr = 'time traces: ' + filename
+#        plt.title(titleStr)
+#        fig.canvas.draw()
+#        fig.canvas.flush_events()
+        
+        
+        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
+        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         if first_it:
             tstop = time.time()
             estimate_time(tstart, tstop, len(taus))

@@ -17,8 +17,7 @@ def gaussian_square(sample_rate, amp, length, num_sigma, ramp_sigma):
     ramp_up, ramp_down = np.split(ramp, 2)
     final = np.concatenate((ramp_up, square, ramp_down))
     return final
-    
-    
+       
 class AnalogChannel():
     def __init__(self, chanID, sample_rate, samples, name='waveform'):
         self.ID = chanID

@@ -7,7 +7,7 @@ Created on Tue Dec  8 15:27:44 2020
 import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
-from lmfit.models import LorentzianModel, ConstantModel
+from lmfit.models import LorentzianModel, ConstantModel, GaussianModel
 
 def T1_model(x, tau, amp, offset):
     return amp*np.exp(- (x)/tau) + offset
@@ -58,17 +58,18 @@ def convert_to_linear(yvals):
     linear = 10**(yvals/20)  
     return linear
 
-def fit_lorentzian(freqs, mags, plot=False, fig_num=None):
+def fit_gaussian(freqs, mags, plot=False, fig_num=None):
     line = convert_to_linear(mags)
-    data_test = line#-(line-max(line))
+    data_test = -(line-max(line))
     
-    peak = LorentzianModel()
+    peak = GaussianModel()
     const = ConstantModel()
     mod = peak + const
     
     center = 0
     sigma = 0
     amp   = 0
+    residuals = 0
     try:
         pars = peak.guess(data_test, x=freqs)
         pars += const.make_params()
@@ -80,6 +81,51 @@ def fit_lorentzian(freqs, mags, plot=False, fig_num=None):
         amp    = fit_params['amplitude']/(np.pi*sigma)
         model  = mod.eval(params=out.params, x=freqs)
         amp_dB = 10*np.log10(min(model)/max(model))
+        
+        residuals = data_test-model
+    except:
+        print('Fit did not converge, returning zeros')
+        return center, sigma
+    
+    if plot:
+        if fig_num is None:
+            fig = plt.figure()
+        else:
+            fig = plt.figure(fig_num)
+        plt.clf()
+        plt.plot(freqs, data_test)
+        plt.plot(freqs, model)
+#        plt.show()
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+    
+        
+    return center, 2*sigma, amp_dB#, residuals
+
+def fit_lorentzian(freqs, mags, plot=False, fig_num=None):
+    line = convert_to_linear(mags)
+    data_test = -(line-max(line))
+    
+    peak = LorentzianModel()
+    const = ConstantModel()
+    mod = peak + const
+    
+    center = 0
+    sigma = 0
+    amp   = 0
+    residuals = 0
+    try:
+        pars = peak.guess(data_test, x=freqs)
+        pars += const.make_params()
+        
+        out = mod.fit(data_test, pars, x=freqs)
+        fit_params = out.best_values
+        center = fit_params['center']
+        sigma  = fit_params['sigma']
+        amp    = fit_params['amplitude']/(np.pi*sigma)
+        model  = mod.eval(params=out.params, x=freqs)
+        amp_dB = 10*np.log10(min(model)/max(model))
+        residuals = data_test-model
     except:
         print('Fit did not converge, returning zeros')
         return center, sigma
@@ -96,4 +142,4 @@ def fit_lorentzian(freqs, mags, plot=False, fig_num=None):
         fig.canvas.draw()
         fig.canvas.flush_events()
         
-    return center, 2*sigma, amp_dB
+    return center, 2*sigma, amp_dB#, residuals

@@ -252,8 +252,22 @@ class channel(object):
         channel = self.__dict__['channel']
         baseStr = channel + ':PWR:RF'
         if val in ['ON', 'On', 1]:
+            #set the power to the desired level
+            writeStr = channel + ':PWR:' + str(self.power)
+            self.inst.query(writeStr)
+#            print('Setting power before turning on')
+            
+            #turn the output on
             writeStr = baseStr + ':ON'
             self.inst.query(writeStr)
+#            print('turning the output on')
+            
+            #set the power to the desired level again after the output is on
+            writeStr = channel + ':PWR:' + str(self.power)
+            self.inst.query(writeStr)
+#            print('Setting power after turning on')
+            
+            
         elif val in ['OFF', 'Off', 0]:
             writeStr = baseStr + ':OFF'
             self.inst.query(writeStr)

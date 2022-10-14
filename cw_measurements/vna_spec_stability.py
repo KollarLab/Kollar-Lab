@@ -16,8 +16,9 @@ import utility.plotting_tools as plots
 from utility.userfits import fit_lorentzian
 
 def get_default_settings():
+    fullsettings = {}
     settings = {}
-    
+    autoscan_settings = {}
     #Save location
     settings['scanname']    = 'initial_power_scan_q4'
     settings['meas_type']   = 'stability'
@@ -47,7 +48,21 @@ def get_default_settings():
     
     settings['unwrap_phase'] = True
     
-    return settings
+    autoscan_settings['channel'] = 1
+    autoscan_settings['measurement'] = 'S21'
+    autoscan_settings['freq_points'] = 501
+    autoscan_settings['ifBW'] = settings['ifBW']
+    autoscan_settings['avg_time'] = 15
+    autoscan_settings['start_freq'] = 7.6e9
+    autoscan_settings['stop_freq'] = 7.7e9
+    autoscan_settings['RFpower'] = settings['CAVpower']
+    autoscan_settings['background_subtract'] = False
+    autoscan_settings['unwrap_phase'] = False
+    
+    fullsettings['spec'] = settings
+    fullsettings['autoscan'] = autoscan_settings
+    
+    return fullsettings
 
 def vna_spec_stability(instruments, settings):
     #Instruments used
@@ -58,32 +73,54 @@ def vna_spec_stability(instruments, settings):
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings']
     
+    spec_set = exp_settings['spec']
+    autoscan_set = exp_settings['autoscan']
+    
     #Data saving and naming
     #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
-    filename = exp_settings['scanname'] + '_' + stamp
+    filename = spec_set['scanname'] + '_' + stamp
 
     CAV_Attenuation  = exp_globals['CAV_Attenuation']
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']
 
-    exp_settings['CAVpower'] = exp_settings['CAVpower'] + CAV_Attenuation
-    exp_settings['RFpower']  = exp_settings['RFpower'] + Qbit_Attenuation
+    spec_set['CAVpower'] = spec_set['CAVpower'] + CAV_Attenuation
+    spec_set['RFpower']  = spec_set['RFpower'] + Qbit_Attenuation
     
-    timing = np.linspace(0, exp_settings['num_points']*exp_settings['avg_time'], exp_settings['num_points'])
+    autoscan_set['RFpower'] = spec_set['CAVpower']
+    
+    timing = np.linspace(0, spec_set['num_points']*(spec_set['avg_time']+autoscan_set['avg_time']), spec_set['num_points'])
 
-    mags   = np.zeros((exp_settings['num_points'], exp_settings['freq_points']))
-    phases = np.zeros((exp_settings['num_points'], exp_settings['freq_points']))
+    mags   = np.zeros((spec_set['num_points'], spec_set['freq_points']))
+    phases = np.zeros((spec_set['num_points'], spec_set['freq_points']))
     
-    centers = np.zeros(exp_settings['num_points'])
-    widths  = np.zeros(exp_settings['num_points'])
-    amps    = np.zeros(exp_settings['num_points'])
+    centers = np.zeros(spec_set['num_points'])
+    widths  = np.zeros(spec_set['num_points'])
+    amps    = np.zeros(spec_set['num_points'])
     
     tstart = time.time()
     for tind in range(len(timing)):
-        print('Measurement {} out of {}'.format(tind, exp_settings['num_points']))
+        print('Measurement {} out of {}'.format(tind, spec_set['num_points']))
+        
+        vna.reset()
+        vna.output = 'on'
+        
+        print('trans')
+        trans_data   = vna.trans_meas(autoscan_set)
+        trans_freqs  = trans_data['xaxis']
+        trans_mags   = trans_data['mag']
+        trans_phases = trans_data['phase']
 
-        data = vna.spec_meas(exp_settings)
+        hanger = exp_globals['hanger']
+        if hanger:
+            spec_set['CAVfreq'] = trans_freqs[np.argmin(trans_mags)] 
+        else:
+            spec_set['CAVfreq'] = trans_freqs[np.argmax(trans_mags)]
+
+        print('spec, CAV power: {}, cav freq: {}'.format(spec_set['CAVpower'], spec_set['CAVfreq']))
+        
+        data = vna.spec_meas(spec_set)
 
         vna.autoscale()
 
@@ -97,11 +134,12 @@ def vna_spec_stability(instruments, settings):
         freqs = data['xaxis']
     
         full_data = {}
-        full_data['xaxis'] = freqs
+        full_data['xaxis'] = freqs/1e9
         full_data['mags'] = mags[0:tind+1]
         full_data['phases'] = phases[0:tind+1]
     
         single_data = data
+        single_data['xaxis'] = freqs/1e9
         yaxis = timing[0:tind+1]
         labels = ['Freq (GHz)', 'Time elapsed (s)']
     

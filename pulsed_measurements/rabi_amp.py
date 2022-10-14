@@ -64,7 +64,7 @@ def pi_amp_sweep(instruments, settings):
     
     ## Configure generators
     LO.power  = 12
-    LO.freq = '{} GHz'.format((cavitygen.Freq-exp_globals['IF'])/1e9)
+    LO.freq = cavitygen.Freq-exp_globals['IF']
     LO.output = 'On'
     
     cavitygen.Freq   = CAV_Freq

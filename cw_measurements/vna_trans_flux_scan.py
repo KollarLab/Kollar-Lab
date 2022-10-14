@@ -52,7 +52,8 @@ def vna_trans_flux_scan(instruments, settings):
     vna = instruments['VNA']
     SRS = instruments['DCsupply']
 
-    vna.reset()
+    vna.reset() #####!!! warning put me back
+#    print('WARNING" Auto reset has been overridden')
 
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings']
@@ -129,11 +130,12 @@ def vna_trans_flux_scan(instruments, settings):
             freqs = data['xaxis']   
 
             full_data = {}
-            full_data['xaxis']  = freqs
+            full_data['xaxis']  = freqs/1e9
             full_data['mags']   = mags[0:vind+1]
             full_data['phases'] = phases[0:vind+1]
     
             single_data = data
+            single_data['xaxis'] = freqs/1e9
     
             labels = ['Freq (GHz)', 'Voltage (V)']
             yaxis  = voltages[0:vind+1]

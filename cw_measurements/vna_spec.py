@@ -97,11 +97,12 @@ def vna_spec(instruments, settings):
         freqs = data['xaxis']
     
         full_data = {}
-        full_data['xaxis']  = freqs
+        full_data['xaxis']  = freqs/1e9
         full_data['mags']   = mags[0:powerind+1]
         full_data['phases'] = phases[0:powerind+1]
     
         single_data = data
+        single_data['xaxis'] = freqs/1e9
 
         yaxis = powers[0:powerind+1] - Qbit_Attenuation
         labels = ['Freq (GHz)', 'Powers (dBm)']

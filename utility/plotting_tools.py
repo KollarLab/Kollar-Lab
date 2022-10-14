@@ -90,6 +90,52 @@ def simplescan_plot(full_data, singledata,
     fig.canvas.flush_events()
     return
 
+def simplescan_plot_update(full_data, 
+                           singledata, 
+                           yaxis, 
+                           scanname, 
+                           labels, 
+                           datanames,
+                           titles,
+                           identifier='',
+                           fig_num='', 
+                           cmap='hot', 
+                           vmin=np.NaN, 
+                           vmax=np.NaN):
+    if fig_num == '':
+        fig = plt.figure(figsize=(13,8))
+    else:
+        fig = plt.figure(fig_num, figsize=(13,8))
+    plt.clf()
+    
+    key1 = datanames[0]
+    key2 = datanames[1]
+    title1 = titles[0]
+    title2 = titles[1]
+    ax = plt.subplot(2,2,1)
+    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data[key1], labels, title1, cmap, vmin, vmax)
+    
+    ax = plt.subplot(2,2,2)
+    general_colormap_subplot(ax,full_data['xaxis'], yaxis, full_data[key2], labels, title2, cmap)
+    
+    ax = plt.subplot(2,2,3)
+    key = key1[0:-1]
+    plt.plot(singledata['xaxis'], singledata[key])
+    plt.xlabel(labels[0])
+    plt.title('Single shot ' + key)
+    
+    ax = plt.subplot(2,2,4)
+    key = key2[0:-1]
+    plt.plot(singledata['xaxis'], singledata[key])
+    plt.xlabel(labels[0])
+    plt.title('Single shot ' + key)
+    
+    plt.suptitle('Filename: {}, {}'.format(scanname, identifier))
+    
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    return
+
 def autoscan_plot(transdata, specdata, singledata, yaxis, scanname, trans_labels, spec_labels, identifier, fig_num = ''):
     if fig_num == '':
         fig = plt.figure(figsize=(13,8))

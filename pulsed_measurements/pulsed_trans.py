@@ -149,10 +149,10 @@ def pulsed_trans(instruments, settings):
         time.sleep(0.2)
 
         total_samples = card.samples 
-        amps   = np.zeros((len(freqs), total_samples))
-        phases = np.zeros((len(freqs), total_samples))
-#        Is  = np.zeros((len(freqs), total_samples)) #the very rawest data is thrown away for heterodyne! Warning
-#        Qs  = np.zeros((len(freqs), total_samples))
+#        amps   = np.zeros((len(freqs), total_samples))
+#        phases = np.zeros((len(freqs), total_samples))
+        Is  = np.zeros((len(freqs), total_samples)) #the very rawest data is thrown away for heterodyne! Warning
+        Qs  = np.zeros((len(freqs), total_samples))
         
         print('Current power:{}, max:{}'.format(powers[powerind] - CAV_Attenuation, powers[-1] - CAV_Attenuation))
     
@@ -164,16 +164,18 @@ def pulsed_trans(instruments, settings):
             #LO.freq   = freq-exp_globals['IF']
             LO.freq = freq - exp_globals['IF']
             LO.output = 'On'
-
+            
+            cavitygen.phase = 0
+            LO.phase = 0
             time.sleep(0.2)
 
-            amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it, IQstorage = False)
-#            I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
-#                                                                         plot=first_it, 
-#                                                                         IQstorage = True)
+#            amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it, IQstorage = False)
+            I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
+                                                                         plot=first_it, 
+                                                                         IQstorage = True)
             
-#            I_final = np.mean(I_window) #compute <I> in the data window
-#            Q_final = np.mean(Q_window) #compute <Q> in the data window
+            I_final = np.mean(I_window) #compute <I> in the data window
+            Q_final = np.mean(Q_window) #compute <Q> in the data window
             
             if first_it:
                 tstop = time.time()
@@ -181,14 +183,14 @@ def pulsed_trans(instruments, settings):
                 first_it = False
                 
             
-            amps[find,:]   = amp_full
-            phases[find,:] = phase_full
-            powerdat[powerind, find] = np.mean(amp)
-            phasedat[powerind, find] = np.mean(phase)   ####!!!! this does not work with heterodyne. Because the phase is wrapping.
-#            Is[find,:]   = I_full
-#            Qs[find,:] = Q_full
-#            powerdat[powerind, find] = np.sqrt(I_final**2 + Q_final**2)
-#            phasedat[powerind, find] = np.arctan2(Q_final, I_final)*180/np.pi
+#            amps[find,:]   = amp_full
+#            phases[find,:] = phase_full
+#            powerdat[powerind, find] = np.mean(amp)
+#            phasedat[powerind, find] = np.mean(phase)   ####!!!! this does not work with heterodyne. Because the phase is wrapping.
+            Is[find,:]   = I_full
+            Qs[find,:] = Q_full
+            powerdat[powerind, find] = np.sqrt(I_final**2 + Q_final**2)
+            phasedat[powerind, find] = np.arctan2(Q_final, I_final)*180/np.pi
             
         full_data = {}
         full_data['xaxis']  = freqs/1e9
@@ -213,23 +215,23 @@ def pulsed_trans(instruments, settings):
         simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False) #normalized to drive level
         plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
-        full_time = {}
-        full_time['xaxis']  = xaxis*1e6
-        full_time['mags']   = amps
-        full_time['phases'] = phases
 #        full_time = {}
 #        full_time['xaxis']  = xaxis*1e6
-#        full_time['Is']   = Is
-#        full_time['Qs'] = Qs
+#        full_time['mags']   = amps
+#        full_time['phases'] = phases
+        full_time = {}
+        full_time['xaxis']  = xaxis*1e6
+        full_time['Is']   = Is
+        full_time['Qs'] = Qs
 
-        single_time = {}
-        single_time['xaxis'] = xaxis*1e6
-        single_time['mag']   = amp_full
-        single_time['phase'] = phase_full
 #        single_time = {}
 #        single_time['xaxis'] = xaxis*1e6
-#        single_time['I']   = I_full
-#        single_time['Q'] = Q_full
+#        single_time['mag']   = amp_full
+#        single_time['phase'] = phase_full
+        single_time = {}
+        single_time['xaxis'] = xaxis*1e6
+        single_time['I']   = I_full
+        single_time['Q'] = Q_full
 
         time_labels = ['Time (us)', 'Freq (GHz)']
         identifier = 'Power: {}dBm'.format(powers[powerind]-CAV_Attenuation)
@@ -249,7 +251,7 @@ def pulsed_trans(instruments, settings):
                         time_labels, 
                         identifier, 
                         fig_num=2,
-                        IQdata = False)
+                        IQdata = True)
         plt.savefig(os.path.join(saveDir, filename+'_RawTimeTraces.png'), dpi = 150)
 
         userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','full_data', 'single_data', 'full_time', 'single_time'],

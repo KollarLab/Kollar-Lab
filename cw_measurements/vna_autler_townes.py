@@ -116,20 +116,20 @@ def vna_autler_townes(instruments, settings):
         if not exp_settings['random']:
             if exp_settings['reverse']:
                 full_data = {}
-                full_data['xaxis']  = freqs
+                full_data['xaxis']  = freqs/1e9
                 full_data['mags']   = mags[freqind:]
                 full_data['phases'] = phases[freqind:]
             
                 single_data = data
-                yaxis = autler_freqs[freqind:]
+                yaxis = autler_freqs[freqind:]/1e9
             else:
                 full_data = {}
-                full_data['xaxis']  = freqs
+                full_data['xaxis']  = freqs/1e9
                 full_data['mags']   = mags[0:freqind+1]
                 full_data['phases'] = phases[0:freqind+1]
             
                 single_data = data
-                yaxis = autler_freqs[0:freqind+1]
+                yaxis = autler_freqs[0:freqind+1]/1e9
             
         
             plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
@@ -141,11 +141,11 @@ def vna_autler_townes(instruments, settings):
     print('Elapsed time: {}'.format(t2-tstart))
     if exp_settings['random']: 
         full_data = {}
-        full_data['xaxis']  = freqs
+        full_data['xaxis']  = freqs/1e9
         full_data['mags']   = mags
         full_data['phases'] = phases
     
         single_data = data
-        yaxis = autler_freqs
+        yaxis = autler_freqs/1e9
         plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
         plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)

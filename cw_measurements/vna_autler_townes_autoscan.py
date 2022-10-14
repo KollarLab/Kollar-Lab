@@ -175,7 +175,7 @@ def vna_autler_townes_autoscan(instruments, settings):
             estimate_time(tstart, tstop, len(autler_freqs))
         
         transdata = {}
-        transdata['xaxis'] = trans_freqs
+        transdata['xaxis'] = trans_freqs/1e9
         transdata['mags'] = trans_mags[0:freqind+1,:]
         transdata['phases'] = trans_phases[0:freqind+1,:]
 
@@ -187,7 +187,7 @@ def vna_autler_townes_autoscan(instruments, settings):
         if not AT_set['random']:
             if AT_set['reverse']:
                 full_data = {}
-                full_data['xaxis']  = freqs
+                full_data['xaxis']  = freqs/1e9
                 full_data['mags']   = mags[freqind:]
                 full_data['phases'] = phases[freqind:]
             
@@ -195,12 +195,12 @@ def vna_autler_townes_autoscan(instruments, settings):
                 yaxis = autler_freqs[freqind:]
             else:
                 full_data = {}
-                full_data['xaxis']  = freqs
+                full_data['xaxis']  = freqs/1e9
                 full_data['mags']   = mags[0:freqind+1]
                 full_data['phases'] = phases[0:freqind+1]
             
                 single_data = data
-                yaxis = autler_freqs[0:freqind+1]
+                yaxis = autler_freqs[0:freqind+1]/1e9
             
         
             plots.autoscan_plot(transdata, full_data, single_data, freqs[0:freqind+1], filename, trans_labels, labels, identifier, fig_num = 1)
@@ -213,12 +213,12 @@ def vna_autler_townes_autoscan(instruments, settings):
     print('Elapsed time: {}'.format(t2-tstart))
     if AT_set['random']: 
         full_data = {}
-        full_data['xaxis']  = freqs
+        full_data['xaxis']  = freqs/1e9
         full_data['mags']   = mags
         full_data['phases'] = phases
     
         single_data = data
-        yaxis = autler_freqs
+        yaxis = autler_freqs/1e9
         plots.autoscan_plot(transdata, full_data, single_data, freqs[0:freqind+1], filename, trans_labels, labels, identifier, fig_num = 1)
         # plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
         plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
