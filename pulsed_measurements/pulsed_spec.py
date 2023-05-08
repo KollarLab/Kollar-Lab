@@ -115,7 +115,7 @@ def pulsed_spec(instruments, settings):
     configure_card(card, settings)
 
     ## HDAWG settings
-    configure_hdawg(hdawg, settings)
+#    configure_hdawg(hdawg, settings)
     
     ## Sequencer program
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
@@ -146,10 +146,12 @@ def pulsed_spec(instruments, settings):
     sigma = q_pulse['sigma']
     num_sigma = q_pulse['num_sigma']
 
-    position = start_time-delay-num_sigma*sigma
-    qubit_I.add_pulse('gaussian', position=position, amplitude=q_pulse['piAmp'], sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+    position = start_time-delay-num_sigma*sigma-q_pulse['hold_time']
+    qubit_I.add_pulse('gaussian_square', position=position, 
+                              amplitude=q_pulse['piAmp'], length = q_pulse['hold_time'], 
+                              ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
     
-    qubit_marker.add_window(position-num_sigma*sigma, position+2*num_sigma*sigma)
+    qubit_marker.add_window(position-160e-9, position+2*160e-9+q_pulse['hold_time'])
 #    qubitgen.disable_IQ()
 #    qubit_marker.add_window(0,start_time+2e-6)
     ##
@@ -298,7 +300,7 @@ def pulsed_spec(instruments, settings):
                                                'full_time', 'single_time'],
                                              locals(), 
                                              expsettings=settings, 
-                                             instruments=instruments)
+                                             instruments=instruments, saveHWsettings=first_it)
 
     t2 = time.time()
     

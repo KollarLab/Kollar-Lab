@@ -81,7 +81,7 @@ def pulsed_trans(instruments, settings):
     configure_card(card, settings)
 
     ##HDAWG settings
-    configure_hdawg(hdawg, settings)
+#    configure_hdawg(hdawg, settings)
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
@@ -255,7 +255,7 @@ def pulsed_trans(instruments, settings):
         plt.savefig(os.path.join(saveDir, filename+'_RawTimeTraces.png'), dpi = 150)
 
         userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','full_data', 'single_data', 'full_time', 'single_time'],
-                             locals(), expsettings=settings, instruments=instruments)
+                             locals(), expsettings=settings, instruments=instruments, saveHWsettings=first_it)
     t2 = time.time()
     
     print('elapsed time = ' + str(t2-tstart))

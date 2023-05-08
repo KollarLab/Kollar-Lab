@@ -1,57 +1,61 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Dec  4 16:52:18 2020
+Created on Wed Jul  7 18:36:21 2021
 
 @author: Kollarlab
 """
+
 import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-from utility.userfits import fit_T1
+from utility.userfits import fit_T2
 from utility.plotting_tools import general_colormap_subplot
 from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
 from utility.scheduler import scheduler
+
 import scipy.signal as signal
 
-def get_default_settings():
+def GetDefaultSettings():
     settings = {}
     
-    settings['scanname'] = 'T1_meas'
+    settings['scanname'] = 'T2_meas'
     settings['meas_type'] = 'Tmeas'
-    
-    settings['Q_Freq']  = 4.21109e9
-    settings['Q_Power'] = -18
 
-    settings['CAV_Freq']  = 8.12357e9
-    settings['CAV_Power'] = -42.9
+    settings['Q_Freq']  = 4.20431e9
+    settings['Q_Power'] = -11
+
+    settings['CAV_Freq']  = 8.126e9
+    settings['CAV_Power'] = -18
     
     settings['segments'] = 1
     settings['reads']    = 1
     settings['averages'] = 25e3
     
-    settings['Tau_min']    = 200e-9
-    settings['Tau_max']    = 30e-6
+    settings['Tau_min'] = 200e-9
+    settings['Tau_max'] = 30e-6
     settings['Tau_points'] = 5
-    settings['spacing']    = 'Linear'
-    
-    settings['T1_guess'] = 10e-6
+    settings['pulse_count'] = 1
+    settings['phase_rotation_f'] = 1e6
+    settings['detuning'] = 1e6
+    settings['T2_mode'] = 'phase_rotation'
+
+    settings['T2_guess'] = 10e-6
     
     return settings
-    
-def meas_T1(instruments, settings):
-    ## Instruments used
+
+def meas_T2_phase_rotation(instruments, settings):
+    ##Instruments used
     qubitgen  = instruments['qubitgen']
     cavitygen = instruments['cavitygen']
     card      = instruments['card']
     hdawg     = instruments['AWG']
     LO        = instruments['LO']
-    
-    ## Bookkeeping and setting up the save directory
+
     exp_globals  = settings['exp_globals']
-    exp_settings = settings['exp_settings']
+    exp_settings = settings['exp_settings'] 
 
     Q_Freq    = exp_settings['Q_Freq']
     Q_Power   = exp_settings['Q_Power']
@@ -60,39 +64,39 @@ def meas_T1(instruments, settings):
     
     CAV_Attenuation  = exp_globals['CAV_Attenuation']
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']
-      
+    
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
     filename = exp_settings['scanname'] + '_' + stamp
     
     ## Configure generators
-    LO.power  = 12
-    LO.freq = CAV_Freq-exp_globals['IF']
-    LO.output = 'On'
-    
     cavitygen.freq   = CAV_Freq
     cavitygen.power  = CAV_Power + CAV_Attenuation
-    #cavitygen.power  = int(np.round(CAV_Power + CAV_Attenuation,0)) ###trying another stupid thing
     cavitygen.enable_pulse()
     
-    qubitgen.Freq   = Q_Freq
-    qubitgen.Power  = Q_Power + Qbit_Attenuation
+    if exp_settings['T2_mode'] == 'detuning':
+        qubitgen.freq   = Q_Freq + exp_settings['detuning']
+    elif exp_settings['T2_mode'] == 'phase_rotation':
+        qubitgen.freq   = Q_Freq
+    else:
+        raise ValueError('Invalid T2_mode')
+#    qubitgen.freq   = Q_Freq + exp_settings['detuning']
+    qubitgen.power  = Q_Power + Qbit_Attenuation
     qubitgen.enable_IQ()
     qubitgen.enable_pulse()
-#    qubitgen.disable_pulse()
-#    qubitgen.disable_IQ()
+    
+    LO.power = 12
+    LO.freq = cavitygen.freq-exp_globals['IF']
+    LO.output = 'On'
     
     cavitygen.Output = 'On'
     qubitgen.Output  = 'On'
     
-    cavitygen.output = 'On'
-    qubitgen.output  = 'On'
-    
     ## Configure card
     configure_card(card, settings)
-   
+    
     ## Configure HDAWG
-#    configure_hdawg(hdawg, settings)
+    configure_hdawg(hdawg, settings)
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
@@ -122,30 +126,20 @@ def meas_T1(instruments, settings):
     delay = q_pulse['delay']
     sigma = q_pulse['sigma']
     num_sigma = q_pulse['num_sigma']
+    hold_time = q_pulse['Hold_time']
+    cavity_marker.add_window(start_time, start_time+window_time+1e-6)
 
-    cavity_marker.add_window(start_time, start_time+window_time)
-
-    ## Set up array of taus and randomize it
-    if exp_settings['spacing']=='Log':
-        tau_list = np.logspace(np.log10(exp_settings['Tau_min']), np.log10(exp_settings['Tau_max']), exp_settings['Tau_points'])
-    else:
-         tau_list = np.linspace(exp_settings['Tau_min'], exp_settings['Tau_max'], exp_settings['Tau_points'])
-    taus = np.round(tau_list, 9)
+    taus = np.linspace(exp_settings['Tau_min'],exp_settings['Tau_max'],exp_settings['Tau_points'])
+    taus = np.round(taus, 9)
     
-    indices = list(range(len(taus)))
-#    np.random.shuffle(indices)
-
-    ## Start the main measurement loop 
-    total_samples = card.samples
-    
+    ## Start main measurement loop
     amp_int = np.zeros(len(taus))
     ang_int = np.zeros(len(taus))
-    amps    = np.zeros((len(taus),total_samples))
-    angles  = np.zeros((len(taus),total_samples))
-    #amps    = np.zeros((len(taus),card.samples))
-    #angles  = np.zeros((len(taus),card.samples))
+    amps    = np.zeros((len(taus),card.samples))
+    angles  = np.zeros(amps.shape)
+    tstart = time.time()
+    first_it = True
     
-        ##create the digital down conversion filter if needed.
     if exp_globals['IF'] != 0:
         #create Chebychev type II digital filter
         filter_N = exp_globals['ddc_config']['order']
@@ -162,31 +156,57 @@ def meas_T1(instruments, settings):
         settings['digLO_cos'] = digLO_cos
         settings['LPF'] = LPF
         
-    tstart = time.time()
-    first_it = True
-
-    for tind in indices:
-        
+    for tind in range(len(taus)):
+            
         tau = taus[tind]
         print('Tau: {}'.format(tau))
-        
         hdawg.AWGs[0].stop()
         qubit_I.reset()
         qubit_marker.reset()
         
         position = start_time-delay-num_sigma*sigma
+        qubit_time = num_sigma*sigma+hold_time
         
-        #normal T1
-        qubit_I.add_pulse('gaussian_square', position=position-tau, 
-                          amplitude=q_pulse['piAmp'], length = q_pulse['hold_time'], 
-                          ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
-        qubit_marker.add_window(position-tau-150e-9, position-tau+150e-9)
+        
+        #the main pulses    
+        qubit_I.add_pulse('gaussian_square', position=position-tau-hold_time, 
+                              amplitude=0.5*q_pulse['piAmp'], length = hold_time, 
+                              ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+
+
+        if exp_settings['T2_mode'] == 'detuning':
+            qubit_I.add_pulse('gaussian_square', position=position-hold_time, 
+                      amplitude=0.5*q_pulse['piAmp'], length = hold_time, 
+                      ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+
+        elif exp_settings['T2_mode'] == 'phase_rotation':
+            qubit_I.add_pulse('gaussian', position=position, 
+                              amplitude= np.cos(2*np.pi * tau* exp_settings['phase_rotation_f'])*q_pulse['piAmp']/2, 
+                              sigma=q_pulse['sigma'], 
+                              num_sigma=q_pulse['num_sigma'])
+            qubit_Q.add_pulse('gaussian', position=position, 
+                              amplitude= np.sin(2*np.pi * tau* exp_settings['phase_rotation_f'])*q_pulse['piAmp']/2, 
+                              sigma=q_pulse['sigma'], 
+                              num_sigma=q_pulse['num_sigma'])
+        else:
+            raise ValueError('Invalid T2_mode')
+            
+        
+        
+        qubit_marker.add_window(position-qubit_time-tau-2*delay, position+2*qubit_time-tau+2*delay)
+        qubit_marker.add_window(position-qubit_time-2*delay, position+2*qubit_time+2*delay)
+        
+        if exp_settings['pulse_count'] > 0:
+            numPulses = exp_settings['pulse_count']
+            temp = np.linspace(0,tau, numPulses + 2)
+            pulseTimes = temp[1:-1]
+            
+            for tp in pulseTimes:
+                qubit_I.add_pulse('gaussian', position=position-tp, amplitude=q_pulse['piAmp'], sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+                qubit_marker.add_window(position-qubit_time-tp, position+2*qubit_time-tp)
+      
+        
         awg_sched.plot_waveforms()
-        
-#        ###hack for drainage T1
-#        qubit_I.add_pulse('gaussian_square', position=1e-6, length = (position-1e-6 -tau), amplitude=q_pulse['piAmp'], ramp_sigma=1e-9, num_sigma=2)
-#        qubit_marker.add_window(0, position-tau)
-#        awg_sched.plot_waveforms()
         
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
         
@@ -195,14 +215,9 @@ def meas_T1(instruments, settings):
         hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
         hdawg.AWGs[0].run_loop()
         qubitgen.output='On'
-#        time.sleep(0.1)
-        
-        ### Alicia is messing around
-        #card.SetParams()
-        #print(card.settings)
-        #print('   ')
-        #print(settings)
-        ###
+        time.sleep(0.1)
+
+
         I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
                                                              plot=first_it, 
                                                              IQstorage = True)
@@ -210,11 +225,11 @@ def meas_T1(instruments, settings):
             #Acquire background trace
 #            qubitgen.freq=3.8e9
             qubitgen.output='Off'
-#            time.sleep(0.1)
+            time.sleep(0.1)
             I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
                                                              plot=first_it, 
                                                              IQstorage = True)
-            qubitgen.freq=Q_Freq
+            qubitgen.freq=Q_Freq + exp_settings['detuning']
         else:
             I_window_b, Q_window_b, I_full_b, Q_full_b = 0,0,0,0
         
@@ -230,40 +245,24 @@ def meas_T1(instruments, settings):
         amps[tind] = np.sqrt((I_full-I_full_b)**2+(Q_full-Q_full_b)**2)
         angles[tind] = np.arctan2((Q_full-Q_full_b), (I_full-I_full_b))*180/np.pi
         
-##        #hack plot for quasi CW
-#        fig = plt.figure(74)
-#        if tind == 0:
-#            plt.clf()
-#            ax = plt.subplot(1,1,1)
-#            plt.xlabel('time (us)')
-#            plt.ylabel('|dV|')
-#            plt.title
-#        plt.plot(xaxis*1e6, amps[tind], label = str(np.round(tau*1e6,1)) + 'us')
-#        ax.legend(loc = 'upper right')
-#        titleStr = 'time traces: ' + filename
-#        plt.title(titleStr)
-#        fig.canvas.draw()
-#        fig.canvas.flush_events()
-        
-        
         amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
         ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
+        
         if first_it:
             tstop = time.time()
             estimate_time(tstart, tstop, len(taus))
-            first_it = False      
-
+            first_it = False
+        
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
         plt.subplot(121)
-        plt.plot(taus*1e6, amp_int, 'x')
+        plt.plot(taus*1e6, amp_int)
+        plt.suptitle('Live T2 data (no fit), {} pi pulses'.format(exp_settings['pulse_count']))
         plt.xlabel('Tau (us)')
-        plt.ylabel('Amplitude')  
+        plt.ylabel('Amplitude')
         plt.subplot(122)
-        plt.plot(taus*1e6, ang_int, 'x')
-        plt.xlabel('Tau (us)')
-        plt.ylabel('Phase')  
-        plt.title('Live T1 data (no fit)\n'+filename)
+        plt.plot(taus*1e6, ang_int)
+        plt.ylabel('Angle')
         fig.canvas.draw()
         fig.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
@@ -275,30 +274,35 @@ def meas_T1(instruments, settings):
         general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
 
         plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-        userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), 
-                           expsettings=settings, instruments=instruments, saveHWsettings=first_it)
-
+        userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
+    
     t2 = time.time()
+    
     print('Elapsed time: {}'.format(t2-tstart))
-
-    T1_guess = exp_settings['T1_guess']
-    amp_guess = max(amp_int)-min(amp_int)
+    
+    T2_guess     = exp_settings['T2_guess']
+    amp_guess    = max(amp_int)-min(amp_int)
     offset_guess = np.mean(amp_int[-10:])
+    if exp_settings['T2_mode']=='detuning':
+        freq_guess = exp_settings['detuning']
+    else:
+        freq_guess   = exp_settings['phase_rotation_f']
+    phi_guess    = 0
 
-    fit_guess = [T1_guess, amp_guess, offset_guess]
-    T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
+    fit_guess = [T2_guess, amp_guess, offset_guess, freq_guess, phi_guess]
+    T2, amp, offset, freq, phi, fit_xvals, fit_yvals = fit_T2(taus, amp_int, fit_guess)
     fig3 = plt.figure(3)
     plt.clf()
     plt.plot(taus*1e6, amp_int)
     plt.plot(fit_xvals*1e6, fit_yvals)
-    plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
+    plt.title('T2:{}us freq:{}MHz. {} pi pulses \n {}'.format(np.round(T2*1e6,3), np.round(freq/1e6, 3), exp_settings['pulse_count'], filename))
     plt.xlabel('Time (us)')
     plt.ylabel('Amplitude')
     fig3.canvas.draw()
     fig3.canvas.flush_events()
     plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
 
-    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 'tau', 'amp', 'offset', 'fit_guess'],
+    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 'tau', 'amp', 'offset', 'freq', 'phi', 'fit_guess'],
                          locals(), expsettings=settings, instruments=instruments)
 
-    return T1, taus, amp_int
+    return T2, freq, taus, amp_int
