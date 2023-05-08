@@ -47,11 +47,11 @@ def get_default_settings():
     settings['reads']    = 1
     settings['averages'] = 5e3
     
-    settings['AM_depth'] = 0
-    settings['AM_freq'] = 0
+    settings['FM_range'] = 0
+    settings['FM_freq'] = 0
     return settings
 
-def rabi_chevron(instruments, settings):
+def rabi_chevron_AM_FM(instruments, settings):
     
     ##Instruments used
     qubitgen  = instruments['qubitgen']
@@ -164,24 +164,32 @@ def rabi_chevron(instruments, settings):
     tstart = time.time()
     first_it = True
     
-    AWG_x = np.linspace(0, qubit_I.samples, qubit_I.samples)/2.4e9
-    f_mod = exp_settings['AM_freq']
-    mod_depth = exp_settings['AM_depth']
-    mod_sig = 1+mod_depth*(np.cos(2*np.pi*f_mod*AWG_x)-1)
-#    mod_sig = np.cos(2*np.pi*f_mod*AWG_x)
+
     
     for timeind in range(len(times)):
         hold_time = times[timeind]
         
         hdawg.AWGs[0].stop()
         qubit_I.reset()
+        qubit_Q.reset()
         qubit_marker.reset()
         
         position = start_time-delay-num_sigma*sigma
         qubit_time = num_sigma*sigma
         
+        AWG_x = np.linspace(0, qubit_I.samples, qubit_I.samples)/2.4e9-position
+        f_mod = exp_settings['FM_freq']
+        f_det = exp_settings['FM_range']
+        phi = f_det*np.cos(2*np.pi*f_mod*AWG_x)/f_mod
+        Imod = np.cos(phi)
+        Qmod = np.sin(phi)
+        mod_depth = exp_settings['AM_depth']
+        mod_sig = 1+mod_depth*(np.cos(2*np.pi*f_mod*AWG_x)-1)
+        
         qubit_I.add_pulse('gaussian_square', position=position-hold_time, amplitude=q_pulse['piAmp'], length = hold_time, ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
-        qubit_I.wave_array = qubit_I.wave_array*mod_sig
+        qubit_I.wave_array = qubit_I.wave_array*Imod*mod_sig
+        qubit_Q.add_pulse('gaussian_square', position=position-hold_time, amplitude=q_pulse['piAmp'], length = hold_time, ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+        qubit_Q.wave_array = qubit_Q.wave_array*Qmod*mod_sig
         
         qubit_marker.add_window(position-qubit_time-hold_time, position+2*qubit_time+hold_time)
         awg_sched.plot_waveforms()
