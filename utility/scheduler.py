@@ -125,6 +125,8 @@ class scheduler():
             if digital_list:
                 mark1 = self.digital_channels[digital_list[0]]
                 mark2 = self.digital_channels[digital_list[1]]
+                mark1.compile_channel()
+                mark2.compile_channel()
                 final_markers = mark1.marker_array + mark2.marker_array
             else:
                 print('No markers provided, using blank array')
@@ -171,5 +173,11 @@ class scheduler():
             ax.set_xlabel('Time (us)')
             ax.set_ylabel('Amp')
 
-        fig.canvas.draw()
-        fig.canvas.flush_events()
+#        fig.canvas.draw()
+#        fig.canvas.flush_events()
+    
+    def reset(self):
+        for chan in self.analog_channels.values():
+            chan.reset()
+        for chan in self.digital_channels.values():
+            chan.reset()

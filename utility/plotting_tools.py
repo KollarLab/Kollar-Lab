@@ -171,7 +171,8 @@ def autoscan_plot(transdata, specdata, singledata, yaxis, scanname, trans_labels
     fig.canvas.flush_events()
     return
 
-def general_colormap_subplot(ax,xaxis, yaxis, data, labels, title, cmap = 'hot', vmin = np.NaN, vmax = np.NaN):
+def general_colormap_subplot(ax, xaxis, yaxis, data, labels, 
+                             title, cmap = 'hot', vmin = np.NaN, vmax = np.NaN, cbar=None):
     '''given a subplot object, it should make a decent imshow plot of the data.
     
     You have to handle subtracting out any attenuation and do the labeling after.
@@ -201,15 +202,18 @@ def general_colormap_subplot(ax,xaxis, yaxis, data, labels, title, cmap = 'hot',
     
     if (not np.isnan(vmax)) and (not np.isnan(vmin)):
 #        print('version with color scale limits')
-        plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap=cmap, vmin = vmin, vmax = vmax)
+        im = plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap=cmap, vmin = vmin, vmax = vmax)
     else:
-        plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap=cmap)
-    plt.colorbar()
+        im = plt.imshow(data, extent = limits, origin='lower', aspect='auto', cmap=cmap)
     plt.xlabel(labels[0])
     plt.ylabel(labels[1])
     plt.title(title)
-        
-    return
+    if not cbar:
+        cbar = plt.colorbar()
+        return cbar
+    else:
+        cbar.update_normal(im)
+        return
     
 def base_power_plot_imshow(fig, ax, xdata, ydata, zdata, labels, attenuation=0):
     #limits = [xdata[0], xdata[-1], ydata[0] + attenuation, ydata[-1] + attenuation]
