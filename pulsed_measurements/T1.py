@@ -36,8 +36,14 @@ def get_default_settings():
     settings['Tau_max']    = 30e-6
     settings['Tau_points'] = 5
     settings['spacing']    = 'Linear'
+    settings['shuffle'] = False
     
+    settings['num_save'] = 5
+    settings['fit_data'] = True
+
     settings['T1_guess'] = 10e-6
+    
+    settings['verbose'] = True
     
     return settings
     
@@ -124,16 +130,20 @@ def meas_T1(instruments, settings):
     num_sigma = q_pulse['num_sigma']
 
     cavity_marker.add_window(start_time, start_time+window_time)
-
+    
+    loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
+    hdawg.AWGs[0].load_program(loadprog)
+        
     ## Set up array of taus and randomize it
-    if exp_settings['spacing']=='Log':
+    if exp_settings['spacing'].lower()=='log':
         tau_list = np.logspace(np.log10(exp_settings['Tau_min']), np.log10(exp_settings['Tau_max']), exp_settings['Tau_points'])
     else:
          tau_list = np.linspace(exp_settings['Tau_min'], exp_settings['Tau_max'], exp_settings['Tau_points'])
     taus = np.round(tau_list, 9)
     
     indices = list(range(len(taus)))
-#    np.random.shuffle(indices)
+    if exp_settings['shuffle']:
+        np.random.shuffle(indices)
 
     ## Start the main measurement loop 
     total_samples = card.samples
@@ -168,7 +178,8 @@ def meas_T1(instruments, settings):
     for tind in indices:
         
         tau = taus[tind]
-        print('Tau: {}'.format(tau))
+        if exp_settings['verbose']:
+            print('Tau: {}'.format(tau))
         
         hdawg.AWGs[0].stop()
         qubit_I.reset()
@@ -190,8 +201,6 @@ def meas_T1(instruments, settings):
         
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
         
-        loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
-        hdawg.AWGs[0].load_program(loadprog)
         hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
         hdawg.AWGs[0].run_loop()
         qubitgen.output='On'
@@ -266,37 +275,42 @@ def meas_T1(instruments, settings):
         plt.title('Live T1 data (no fit)\n'+filename)
         fig.canvas.draw()
         fig.canvas.flush_events()
-        plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
-
+        
         fig2 = plt.figure(2,figsize=(13,8))
         plt.clf()
 
         ax = plt.subplot(1,1,1)
         general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
 
-        plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-        userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), 
-                           expsettings=settings, instruments=instruments, saveHWsettings=first_it)
+        if tind%exp_settings['num_save']==0: 
+            fig.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
+            fig2.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
+            userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), 
+                               expsettings=settings, instruments=instruments, saveHWsettings=first_it)
 
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
-
-    T1_guess = exp_settings['T1_guess']
-    amp_guess = max(amp_int)-min(amp_int)
-    offset_guess = np.mean(amp_int[-10:])
-
-    fit_guess = [T1_guess, amp_guess, offset_guess]
-    T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
-    fig3 = plt.figure(3)
-    plt.clf()
-    plt.plot(taus*1e6, amp_int)
-    plt.plot(fit_xvals*1e6, fit_yvals)
-    plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
-    plt.xlabel('Time (us)')
-    plt.ylabel('Amplitude')
-    fig3.canvas.draw()
-    fig3.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
+    
+    if exp_settings['fit_data']:
+        T1_guess = exp_settings['T1_guess']
+        amp_guess = max(amp_int)-min(amp_int)
+        offset_guess = np.mean(amp_int[-10:])
+    
+        fit_guess = [T1_guess, amp_guess, offset_guess]
+        T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
+        fig3 = plt.figure(3)
+        plt.clf()
+        plt.plot(taus*1e6, amp_int)
+        plt.plot(fit_xvals*1e6, fit_yvals)
+        plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
+        plt.xlabel('Time (us)')
+        plt.ylabel('Amplitude')
+        fig3.canvas.draw()
+        fig3.canvas.flush_events()
+        plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
+    else:
+        fit_guess = [0,0,0]
+        T1, amp, offset = 0,0,0
 
     userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 'tau', 'amp', 'offset', 'fit_guess'],
                          locals(), expsettings=settings, instruments=instruments)

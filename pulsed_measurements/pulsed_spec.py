@@ -44,6 +44,7 @@ def get_default_settings():
     
     #Measurement settings
     settings['Quasi_CW']    = False
+    settings['num_save'] = 1
     
     #background_subtraction (by taking reference trace with no qubit drive power)
     settings['subtract_background'] = False
@@ -212,7 +213,7 @@ def pulsed_spec(instruments, settings):
             freq = freqs[find]
             qubitgen.Freq = freq
             qubitgen.output='On'
-            time.sleep(0.1)
+#            time.sleep(0.1)
 
             I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
                                                                          plot=first_it, 
@@ -220,7 +221,7 @@ def pulsed_spec(instruments, settings):
             if exp_settings['subtract_background']:
                 #Acquire background trace
                 qubitgen.output='Off'
-                time.sleep(0.1)
+#                time.sleep(0.1)
                 I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
                                                                  plot=first_it, 
                                                                  IQstorage = True)
@@ -269,7 +270,8 @@ def pulsed_spec(instruments, settings):
         yaxis = powers[0:powerind+1] - Qbit_Attenuation
         labels = ['Freq (GHz)', 'Power (dBm)']
         simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
-        plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
+        if not powerind%exp_settings['num_save']:
+            plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
         full_time = {}
         full_time['xaxis']  = xaxis*1e6
@@ -292,16 +294,24 @@ def pulsed_spec(instruments, settings):
                         identifier, 
                         fig_num=2,
                         IQdata = True)
-        plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
-
-        userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
-                                               'powerdat', 'phasedat',
-                                               'full_data', 'single_data', 
-                                               'full_time', 'single_time'],
-                                             locals(), 
-                                             expsettings=settings, 
-                                             instruments=instruments, saveHWsettings=first_it)
-
+        if not powerind%exp_settings['num_save']:
+            plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
+        
+        if not powerind%exp_settings['num_save']:
+            userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
+                                                   'powerdat', 'phasedat',
+                                                   'full_data', 'single_data', 
+                                                   'full_time', 'single_time'],
+                                                 locals(), 
+                                                 expsettings=settings, 
+                                                 instruments=instruments, saveHWsettings=False)
+    userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
+                                                       'powerdat', 'phasedat',
+                                                       'full_data', 'single_data', 
+                                                       'full_time', 'single_time'],
+                                                     locals(), 
+                                                     expsettings=settings, 
+                                                     instruments=instruments, saveHWsettings=True)
     t2 = time.time()
     
     print('elapsed time = ' + str(t2-tstart))

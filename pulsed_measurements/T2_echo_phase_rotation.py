@@ -11,7 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-from utility.userfits import fit_T2
+#from utility.userfits import fit_T2
+from utility.FitT import fit_T2, fit_T1
 from utility.plotting_tools import general_colormap_subplot
 from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
 from utility.scheduler import scheduler
@@ -45,6 +46,8 @@ def GetDefaultSettings():
 
     settings['T2_guess'] = 10e-6
     settings['fit_data'] = True
+    
+    settings['verbose'] = True
     
     return settings
 
@@ -184,9 +187,11 @@ def meas_T2_phase_rotation(instruments, settings):
         t_pulse_start = time.time()
         
         tau = taus[tind]
-        print('Tau: {}'.format(tau))
+        if exp_settings['verbose']:
+            print('Tau: {}'.format(tau))
         hdawg.AWGs[0].stop()
         qubit_I.reset()
+        qubit_Q.reset()
         qubit_marker.reset()
         t_reset_t = time.time()
         t_reset = t_reset_t-t_loop_start
@@ -234,11 +239,13 @@ def meas_T2_phase_rotation(instruments, settings):
         
         qubit_marker.add_window(position-tau-100e-9, position-tau+100e-9)
         qubit_marker.add_window(position-100e-9, position+100e-9)
+    
         
         if exp_settings['pulse_count'] > 0:
             numPulses = exp_settings['pulse_count']
+            CPMG_times = tau*(np.linspace(1, numPulses, numPulses)-0.5)/numPulses
             temp = np.linspace(0,tau, numPulses + 2)
-            pulseTimes = temp[1:-1]
+            pulseTimes = CPMG_times#temp[1:-1]
             
             for tp in pulseTimes:
                 qubit_I.add_pulse('gaussian_square', position=position-tp-hold_time, 
@@ -368,28 +375,39 @@ def meas_T2_phase_rotation(instruments, settings):
     
     if exp_settings['fit_data']:
         T2_guess     = exp_settings['T2_guess']
-        amp_guess    = max(amp_int)-min(amp_int)
-        offset_guess = np.mean(amp_int[-10:])
-        if exp_settings['T2_mode']=='detuning':
-            freq_guess = exp_settings['detuning']
+#        amp_guess    = max(amp_int)-min(amp_int)
+#        offset_guess = np.mean(amp_int[-10:])
+#        if exp_settings['T2_mode']=='detuning':
+#            freq_guess = exp_settings['detuning']
+#        else:
+#            freq_guess   = exp_settings['phase_rotation_f']
+#        phi_guess    = 0
+#    
+#        fit_guess = [T2_guess, amp_guess, offset_guess, freq_guess, phi_guess]
+#        T2, amp, offset, freq, phi, fit_xvals, fit_yvals = fit_T2(taus, amp_int, fit_guess)
+        if exp_settings['pulse_count'] == 0:
+            datafit = fit_T2(taus, amp_int, T2_guess)
+            
         else:
-            freq_guess   = exp_settings['phase_rotation_f']
-        phi_guess    = 0
-    
-        fit_guess = [T2_guess, amp_guess, offset_guess, freq_guess, phi_guess]
-        T2, amp, offset, freq, phi, fit_xvals, fit_yvals = fit_T2(taus, amp_int, fit_guess)
+            datafit = fit_T1(taus, amp_int)
+            datafit['freq'] = 0
+            datafit['phi'] = 0
+        T2, amp, offset, freq, phi = datafit['tau'], datafit['amp'], datafit['offset'], datafit['freq'], datafit['phi']
         fig3 = plt.figure(3)
         plt.clf()
         plt.plot(taus*1e6, amp_int)
-        plt.plot(fit_xvals*1e6, fit_yvals)
-        plt.title('T2:{}us freq:{}MHz. {} pi pulses \n {}'.format(np.round(T2*1e6,3), np.round(freq/1e6, 3), exp_settings['pulse_count'], filename))
+#        plt.plot(fit_xvals*1e6, fit_yvals)
+        plt.plot(datafit['ts']*1e6, datafit['fit_curve'])
+        plt.title('T2:{}us freq:{}MHz. {} pi pulses \n {}'.format(np.round(T2*1e6,3), 
+                  np.round(freq/1e6, 3), exp_settings['pulse_count'], filename))
         plt.xlabel('Time (us)')
         plt.ylabel('Amplitude')
         fig3.canvas.draw()
         fig3.canvas.flush_events()
+        fig3.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=250)
     else:
         T2, freq, amp, offset, phi = 0,0,0,0,0
-    plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=250)
+#    plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=250)
     fig1.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 250)
     fig2.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 250)
     userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 
@@ -401,7 +419,8 @@ def meas_T2_phase_rotation(instruments, settings):
     t_loop_avg = np.mean(time_array[:,-1])
     t_finalize = t_finalize_stop-t_finalize_start
     
-    print('Timing info: \n initialization time:{}, \n avg loop time:{}, \n wrap up time:{}'.format(t_init, t_loop_avg, t_finalize))
+    if exp_settings['verbose']:
+        print('Timing info: \n initialization time:{}, \n avg loop time:{}, \n wrap up time:{}'.format(t_init, t_loop_avg, t_finalize))
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
     return T2, freq, taus, amp_int, time_array, [t_pulse_array, save_plot]
