@@ -106,19 +106,19 @@ def vna_spec_stability(instruments, settings):
         vna.reset()
         vna.output = 'on'
         
-        print('trans')
-        trans_data   = vna.trans_meas(autoscan_set)
-        trans_freqs  = trans_data['xaxis']
-        trans_mags   = trans_data['mag']
-        trans_phases = trans_data['phase']
-
-        hanger = exp_globals['hanger']
-        if hanger:
-            spec_set['CAVfreq'] = trans_freqs[np.argmin(trans_mags)] 
-        else:
-            spec_set['CAVfreq'] = trans_freqs[np.argmax(trans_mags)]
-
-        print('spec, CAV power: {}, cav freq: {}'.format(spec_set['CAVpower'], spec_set['CAVfreq']))
+#        print('trans')
+#        trans_data   = vna.trans_meas(autoscan_set)
+#        trans_freqs  = trans_data['xaxis']
+#        trans_mags   = trans_data['mag']
+#        trans_phases = trans_data['phase']
+#
+#        hanger = exp_globals['hanger']
+#        if hanger:
+#            spec_set['CAVfreq'] = trans_freqs[np.argmin(trans_mags)] 
+#        else:
+#            spec_set['CAVfreq'] = trans_freqs[np.argmax(trans_mags)]
+#
+#        print('spec, CAV power: {}, cav freq: {}'.format(spec_set['CAVpower'], spec_set['CAVfreq']))
         
         data = vna.spec_meas(spec_set)
 
