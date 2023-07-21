@@ -151,3 +151,7 @@ def vna_trans_flux_scan(instruments, settings):
     #return to zero voltage
     SRS.voltage_ramp(0)
     SRS.Output = 'Off'
+
+    data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data, 'powers': powers, 'voltages': voltages}
+
+    return data

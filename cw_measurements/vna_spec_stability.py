@@ -182,4 +182,8 @@ def vna_spec_stability(instruments, settings):
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
 
+    data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data, 'timing': timing}
+
+    return data
+
     

@@ -213,3 +213,9 @@ def vna_spec_flux_scan(instruments, settings):
     
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
+    
+    data = {'saveDir': saveDir, 'filename': filename, 'transdata':transdata, 'specdata':specdata, 'voltages':voltages}
+
+    return data
+
+    
