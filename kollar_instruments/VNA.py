@@ -66,7 +66,7 @@ class VNA(SCPIinst):
         
         super().__init__(address, self.commandlist, self.errcmds, reset) 
         self.Ref.Source = 'EXT'
-        self.Output = 'Off'
+        #self.Output = 'Off'
         if reset:
             self.reset()
 
