@@ -184,7 +184,7 @@ def rabi_chevron(instruments, settings):
         
         qubit_I.add_pulse('gaussian_square', position=position-hold_time, amplitude=q_pulse['piAmp'], length = hold_time, ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
         
-        qubit_marker.add_window(position-qubit_time-hold_time, position+2*qubit_time+hold_time)
+        qubit_marker.add_window(position-qubit_time-hold_time-100e-9, position+2*qubit_time+hold_time+100e-9)
         awg_sched.plot_waveforms()
         
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
