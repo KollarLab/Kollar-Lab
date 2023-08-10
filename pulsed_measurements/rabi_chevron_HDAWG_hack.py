@@ -99,24 +99,6 @@ def rabi_chevron(instruments, settings):
     
     ##Card settings
     configure_card(card, settings)
-
-    ##HDAWG settings
-    configure_hdawg(hdawg, settings)
-#    hdawg.Channels[0].configureChannel(amp=0.5,marker_out='Marker', hold='False', delay=30e-9)
-#    hdawg.Channels[1].configureChannel(amp=0.5,marker_out='Marker', hold='False', delay=30e-9)
-#    
-#    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\chevron.cpp",'r')
-#    rawprog  = progFile.read()
-#    loadprog = rawprog
-#    progFile.close()
-#        
-#    q_pulse = exp_globals['qubit_pulse']
-#    m_pulse = exp_globals['measurement_pulse']
-#    loadprog = loadprog.replace('_max_time_', str(m_pulse['meas_pos']))
-#    loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
-#    loadprog = loadprog.replace('_meas_delay_',str(q_pulse['delay']))
-#    loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
-#    loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder_4channels.cpp",'r')
     rawprog  = progFile.read()
@@ -154,6 +136,9 @@ def rabi_chevron(instruments, settings):
 
     cavity_marker.add_window(start_time, start_time+window_time+1e-6)
 
+    loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
+    hdawg.AWGs[0].load_program(loadprog)
+        
     ## Starting main measurement loop 
     timedat  = np.zeros((len(times), len(freqs)))
     phasedat = np.zeros((len(times), len(freqs)))
@@ -183,6 +168,13 @@ def rabi_chevron(instruments, settings):
                          length = exp_settings['flux_length'], 
                          ramp_sigma=1e-9,#q_pulse['sigma'], 
                          num_sigma=2) #q_pulse['num_sigma'])
+    #Applying a flux pulse of opposite sign to try to remove the long term slow response of the system
+    Flux_pulse.add_pulse('gaussian_square', 
+                         position=start_time+window_time+3e-6, 
+                         amplitude=-exp_settings['neg_pulse_amp']*exp_settings['flux_amp'],
+                         length = exp_settings['flux_length'], 
+                         ramp_sigma=1e-9,#q_pulse['sigma'], 
+                         num_sigma=2) #q_pulse['num_sigma'])
     #adding some sinusoidal modulation
     t_axis = np.linspace(0, qubit_I.samples, qubit_I.samples)/2.4e9
     mod_amp = np.cos(2*np.pi*exp_settings['flux_freq']*t_axis)
@@ -205,18 +197,13 @@ def rabi_chevron(instruments, settings):
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
         [ch3, ch4, marker2] = awg_sched.compile_schedule('HDAWG', ['Flux_pulse', 'blank'], ['blank1', 'blank2'])
 
-        loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
-        hdawg.AWGs[0].load_program(loadprog)
         hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
         hdawg.AWGs[1].load_waveform('0', ch3, ch4, marker2)
         hdawg.AWGs[0].run_loop()
-        time.sleep(0.1)
         
         total_samples = card.samples
         amps   = np.zeros((len(freqs), card.samples))
         phases = np.zeros((len(freqs), card.samples))
-#        Is_full  = np.zeros((len(freqs), total_samples)) #the very rawest data is thrown away for heterodyne! Warning
-#        Qs_full  = np.zeros((len(freqs), total_samples))
         
         print('Current hold time:{}, max:{}'.format(hold_time, times[-1]))
     
@@ -224,7 +211,6 @@ def rabi_chevron(instruments, settings):
             freq = freqs[find]
             
             qubitgen.freq = freq
-            time.sleep(0.1)
             
             I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
                                                                          plot=first_it, 
@@ -232,7 +218,6 @@ def rabi_chevron(instruments, settings):
             if exp_settings['subtract_background']:
                 #Acquire background trace
                 qubitgen.output='Off'
-                time.sleep(0.1)
                 I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
                                                                  plot=first_it, 
                                                                  IQstorage = True)
@@ -288,26 +273,17 @@ def rabi_chevron(instruments, settings):
         single_time['xaxis'] = xaxis*1e6
         single_time['mag']   = amp_full
         single_time['phase'] = phase_full
-        
-#        full_time = {}
-#        full_time['xaxis']  = xaxis*1e6
-#        full_time['Is']   = Is_full
-#        full_time['Qs'] = Qs_full
-#
-#        single_time = {}
-#        single_time['xaxis'] = xaxis*1e6
-#        single_time['I']   = I_full
-#        single_time['Q'] = Q_full
 
         time_labels = ['Time (us)', 'Freq (GHz)']
         identifier = 'Hold time: {}us'.format(hold_time*1e6)
         simplescan_plot(full_time, single_time, freqs/1e9, 'Raw_time_traces\n'+filename, time_labels, identifier, fig_num=2, IQdata=False)
         plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
         
-        userfuncs.SaveFull(saveDir, filename, ['times','freqs', 'timedat', 'phasedat','xaxis', 'full_data', 'single_data', 'full_time', 'single_time'], 
-                            locals(), expsettings=settings, instruments=instruments)
+#        userfuncs.SaveFull(saveDir, filename, ['times','freqs', 'timedat', 'phasedat','xaxis', 'full_data', 'single_data', 'full_time', 'single_time'], 
+#                    locals(), expsettings=settings, instruments=instruments, saveHWsettings=first_it)
         
-
+    userfuncs.SaveFull(saveDir, filename, ['times','freqs', 'timedat', 'phasedat','xaxis', 'full_data', 'single_data', 'full_time', 'single_time'], 
+                        locals(), expsettings=settings, instruments=instruments)
     t2 = time.time()
     
     print('elapsed time = ' + str(t2-tstart))
