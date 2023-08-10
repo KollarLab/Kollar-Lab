@@ -183,6 +183,11 @@ def hold_time_sweep(instruments, settings):
         qubit_I.add_pulse('gaussian_square', position=position-tau, 
                           amplitude=q_pulse['piAmp'], length = tau, 
                           ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+        if exp_settings['DRAG']:
+            I_vals = qubit_I.wave_array
+            dI = np.diff(I_vals)*2.4e9/200e6
+            qubit_Q.wave_array[:-1] = 0.25*dI
+            
         qubit_marker.add_window(position-tau-150e-9, position+num_sigma*sigma+150e-9)
         awg_sched.plot_waveforms()
         
@@ -193,8 +198,7 @@ def hold_time_sweep(instruments, settings):
         hdawg.AWGs[0].run_loop()
         qubitgen.output='On'
 #        time.sleep(0.1)
-        
-        I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
+        I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings,
                                                              plot=first_it, 
                                                              IQstorage = True)
         if exp_settings['subtract_background']:
@@ -202,7 +206,7 @@ def hold_time_sweep(instruments, settings):
 #            qubitgen.freq=3.8e9
             qubitgen.output='Off'
 #            time.sleep(0.1)
-            I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
+            I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings,
                                                              plot=first_it, 
                                                              IQstorage = True)
             qubitgen.freq=Q_Freq
