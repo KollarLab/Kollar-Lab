@@ -54,6 +54,12 @@ def remove_IQ_ellipse(Is, Qs, mixer_config):
     Qsprime = Qsprime*axes[0]/axes[1] + center[1]
     return Isprime, Qsprime
 
+def remove_slow_drift(I, Q, t):
+    angle = -0.00035*t*np.pi/180
+    rot_mat = np.array([[np.cos(angle), -np.sin(angle)], 
+                         [np.sin(angle), np.cos(angle)]])
+    return rot_mat@np.array([I,Q])
+
 def generate_filter(card, settings):
     exp_globals = settings['exp_globals']
     #create Chebychev type II digital filter
@@ -226,7 +232,7 @@ def read_and_process(card, settings, plot, IQstorage = True):
     Qp = np.mean(Q, 0)
     mixer_config = settings['exp_globals']['mixer_config']
     Ipp, Qpp = remove_IQ_ellipse(Ip, Qp, mixer_config)
-
+#    Ipp, Qpp = remove_slow_drift(Ipp, Qpp, time_el)
     xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
 
 #    Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)

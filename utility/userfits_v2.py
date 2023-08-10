@@ -147,7 +147,7 @@ def convert_prefix(string, val):
     prefix = string[0]
     return val/SI[prefix]
 
-def fit_model(t_ax, amps, model, plot=False):
+def fit_model(t_ax, amps, model, plot=False, guess=None):
     xlabel = 'Time (us)'
     scale = 1e-6
     if model=='T1':
@@ -187,8 +187,10 @@ def fit_model(t_ax, amps, model, plot=False):
     else:
         print('{} is not yet implemented'.format(model))
         return {}
-
-    guess = guess_func(t_ax, amps) 
+    
+    if not guess:
+        guess = guess_func(t_ax, amps) 
+        
     fit_params, pcov = curve_fit(fit_func, t_ax, amps, guess)
 
     t_ax_fit = np.linspace(t_ax[0], t_ax[-1], len(t_ax)*10)

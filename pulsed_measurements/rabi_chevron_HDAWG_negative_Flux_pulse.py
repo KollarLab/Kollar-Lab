@@ -111,7 +111,8 @@ def rabi_chevron(instruments, settings):
     start_time  = m_pulse['meas_pos']
     window_time = m_pulse['meas_window']
     
-    awg_sched = scheduler(total_time=start_time+2*window_time, sample_rate=2.4e9)
+    total_time = 1./exp_globals['trigger_rate']
+    awg_sched = scheduler(total_time=0.95*total_time, sample_rate=2.4e9)
 
     awg_sched.add_analog_channel(1, name='Qubit_I')
     awg_sched.add_analog_channel(2, name='Qubit_Q')
@@ -170,7 +171,7 @@ def rabi_chevron(instruments, settings):
                          num_sigma=2) #q_pulse['num_sigma'])
     #Applying a flux pulse of opposite sign to try to remove the long term slow response of the system
     Flux_pulse.add_pulse('gaussian_square', 
-                         position=start_time+window_time+3e-6, 
+                         position=start_time+50e-6, 
                          amplitude=-exp_settings['neg_pulse_amp']*exp_settings['flux_amp'],
                          length = exp_settings['flux_length'], 
                          ramp_sigma=1e-9,#q_pulse['sigma'], 
