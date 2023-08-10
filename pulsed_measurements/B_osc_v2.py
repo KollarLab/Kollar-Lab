@@ -56,14 +56,14 @@ def Bx_WF(settings):
     final = np.concatenate([osc])
     return final
 
-settings = {}
-settings['osc_freq'] = 5e6
-settings['Bx_osc_amp'] = 0.2
-settings['osc_time'] = 1e-6
-settings['ramp_sigma'] = 100e-9
-settings['ramp_hold'] = 200e-9
-settings['mod_depth'] = 0.5
-settings['Bx_hold'] = 100e-9
+#settings = {}
+#settings['osc_freq'] = 5e6
+#settings['Bx_osc_amp'] = 0.2
+#settings['osc_time'] = 1e-6
+#settings['ramp_sigma'] = 100e-9
+#settings['ramp_hold'] = 200e-9
+#settings['mod_depth'] = 0.5
+#settings['Bx_hold'] = 100e-9
 
 def Bx_WF_v2(settings):
     osc_freq    = settings['osc_freq']
@@ -268,36 +268,35 @@ def Bz_osc(instruments, settings):
         Bx_evolv = Bx[0:Bx_ind]
         Bz_evolv = Bz[0:Bz_ind]
         
+        x_protocol_len = Bx_offset+hold_time+exp_settings['buffer_hold']+exp_settings['post_buffer']
+        z_protocol_len = ramp_length+hold_time+exp_settings['buffer_hold']+exp_settings['post_buffer']
+        pulse_pos = delay+q_pulse_len
+        
         if exp_settings['sigma']=='X':
-#            print('X!')
+            qubit_Q.add_pulse('gaussian_square', position=start_time-pulse_pos, 
+                                  amplitude=q_pulse['piAmp']/2,
+                                  length = q_pulse['hold_time'],
+                                  ramp_sigma=q_pulse['sigma'], 
+                                  num_sigma=q_pulse['num_sigma'])
+            qubit_marker.add_window(start_time-delay-100e-9, start_time+100e-9)
+            Bx_hold  = Bx_evolv[-1]*np.ones(int(exp_settings['buffer_hold']*2.4e9))
+            Bx_evolv = np.concatenate([Bx_evolv, Bx_hold])
+        elif exp_settings['sigma']=='Y':
             qubit_I.add_pulse('gaussian_square', position=start_time-delay-q_pulse_len, 
                                   amplitude=q_pulse['piAmp']/2,
                                   length = q_pulse['hold_time'],
                                   ramp_sigma=q_pulse['sigma'], 
                                   num_sigma=q_pulse['num_sigma'])
             qubit_marker.add_window(start_time-delay-100e-9, start_time+100e-9)
-            Bx_hold  = Bx_evolv[-1]*np.ones(int(exp_settings['buffer_z']*2.4e9))
+            Bx_hold  = Bx_evolv[-1]*np.ones(int(exp_settings['buffer_hold']*2.4e9))
             Bx_evolv = np.concatenate([Bx_evolv, Bx_hold])
-            position = start_time-delay-hold_time-2*q_pulse_len-exp_settings['buffer_z']
-        elif exp_settings['sigma']=='Y':
-#            print('X!')
-            qubit_Q.add_pulse('gaussian_square', position=start_time-delay-q_pulse_len, 
-                                  amplitude=q_pulse['piAmp']/2,
-                                  length = q_pulse['hold_time'],
-                                  ramp_sigma=q_pulse['sigma'], 
-                                  num_sigma=q_pulse['num_sigma'])
-            qubit_marker.add_window(start_time-delay-100e-9, start_time+100e-9)
-            Bx_hold  = Bx_evolv[-1]*np.ones(int(exp_settings['buffer_z']*2.4e9))
-            Bx_evolv = np.concatenate([Bx_evolv, Bx_hold])
-            position = start_time-delay-hold_time-2*q_pulse_len-exp_settings['buffer_z']
         else:
-            position = start_time-delay-hold_time-2*q_pulse_len
-            Bz_hold  = Bz_evolv[-1]*np.ones(int(exp_settings['buffer_z']*2.4e9))
+            Bz_hold  = Bz_evolv[-1]*np.ones(int(exp_settings['buffer_hold']*2.4e9))
             Bz_evolv = np.concatenate([Bz_evolv, Bz_hold])
             
-        qubit_I.add_pulse('custom', position-Bx_offset, wave=Bx_evolv)
-        qubit_marker.add_window(position-Bx_offset-100e-9, position+hold_time+150e-9)
-        Flux_pulse.add_pulse('custom', position-ramp_length-exp_settings['FBL_offset'], wave=Bz_evolv)
+        qubit_I.add_pulse('custom', start_time-x_protocol_len-pulse_pos, wave=Bx_evolv)
+        qubit_marker.add_window(start_time-x_protocol_len-pulse_pos-100e-9, start_time+100e-9)
+        Flux_pulse.add_pulse('custom', start_time-z_protocol_len-pulse_pos-exp_settings['FBL_offset'], wave=Bz_evolv)
         
         awg_sched.plot_waveforms()
         
