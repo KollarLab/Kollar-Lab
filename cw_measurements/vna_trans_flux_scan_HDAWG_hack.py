@@ -50,8 +50,8 @@ def get_default_settings():
 def vna_trans_flux_scan(instruments, settings):
     ##Instruments used
     vna = instruments['VNA']
-    SRS = instruments['DCsupply']
-
+    #SRS = instruments['DCsupply']
+    awg = instruments['HDAWG']
 #    vna.reset() #####!!! warning put me back
     print('WARNING" Auto reset has been overridden')
 
@@ -89,8 +89,8 @@ def vna_trans_flux_scan(instruments, settings):
     mags   = np.zeros((voltage_points, exp_settings['freq_points']))
     phases = np.zeros((voltage_points, exp_settings['freq_points']))
     
-    SRS.Output = 'On'
-    SRS.voltage_ramp(0)
+    #SRS.Output = 'On'
+    #SRS.voltage_ramp(0)
     
     tstart = time.time()
     for pind in range(len(powers)):
@@ -109,7 +109,9 @@ def vna_trans_flux_scan(instruments, settings):
             voltage = voltages[vind]
             print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
             
-            SRS.voltage_ramp(voltage)
+            awg.Channels[2].offset = voltage
+            
+            #SRS.voltage_ramp(voltage)
             time.sleep(0.1)
             t0 = time.time()
             
@@ -149,8 +151,8 @@ def vna_trans_flux_scan(instruments, settings):
     print('Elapsed time: {}'.format(t2-tstart))
     
     #return to zero voltage
-    SRS.voltage_ramp(0)
-    SRS.Output = 'Off'
+    #SRS.voltage_ramp(0)
+    #SRS.Output = 'Off'
 
     data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data, 'powers': powers, 'voltages': voltages}
 

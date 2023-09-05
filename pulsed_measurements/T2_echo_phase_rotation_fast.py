@@ -11,14 +11,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-#from utility.userfits import fit_T2
-from utility.FitT import fit_T2, fit_T1
 from utility.plotting_tools import general_colormap_subplot
-from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
+from utility.measurement_helpers import configure_card, generate_filter, estimate_time, read_and_process
 from utility.scheduler import scheduler
 
 import scipy.signal as signal
-from matplotlib.cm import ScalarMappable
 
 def GetDefaultSettings():
     settings = {}
@@ -43,17 +40,13 @@ def GetDefaultSettings():
     settings['phase_rotation_f'] = 1e6
     settings['detuning'] = 1e6
     settings['T2_mode'] = 'phase_rotation'
-
-    settings['T2_guess'] = 10e-6
-    settings['fit_data'] = True
     
     settings['verbose'] = True
     
     return settings
 
 def meas_T2_phase_rotation(instruments, settings):
-    tstart = time.time()
-    t_init_start = time.time()
+
     ##Instruments used
     qubitgen  = instruments['qubitgen']
     cavitygen = instruments['cavitygen']
@@ -87,7 +80,6 @@ def meas_T2_phase_rotation(instruments, settings):
         qubitgen.freq   = Q_Freq
     else:
         raise ValueError('Invalid T2_mode')
-#    qubitgen.freq   = Q_Freq + exp_settings['detuning']
     qubitgen.power  = Q_Power + Qbit_Attenuation
     qubitgen.enable_IQ()
     qubitgen.enable_pulse()
@@ -101,10 +93,8 @@ def meas_T2_phase_rotation(instruments, settings):
     
     ## Configure card
     configure_card(card, settings)
-    
-    ## Configure HDAWG
-#    configure_hdawg(hdawg, settings)
-    
+    generate_filter(card, settings)
+        
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
@@ -148,43 +138,20 @@ def meas_T2_phase_rotation(instruments, settings):
     amps    = np.zeros((len(taus),card.samples))
     angles  = np.zeros(amps.shape)
 
-    first_it = True
-    
-    if exp_globals['IF'] != 0:
-        #create Chebychev type II digital filter
-        filter_N = exp_globals['ddc_config']['order']
-        filter_rs = exp_globals['ddc_config']['stop_atten']
-        filter_cutoff = np.abs(exp_globals['ddc_config']['cutoff'])
-        LPF = signal.cheby2(filter_N, filter_rs, filter_cutoff, btype='low', analog=False, output='sos', fs=card.sampleRate)
-        
-        xaxis = np.arange(0, card.samples, 1) * 1/card.sampleRate
-        digLO_sin = np.sin(2*np.pi*exp_globals['IF']*xaxis)
-        digLO_cos = np.cos(2*np.pi*exp_globals['IF']*xaxis)
-        
-        #store in settings so that the processing functions can get to them
-        settings['digLO_sin'] = digLO_sin 
-        settings['digLO_cos'] = digLO_cos
-        settings['LPF'] = LPF
-
-    
-    time_array = np.zeros((len(taus),5))
-    t_pulse_array = np.zeros((len(taus),5))
-    save_plot = np.zeros((len(taus), 6))
-    
     fig1 = plt.figure(1,figsize=(13,8))
     fig1.clf()
     fig1.suptitle('Live T2 data (no fit), {} pi pulses'.format(exp_settings['pulse_count']))
     ax11 = fig1.add_subplot(121)
     ax12 = fig1.add_subplot(122)
+
     fig2 = plt.figure(2,figsize=(13,8))
     fig2.clf()
     ax21 = fig2.add_subplot(111)
-#    cax = fig2.add_subplot(1,2,2)
-    t_init_stop = time.time() 
+
+    t_start = time.time() 
+    first_it = True
     for tind in range(len(taus)):
-        t_loop_start  = time.time() 
         #Generating pulse sequence and upload
-        t_pulse_start = time.time()
         
         tau = taus[tind]
         if exp_settings['verbose']:
@@ -193,8 +160,7 @@ def meas_T2_phase_rotation(instruments, settings):
         qubit_I.reset()
         qubit_Q.reset()
         qubit_marker.reset()
-        t_reset_t = time.time()
-        t_reset = t_reset_t-t_loop_start
+        
         position = start_time-delay-num_sigma*sigma
         qubit_time = num_sigma*sigma
         
@@ -234,8 +200,6 @@ def meas_T2_phase_rotation(instruments, settings):
                               num_sigma=q_pulse['num_sigma'])
         else:
             raise ValueError('Invalid T2_mode')
-            
-        
         
         qubit_marker.add_window(position-tau-100e-9, position-tau+100e-9)
         qubit_marker.add_window(position-100e-9, position+100e-9)
@@ -255,47 +219,29 @@ def meas_T2_phase_rotation(instruments, settings):
                                   num_sigma=q_pulse['num_sigma'])
                 qubit_marker.add_window(position-tp-100e-9, position-tp+100e-9)
       
-        t_pulse_gen_t = time.time()
-        t_pulse_gen = t_pulse_gen_t-t_reset_t
         awg_sched.plot_waveforms()
-        t_plot_wf_t = time.time()
-        t_plot_wf = t_plot_wf_t-t_pulse_gen_t
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
-        t_compile_t = time.time()
-        t_compile = t_compile_t-t_plot_wf_t
         hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
         hdawg.AWGs[0].run_loop()
         qubitgen.output='On'
-#        time.sleep(0.1)
-        t_upload_t = time.time()
-        t_upload = t_upload_t-t_compile_t
-        t_pulse_stop = time.time()
-        t_pulse_array[tind] = [t_reset, t_pulse_gen, t_plot_wf, t_compile, t_upload]
+
         #Acquiring data
-        t_data_start = time.time()
         I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
                                                              plot=first_it, 
                                                              IQstorage = True)
-        t_data_stop = time.time()
         
         #Background collection
-        t_back_start = time.time()
         if exp_settings['subtract_background']:
             #Acquire background trace
-#            qubitgen.freq=3.8e9
             qubitgen.output='Off'
-#            time.sleep(0.1)
             I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
                                                              plot=first_it, 
                                                              IQstorage = True)
             qubitgen.freq=Q_Freq + exp_settings['detuning']
         else:
             I_window_b, Q_window_b, I_full_b, Q_full_b = 0,0,0,0
-        t_back_stop = time.time()
         
         #Plotting and saving 
-        t_plot_start = time.time()
-        t1 = time.time()
         ##Useful handles for variables
         I_sig, Q_sig   = [np.mean(I_window), np.mean(Q_window)] #<I>, <Q> for signal trace
         I_back, Q_back = [np.mean(I_window_b), np.mean(Q_window_b)] #<I>, <Q> for background trace
@@ -311,11 +257,6 @@ def meas_T2_phase_rotation(instruments, settings):
         amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
         ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         
-        if first_it:
-            tstop = time.time()
-            estimate_time(tstart, tstop, len(taus))
-        t2 = time.time()
-        
         ax11.cla()
         ax12.cla()
         
@@ -327,100 +268,54 @@ def meas_T2_phase_rotation(instruments, settings):
         ax12.set_ylabel('Angle')
         ax12.set_xlabel('Tau (us)')
              
-        ax21.cla()
-        if first_it:
-            cbar = general_colormap_subplot(ax21, xaxis*1e6, 
-                                            taus*1e6, amps, 
-                                            ['Time (us)', 'Tau (us)'], 
-                                            'Raw data\n'+filename)
-        else:
-            general_colormap_subplot(ax21, xaxis*1e6, 
-                                            taus*1e6, amps, 
-                                            ['Time (us)', 'Tau (us)'], 
-                                            'Raw data\n'+filename, cbar=cbar)
         fig1.canvas.draw()
         fig1.canvas.flush_events()            
-        if tind%exp_settings['num_save']==0:    
-            t3 = time.time()
-            fig1.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 100)
-            ta = time.time()
-            fig2.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 100)
-            tb = time.time()
-            userfuncs.SaveFull(saveDir, filename, 
-                               ['taus','xaxis', 'amps', 'amp_int'], 
-                               locals(), 
-                               expsettings=settings, 
-                               instruments=instruments, 
-                               saveHWsettings=first_it)
-            t4 = time.time()
-            
-            data_manip = t2-t1
-            data_plot = t3-t2
-            data_save = t4-t3
-            save_plot[tind] = [data_manip, data_plot, data_save, ta-t3, tb-ta, t4-tb]
-        
-        t_plot_stop = time.time()
-        
-        t_pulse = t_pulse_stop-t_pulse_start
-        t_data = t_data_stop-t_data_start
-        t_back = t_back_stop-t_back_start
-        t_plot = t_plot_stop-t_plot_start
-        
-        t_loop_stop = time.time()
-        t_loop = t_loop_stop-t_loop_start
-        time_array[tind] = np.array([t_pulse, t_data, t_back,t_plot, t_loop])
-        first_it = False
 
-    t_finalize_start = time.time()
+        first_it = False
     
-    if exp_settings['fit_data']:
-        T2_guess     = exp_settings['T2_guess']
-#        amp_guess    = max(amp_int)-min(amp_int)
-#        offset_guess = np.mean(amp_int[-10:])
-#        if exp_settings['T2_mode']=='detuning':
-#            freq_guess = exp_settings['detuning']
-#        else:
-#            freq_guess   = exp_settings['phase_rotation_f']
-#        phi_guess    = 0
-#    
-#        fit_guess = [T2_guess, amp_guess, offset_guess, freq_guess, phi_guess]
-#        T2, amp, offset, freq, phi, fit_xvals, fit_yvals = fit_T2(taus, amp_int, fit_guess)
-        if exp_settings['pulse_count'] == 0:
-            datafit = fit_T2(taus, amp_int, T2_guess)
-            
-        else:
-            datafit = fit_T1(taus, amp_int)
-            datafit['freq'] = 0
-            datafit['phi'] = 0
-        T2, amp, offset, freq, phi = datafit['tau'], datafit['amp'], datafit['offset'], datafit['freq'], datafit['phi']
-        fig3 = plt.figure(3)
-        plt.clf()
-        plt.plot(taus*1e6, amp_int)
-#        plt.plot(fit_xvals*1e6, fit_yvals)
-        plt.plot(datafit['ts']*1e6, datafit['fit_curve'])
-        plt.title('T2:{}us freq:{}MHz. {} pi pulses \n {}'.format(np.round(T2*1e6,3), 
-                  np.round(freq/1e6, 3), exp_settings['pulse_count'], filename))
-        plt.xlabel('Time (us)')
-        plt.ylabel('Amplitude')
-        fig3.canvas.draw()
-        fig3.canvas.flush_events()
-        fig3.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=250)
-    else:
-        T2, freq, amp, offset, phi = 0,0,0,0,0
-#    plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=250)
+
+    
+
+
+    # fig2 = plt.figure(48,figsize=(13,8))
+    # plt.clf()
+    # ax21 = fig2.add_subplot(111)
+    # # # plt.figure(fig2.number)
+
+    # plt.show()  
+
+    # #hail mary plot of everything at the end
+    # fig47 = plt.figure(47)
+    # ax11 = fig47.add_subplot(121)
+    # ax12 = fig47.add_subplot(122)
+    # ax11.plot(taus*1e6, amp_int)
+    # ax11.set_xlabel('Tau (us)')
+    # ax11.set_ylabel('Amplitude')
+
+    # ax12.plot(taus*1e6, ang_int)
+    # ax12.set_ylabel('Angle')
+    # ax12.set_xlabel('Tau (us)')
+
+    # plt.suptitle('Hail MAry Figure')
+
+    # fig47.canvas.draw()
+    # fig47.canvas.flush_events()   
+    # #########
+
+
+
+
+    ax21.cla()
+
+    cbar = general_colormap_subplot(ax21, xaxis*1e6, 
+                                    taus*1e6, amps, 
+                                    ['Time (us)', 'Tau (us)'], 
+                                    'Raw data\n'+filename)
     fig1.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 250)
     fig2.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 250)
-    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 
-                                           'tau', 'amp', 'offset', 'freq', 'phi'],
+    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'],
                          locals(), expsettings=settings, instruments=instruments)
-    t_finalize_stop = time.time()
     
-    t_init = t_init_stop-t_init_start
-    t_loop_avg = np.mean(time_array[:,-1])
-    t_finalize = t_finalize_stop-t_finalize_start
-    
-    if exp_settings['verbose']:
-        print('Timing info: \n initialization time:{}, \n avg loop time:{}, \n wrap up time:{}'.format(t_init, t_loop_avg, t_finalize))
     t2 = time.time()
-    print('Elapsed time: {}'.format(t2-tstart))
-    return T2, freq, taus, amp_int, time_array, [t_pulse_array, save_plot]
+    print('Elapsed time: {}'.format(t2-t_start))
+    return taus, amp_int

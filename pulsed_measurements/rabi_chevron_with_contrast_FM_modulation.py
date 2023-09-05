@@ -23,17 +23,21 @@ def get_default_settings():
     settings['scanname'] = 'rabi_chevron'
     settings['meas_type'] = 'rabi_chevron'
     
-    #Cavity parameters
-    settings['CAVpower']    = -45
-    settings['CAV_freq']    = 5e9
-    settings['Q_power']     = -20
+    #Measurement params (from qubit calibration)
+    settings['CAV_Power']  = -45
+    settings['CAV_Freq']   = 5e9
+    settings['Q_Power'] = 0
+    settings['Q_Freq']  = 4e9
     
-    #Qubit parameters
+    settings['subtract_background'] = True
+    settings['back_rate']  = 1 #retake background every n measurements
+    #Sweep params
+    settings['Drive_Power'] = -20
+    
     settings['start_freq']  = 4*1e9  
     settings['stop_freq']   = 5*1e9 
     settings['freq_points'] = 50
 
-    #Rabi chevron parameters
     settings['start_time']  = 10e-9
     settings['stop_time']   = 500e-9
     settings['time_points'] = 40
@@ -43,9 +47,11 @@ def get_default_settings():
     settings['reads']    = 1
     settings['averages'] = 5e3
     
+    settings['FM_range'] = 0
+    settings['FM_freq'] = 0
     return settings
 
-def rabi_chevron(instruments, settings):
+def rabi_chevron_FM(instruments, settings):
     
     ##Instruments used
     qubitgen  = instruments['qubitgen']
@@ -63,8 +69,8 @@ def rabi_chevron(instruments, settings):
     
     ##Cavity settings
     CAV_Attenuation = exp_globals['CAV_Attenuation']
-    CAV_power = exp_settings['CAVpower'] + CAV_Attenuation
-    CAV_freq  = exp_settings['CAV_freq']
+    CAV_power = exp_settings['CAV_Power'] + CAV_Attenuation
+    CAV_freq  = exp_settings['CAV_Freq']
     
     ##Qubit settings
     start_freq  = exp_settings['start_freq']
@@ -73,7 +79,8 @@ def rabi_chevron(instruments, settings):
     freqs  = np.round(np.linspace(start_freq,stop_freq,freq_points),-3)
     
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']
-    Qbit_power   = exp_settings['Q_power'] + Qbit_Attenuation
+    drive_power   = exp_settings['Drive_Power'] + Qbit_Attenuation
+    qubit_power   = exp_settings['Q_Power'] + Qbit_Attenuation
     start_time   = exp_settings['start_time']
     stop_time    = exp_settings['stop_time']
     time_points  = exp_settings['time_points']
@@ -85,7 +92,7 @@ def rabi_chevron(instruments, settings):
     cavitygen.enable_pulse()
 
     qubitgen.freq   = 4e9
-    qubitgen.power  = Qbit_power
+    qubitgen.power  = drive_power
     
     qubitgen.enable_pulse()
     qubitgen.enable_IQ()
@@ -102,21 +109,6 @@ def rabi_chevron(instruments, settings):
 
     ##HDAWG settings
     configure_hdawg(hdawg, settings)
-#    hdawg.Channels[0].configureChannel(amp=0.5,marker_out='Marker', hold='False', delay=30e-9)
-#    hdawg.Channels[1].configureChannel(amp=0.5,marker_out='Marker', hold='False', delay=30e-9)
-#    
-#    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\chevron.cpp",'r')
-#    rawprog  = progFile.read()
-#    loadprog = rawprog
-#    progFile.close()
-#        
-#    q_pulse = exp_globals['qubit_pulse']
-#    m_pulse = exp_globals['measurement_pulse']
-#    loadprog = loadprog.replace('_max_time_', str(m_pulse['meas_pos']))
-#    loadprog = loadprog.replace('_meas_window_', str(m_pulse['meas_window']))
-#    loadprog = loadprog.replace('_meas_delay_',str(q_pulse['delay']))
-#    loadprog = loadprog.replace('_qsigma_',str(q_pulse['sigma']))
-#    loadprog = loadprog.replace('_num_sigma_',str(q_pulse['num_sigma']))
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
@@ -172,19 +164,30 @@ def rabi_chevron(instruments, settings):
     tstart = time.time()
     first_it = True
     
+    AWG_x = np.linspace(0, qubit_I.samples, qubit_I.samples)/2.4e9
+    f_mod = exp_settings['FM_freq']
+    f_det = exp_settings['FM_range']
+    phi = f_det*np.cos(2*np.pi*f_mod*AWG_x)/f_mod
+    Imod = np.cos(phi)
+    Qmod = np.sin(phi)
+    
     for timeind in range(len(times)):
         hold_time = times[timeind]
         
         hdawg.AWGs[0].stop()
         qubit_I.reset()
+        qubit_Q.reset()
         qubit_marker.reset()
         
         position = start_time-delay-num_sigma*sigma
         qubit_time = num_sigma*sigma
         
         qubit_I.add_pulse('gaussian_square', position=position-hold_time, amplitude=q_pulse['piAmp'], length = hold_time, ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+        qubit_I.wave_array = qubit_I.wave_array*Imod
+        qubit_Q.add_pulse('gaussian_square', position=position-hold_time, amplitude=q_pulse['piAmp'], length = hold_time, ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+        qubit_Q.wave_array = qubit_Q.wave_array*Qmod
         
-        qubit_marker.add_window(position-qubit_time-hold_time-100e-9, position+2*qubit_time+hold_time+100e-9)
+        qubit_marker.add_window(position-qubit_time-hold_time, position+2*qubit_time+hold_time)
         awg_sched.plot_waveforms()
         
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
@@ -193,7 +196,7 @@ def rabi_chevron(instruments, settings):
         hdawg.AWGs[0].load_program(loadprog)
         hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
         hdawg.AWGs[0].run_loop()
-        time.sleep(0.1)
+#        time.sleep(0.1)
         
         total_samples = card.samples
         amps   = np.zeros((len(freqs), card.samples))
@@ -206,35 +209,91 @@ def rabi_chevron(instruments, settings):
         for find in range(0, len(freqs)):
             freq = freqs[find]
             
-            qubitgen.freq = freq
-            time.sleep(0.1)
+            qubitgen.freq  = freq
+            qubitgen.power = drive_power
+#            time.sleep(0.1)
             
             I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
                                                                          plot=first_it, 
                                                                          IQstorage = True)
+            # Acquire g and e cavity traces to convert voltage to population 
             if exp_settings['subtract_background']:
-                #Acquire background trace
-                qubitgen.output='Off'
-                time.sleep(0.1)
-                I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
-                                                                 plot=first_it, 
-                                                                 IQstorage = True)
-                qubitgen.output='On'
+                if find%exp_settings['back_rate']==0:
+                    #Acquire g trace
+                    qubitgen.output='Off'
+#                    time.sleep(0.1)
+                    I_window_g, Q_window_g, I_full_g, Q_full_g, xaxis_g = read_and_process(card, settings, 
+                                                                     plot=first_it, 
+                                                                     IQstorage = True)
+                    #Acquire the e trace
+                    qubitgen.power = qubit_power
+                    qubitgen.freq  = exp_settings['Q_Freq']
+                    qubitgen.output='On'
+                    hdawg.AWGs[0].stop()
+                    qubit_I.reset()
+                    qubit_marker.reset()
+                    
+                    position = start_time-delay-num_sigma*sigma
+                    qubit_time = num_sigma*sigma
+                    
+                    qubit_I.add_pulse('gaussian', position=position, amplitude=q_pulse['piAmp'], sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+                    
+                    qubit_marker.add_window(position-qubit_time, position+2*qubit_time+hold_time)
+                    awg_sched.plot_waveforms()
+                    
+                    [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
+                    
+                    loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
+                    hdawg.AWGs[0].load_program(loadprog)
+                    hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
+                    hdawg.AWGs[0].run_loop()
+#                    time.sleep(0.1)
+                    I_window_e, Q_window_e, I_full_e, Q_full_e, xaxis_e = read_and_process(card, settings, 
+                                                                     plot=first_it, 
+                                                                     IQstorage = True)
+                    
+                    #Reset the qubit pulse to the right length
+                    hdawg.AWGs[0].stop()
+                    qubit_I.reset()
+                    qubit_marker.reset()
+                    
+                    position = start_time-delay-num_sigma*sigma
+                    qubit_time = num_sigma*sigma
+                    
+                    qubit_I.add_pulse('gaussian_square', position=position-hold_time, amplitude=q_pulse['piAmp'], length = hold_time, ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+                    
+                    qubit_marker.add_window(position-qubit_time-hold_time, position+2*qubit_time+hold_time)
+                    awg_sched.plot_waveforms()
+                    
+                    [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
+                    
+                    loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
+                    hdawg.AWGs[0].load_program(loadprog)
+                    hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
+                    hdawg.AWGs[0].run_loop()
+#                    time.sleep(0.1)
+                    
+                    I_ground, Q_ground = [np.mean(I_window_g), np.mean(Q_window_g)] #<I>, <Q> for ground trace
+                    I_excited, Q_excited = [np.mean(I_window_e), np.mean(Q_window_e)] #<I>, <Q> for ground trace
+            
+                    contrast = np.sqrt((I_excited-I_ground)**2+(Q_excited-Q_ground)**2)
+                
             else:
-                I_window_b, Q_window_b, I_full_b, Q_full_b = 0,0,0,0
+                I_window_g, Q_window_g, I_full_g, Q_full_g = 0,0,0,0
+                contrast = 1
             
             if first_it:
                 first_it=False
             ##Useful handles for variables
             I_sig, Q_sig   = [np.mean(I_window), np.mean(Q_window)] #<I>, <Q> for signal trace
-            I_back, Q_back = [np.mean(I_window_b), np.mean(Q_window_b)] #<I>, <Q> for background trace
+            I_ground, Q_ground = [np.mean(I_window_g), np.mean(Q_window_g)] #<I>, <Q> for ground trace
             theta_sig  = np.arctan2(Q_sig,I_sig)*180/np.pi #angle relative to x axis in IQ plane
-            theta_back = np.arctan2(Q_back, I_back)*180/np.pi #angle relative to x axis in IQ plane 
+            theta_ground = np.arctan2(Q_ground, I_ground)*180/np.pi #angle relative to x axis in IQ plane 
             
-            I_final = I_sig-I_back #compute <I_net> in the data window
-            Q_final = Q_sig-Q_back #compute <Q_net> in the data window
-            I_full_net = I_full-I_full_b #full I data with background subtracted
-            Q_full_net = Q_full-Q_full_b #full Q data with background subtracted
+            I_final = (I_sig-I_ground)/contrast #compute <I_net> in the data window
+            Q_final = (Q_sig-Q_ground)/contrast #compute <Q_net> in the data window
+            I_full_net = (I_full-I_full_g)/contrast #full I data with background subtracted
+            Q_full_net = (Q_full-Q_full_g)/contrast #full Q data with background subtracted
             
             amp = np.sqrt(I_final**2 + Q_final**2)
             phase = np.arctan2(Q_final, I_final)*180/np.pi
@@ -298,3 +357,4 @@ def rabi_chevron(instruments, settings):
     cavitygen.Output = 'Off'
     qubitgen.Output  = 'Off'
     LO.Output        = 'Off'
+    return t2-tstart

@@ -149,3 +149,7 @@ def vna_autler_townes(instruments, settings):
         yaxis = autler_freqs/1e9
         plots.simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
         plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
+
+    data = {'saveDir': saveDir, 'filename': filename, 'fulldata':full_data, 'autler_freqs':autler_freqs}
+
+    return data

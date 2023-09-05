@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 import userfuncs
 from utility.plotting_tools import simplescan_plot
-from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
+from utility.measurement_helpers import configure_card, generate_filter, estimate_time, read_and_process
 from utility.scheduler import scheduler
 
 import scipy.signal as signal
@@ -44,7 +44,6 @@ def get_default_settings():
     
     #Measurement settings
     settings['Quasi_CW']    = False
-    settings['num_save'] = 1
     
     #background_subtraction (by taking reference trace with no qubit drive power)
     settings['subtract_background'] = False
@@ -114,10 +113,8 @@ def pulsed_spec(instruments, settings):
     
     ## Card config
     configure_card(card, settings)
+    generate_filter(card, settings)
 
-    ## HDAWG settings
-#    configure_hdawg(hdawg, settings)
-    
     ## Sequencer program
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
@@ -153,9 +150,6 @@ def pulsed_spec(instruments, settings):
                               ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
     
     qubit_marker.add_window(position-160e-9, position+2*160e-9+q_pulse['hold_time'])
-#    qubitgen.disable_IQ()
-#    qubit_marker.add_window(0,start_time+2e-6)
-    ##
     cavity_marker.add_window(start_time, start_time+window_time)
     
     awg_sched.plot_waveforms()
@@ -167,24 +161,6 @@ def pulsed_spec(instruments, settings):
     hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
     hdawg.AWGs[0].run_loop()
     time.sleep(0.1)
-    
-    
-    ##create the digital down conversion filter if needed.
-    if exp_globals['IF'] != 0:
-        #create Chebychev type II digital filter
-        filter_N = exp_globals['ddc_config']['order']
-        filter_rs = exp_globals['ddc_config']['stop_atten']
-        filter_cutoff = np.abs(exp_globals['ddc_config']['cutoff'])
-        LPF = signal.cheby2(filter_N, filter_rs, filter_cutoff, btype='low', analog=False, output='sos', fs=card.sampleRate)
-        
-        xaxis = np.arange(0, card.samples, 1) * 1/card.sampleRate
-        digLO_sin = np.sin(2*np.pi*exp_globals['IF']*xaxis)
-        digLO_cos = np.cos(2*np.pi*exp_globals['IF']*xaxis)
-        
-        #store in settings so that the processing functions can get to them
-        settings['digLO_sin'] = digLO_sin 
-        settings['digLO_cos'] = digLO_cos
-        settings['LPF'] = LPF
     
     powerdat = np.zeros((len(powers), len(freqs)))
     phasedat = np.zeros((len(powers), len(freqs)))
@@ -213,7 +189,6 @@ def pulsed_spec(instruments, settings):
             freq = freqs[find]
             qubitgen.Freq = freq
             qubitgen.output='On'
-#            time.sleep(0.1)
 
             I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
                                                                          plot=first_it, 
@@ -221,7 +196,6 @@ def pulsed_spec(instruments, settings):
             if exp_settings['subtract_background']:
                 #Acquire background trace
                 qubitgen.output='Off'
-#                time.sleep(0.1)
                 I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
                                                                  plot=first_it, 
                                                                  IQstorage = True)
@@ -240,13 +214,6 @@ def pulsed_spec(instruments, settings):
             Q_final = Q_sig-Q_back #compute <Q_net> in the data window
             I_full_net = I_full-I_full_b #full I data with background subtracted
             Q_full_net = Q_full-Q_full_b #full Q data with background subtracted
-            
-#            I_final = I_sig #compute <I_net> in the data window
-#            Q_final = Q_sig #compute <Q_net> in the data window
-#            I_full_net = I_full#full I data without background subtracted
-#            Q_full_net = Q_full#full Q data without background subtracted
-            
-            ##Estimat
             
             ##Store data
             Is_full[find,:] = I_full_net
@@ -270,8 +237,7 @@ def pulsed_spec(instruments, settings):
         yaxis = powers[0:powerind+1] - Qbit_Attenuation
         labels = ['Freq (GHz)', 'Power (dBm)']
         simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
-        if not powerind%exp_settings['num_save']:
-            plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
+        plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
         full_time = {}
         full_time['xaxis']  = xaxis*1e6
@@ -294,17 +260,8 @@ def pulsed_spec(instruments, settings):
                         identifier, 
                         fig_num=2,
                         IQdata = True)
-        if not powerind%exp_settings['num_save']:
-            plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
+        plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
         
-        if not powerind%exp_settings['num_save']:
-            userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
-                                                   'powerdat', 'phasedat',
-                                                   'full_data', 'single_data', 
-                                                   'full_time', 'single_time'],
-                                                 locals(), 
-                                                 expsettings=settings, 
-                                                 instruments=instruments, saveHWsettings=False)
     userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
                                                        'powerdat', 'phasedat',
                                                        'full_data', 'single_data', 

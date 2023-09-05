@@ -114,3 +114,7 @@ def vna_spec(instruments, settings):
     
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
+
+    data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data, 'powers': powers}
+
+    return data

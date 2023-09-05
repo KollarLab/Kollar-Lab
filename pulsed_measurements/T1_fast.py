@@ -10,9 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import userfuncs
-from utility.userfits import fit_T1
 from utility.plotting_tools import general_colormap_subplot
-from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
+from utility.measurement_helpers import configure_card, generate_filter, estimate_time, read_and_process
 from utility.scheduler import scheduler
 import scipy.signal as signal
 
@@ -46,7 +45,7 @@ def get_default_settings():
     settings['verbose'] = True
     
     return settings
-    
+
 def meas_T1(instruments, settings):
     ## Instruments used
     qubitgen  = instruments['qubitgen']
@@ -78,15 +77,12 @@ def meas_T1(instruments, settings):
     
     cavitygen.freq   = CAV_Freq
     cavitygen.power  = CAV_Power + CAV_Attenuation
-    #cavitygen.power  = int(np.round(CAV_Power + CAV_Attenuation,0)) ###trying another stupid thing
     cavitygen.enable_pulse()
     
     qubitgen.Freq   = Q_Freq
     qubitgen.Power  = Q_Power + Qbit_Attenuation
     qubitgen.enable_IQ()
     qubitgen.enable_pulse()
-#    qubitgen.disable_pulse()
-#    qubitgen.disable_IQ()
     
     cavitygen.Output = 'On'
     qubitgen.Output  = 'On'
@@ -96,10 +92,8 @@ def meas_T1(instruments, settings):
     
     ## Configure card
     configure_card(card, settings)
-   
-    ## Configure HDAWG
-#    configure_hdawg(hdawg, settings)
-    
+    generate_filter(card, settings)
+
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
@@ -152,25 +146,6 @@ def meas_T1(instruments, settings):
     ang_int = np.zeros(len(taus))
     amps    = np.zeros((len(taus),total_samples))
     angles  = np.zeros((len(taus),total_samples))
-    #amps    = np.zeros((len(taus),card.samples))
-    #angles  = np.zeros((len(taus),card.samples))
-    
-        ##create the digital down conversion filter if needed.
-    if exp_globals['IF'] != 0:
-        #create Chebychev type II digital filter
-        filter_N = exp_globals['ddc_config']['order']
-        filter_rs = exp_globals['ddc_config']['stop_atten']
-        filter_cutoff = np.abs(exp_globals['ddc_config']['cutoff'])
-        LPF = signal.cheby2(filter_N, filter_rs, filter_cutoff, btype='low', analog=False, output='sos', fs=card.sampleRate)
-        
-        xaxis = np.arange(0, card.samples, 1) * 1/card.sampleRate
-        digLO_sin = np.sin(2*np.pi*exp_globals['IF']*xaxis)
-        digLO_cos = np.cos(2*np.pi*exp_globals['IF']*xaxis)
-        
-        #store in settings so that the processing functions can get to them
-        settings['digLO_sin'] = digLO_sin 
-        settings['digLO_cos'] = digLO_cos
-        settings['LPF'] = LPF
         
     tstart = time.time()
     first_it = True
@@ -194,32 +169,18 @@ def meas_T1(instruments, settings):
         qubit_marker.add_window(position-tau-150e-9, position-tau+150e-9)
         awg_sched.plot_waveforms()
         
-#        ###hack for drainage T1
-#        qubit_I.add_pulse('gaussian_square', position=1e-6, length = (position-1e-6 -tau), amplitude=q_pulse['piAmp'], ramp_sigma=1e-9, num_sigma=2)
-#        qubit_marker.add_window(0, position-tau)
-#        awg_sched.plot_waveforms()
-        
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
         
         hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
         hdawg.AWGs[0].run_loop()
         qubitgen.output='On'
-#        time.sleep(0.1)
-        
-        ### Alicia is messing around
-        #card.SetParams()
-        #print(card.settings)
-        #print('   ')
-        #print(settings)
-        ###
+
         I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
                                                              plot=first_it, 
                                                              IQstorage = True)
         if exp_settings['subtract_background']:
             #Acquire background trace
-#            qubitgen.freq=3.8e9
             qubitgen.output='Off'
-#            time.sleep(0.1)
             I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
                                                              plot=first_it, 
                                                              IQstorage = True)
@@ -238,22 +199,6 @@ def meas_T1(instruments, settings):
         
         amps[tind] = np.sqrt((I_full-I_full_b)**2+(Q_full-Q_full_b)**2)
         angles[tind] = np.arctan2((Q_full-Q_full_b), (I_full-I_full_b))*180/np.pi
-        
-##        #hack plot for quasi CW
-#        fig = plt.figure(74)
-#        if tind == 0:
-#            plt.clf()
-#            ax = plt.subplot(1,1,1)
-#            plt.xlabel('time (us)')
-#            plt.ylabel('|dV|')
-#            plt.title
-#        plt.plot(xaxis*1e6, amps[tind], label = str(np.round(tau*1e6,1)) + 'us')
-#        ax.legend(loc = 'upper right')
-#        titleStr = 'time traces: ' + filename
-#        plt.title(titleStr)
-#        fig.canvas.draw()
-#        fig.canvas.flush_events()
-        
         
         amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
         ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
@@ -275,44 +220,17 @@ def meas_T1(instruments, settings):
         plt.title('Live T1 data (no fit)\n'+filename)
         fig.canvas.draw()
         fig.canvas.flush_events()
-        
-        fig2 = plt.figure(2,figsize=(13,8))
-        plt.clf()
 
-        ax = plt.subplot(1,1,1)
-        general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
+    fig.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
+    fig2 = plt.figure(2,figsize=(13,8))
+    plt.clf()
 
-        if tind%exp_settings['num_save']==0: 
-            fig.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
-            fig2.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-            userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), 
-                               expsettings=settings, instruments=instruments, saveHWsettings=first_it)
-
+    ax = plt.subplot(1,1,1)
+    general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
+    fig2.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
+    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'],
+                         locals(), expsettings=settings, instruments=instruments, saveHWsettings=True)
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
-    
-    if exp_settings['fit_data']:
-        T1_guess = exp_settings['T1_guess']
-        amp_guess = max(amp_int)-min(amp_int)
-        offset_guess = np.mean(amp_int[-10:])
-    
-        fit_guess = [T1_guess, amp_guess, offset_guess]
-        T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
-        fig3 = plt.figure(3)
-        plt.clf()
-        plt.plot(taus*1e6, amp_int)
-        plt.plot(fit_xvals*1e6, fit_yvals)
-        plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
-        plt.xlabel('Time (us)')
-        plt.ylabel('Amplitude')
-        fig3.canvas.draw()
-        fig3.canvas.flush_events()
-        plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
-    else:
-        fit_guess = [0,0,0]
-        T1, amp, offset = 0,0,0
 
-    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 'tau', 'amp', 'offset', 'fit_guess'],
-                         locals(), expsettings=settings, instruments=instruments)
-
-    return T1, taus, amp_int
+    return taus, amp_int

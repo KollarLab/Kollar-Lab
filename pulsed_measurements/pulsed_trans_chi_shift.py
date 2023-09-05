@@ -33,6 +33,10 @@ def get_default_settings():
     settings['stop_power']   = 10
     settings['power_points'] = 31
 
+    #e state pulse
+    settings['Q_Freq'] = 4e9
+    settings['Q_Power'] = -50
+    
     #Card settings
     settings['segments'] = 1
     settings['reads']    = 1
@@ -40,9 +44,10 @@ def get_default_settings():
     
     return settings
 
-def pulsed_trans(instruments, settings):
+def pulsed_trans_chi_shift(instruments, settings):
     ##Instruments used
     cavitygen = instruments['cavitygen']
+    qubitgen  = instruments['qubitgen']
     card      = instruments['card']
     hdawg     = instruments['AWG']
     LO        = instruments['LO']
@@ -77,11 +82,17 @@ def pulsed_trans(instruments, settings):
     LO.freq   = freqs[0] - exp_globals['IF']
     LO.output = 'On'
     
+    qubitgen.freq = exp_settings['Q_Freq']
+    qubitgen.power = exp_settings['Q_Power']+exp_globals['Qbit_Attenuation']
+    qubitgen.enable_IQ()
+    qubitgen.enable_pulse()
+    qubitgen.output = 'On'
+    
     ##Card settings
     configure_card(card, settings)
 
     ##HDAWG settings
-#    configure_hdawg(hdawg, settings)
+    configure_hdawg(hdawg, settings)
     
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
@@ -89,6 +100,7 @@ def pulsed_trans(instruments, settings):
     progFile.close()
     
     m_pulse = exp_globals['measurement_pulse']
+    q_pulse = exp_globals['qubit_pulse']
     start_time  = m_pulse['meas_pos']
     window_time = m_pulse['meas_window']
     
@@ -100,9 +112,21 @@ def pulsed_trans(instruments, settings):
     awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=55e-9, HW_offset_off=0e-9)
     awg_sched.add_digital_channel(2, name='Cavity_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
     
+    qubit_I       = awg_sched.analog_channels['Qubit_I']
+    qubit_marker  = awg_sched.digital_channels['Qubit_enable']
     cavity_marker = awg_sched.digital_channels['Cavity_enable']
     
     cavity_marker.add_window(start_time, start_time+window_time)
+    
+    ### Send a pi pulse to the qubit to see the chi shift 
+    delay = q_pulse['delay']
+    sigma = q_pulse['sigma']
+    num_sigma = q_pulse['num_sigma']
+
+    position = start_time-delay-num_sigma*sigma
+    qubit_I.add_pulse('gaussian', position=position, amplitude=q_pulse['piAmp'], sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+    
+    qubit_marker.add_window(position-num_sigma*sigma, position+2*num_sigma*sigma)
     
     awg_sched.plot_waveforms()
     
@@ -255,7 +279,7 @@ def pulsed_trans(instruments, settings):
         plt.savefig(os.path.join(saveDir, filename+'_RawTimeTraces.png'), dpi = 150)
 
         userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'powerdat', 'phasedat','xaxis','full_data', 'single_data', 'full_time', 'single_time'],
-                             locals(), expsettings=settings, instruments=instruments, saveHWsettings=first_it)
+                             locals(), expsettings=settings, instruments=instruments)
     t2 = time.time()
     
     print('elapsed time = ' + str(t2-tstart))

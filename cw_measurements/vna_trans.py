@@ -104,4 +104,6 @@ def vna_trans(instruments, settings):
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
 
-    return full_data
+    data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data, 'powers': powers}
+
+    return data

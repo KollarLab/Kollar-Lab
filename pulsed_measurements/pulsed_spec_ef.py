@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import userfuncs
 from utility.plotting_tools import simplescan_plot
 from utility.measurement_helpers import configure_card, configure_hdawg, estimate_time, read_and_process
-from utility.scheduler import scheduler
+from utility.scheduler import scheduler, gaussian
 
 import scipy.signal as signal
 
@@ -32,7 +32,11 @@ def get_default_settings():
     settings['start_freq']      = 4.15*1e9  
     settings['stop_freq']       = 4.25*1e9 
     settings['freq_points']     = 50
-
+    
+    #GE params
+    settings['ge_freq']         = 4e9
+    settings['ge_power']        = 0
+    
     settings['start_power']     = -30
     settings['stop_power']      = -20
     settings['power_points']    = 5
@@ -44,14 +48,13 @@ def get_default_settings():
     
     #Measurement settings
     settings['Quasi_CW']    = False
-    settings['num_save'] = 1
     
     #background_subtraction (by taking reference trace with no qubit drive power)
     settings['subtract_background'] = False
     
     return settings
 
-def pulsed_spec(instruments, settings):
+def pulsed_spec_ef(instruments, settings):
     
     ##Instruments used
     qubitgen  = instruments['qubitgen']
@@ -112,11 +115,13 @@ def pulsed_spec(instruments, settings):
         qubitgen.enable_pulse()
         qubitgen.enable_IQ()
     
+    qubitgen.Freq = exp_settings['ge_freq']
+           
     ## Card config
     configure_card(card, settings)
 
     ## HDAWG settings
-#    configure_hdawg(hdawg, settings)
+    configure_hdawg(hdawg, settings)
     
     ## Sequencer program
     progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
@@ -131,7 +136,7 @@ def pulsed_spec(instruments, settings):
     window_time = m_pulse['meas_window']
     
     awg_sched = scheduler(total_time=start_time+2*window_time, sample_rate=2.4e9)
-
+    
     awg_sched.add_analog_channel(1, name='Qubit_I')
     awg_sched.add_analog_channel(2, name='Qubit_Q')
     
@@ -140,6 +145,7 @@ def pulsed_spec(instruments, settings):
     
     
     qubit_I       = awg_sched.analog_channels['Qubit_I']
+    qubit_Q       = awg_sched.analog_channels['Qubit_Q']
     qubit_marker  = awg_sched.digital_channels['Qubit_enable']
     cavity_marker = awg_sched.digital_channels['Cavity_enable']
     
@@ -147,26 +153,6 @@ def pulsed_spec(instruments, settings):
     sigma = q_pulse['sigma']
     num_sigma = q_pulse['num_sigma']
 
-    position = start_time-delay-num_sigma*sigma-q_pulse['hold_time']
-    qubit_I.add_pulse('gaussian_square', position=position, 
-                              amplitude=q_pulse['piAmp'], length = q_pulse['hold_time'], 
-                              ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
-    
-    qubit_marker.add_window(position-160e-9, position+2*160e-9+q_pulse['hold_time'])
-#    qubitgen.disable_IQ()
-#    qubit_marker.add_window(0,start_time+2e-6)
-    ##
-    cavity_marker.add_window(start_time, start_time+window_time)
-    
-    awg_sched.plot_waveforms()
-    
-    [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
-    
-    loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
-    hdawg.AWGs[0].load_program(loadprog)
-    hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
-    hdawg.AWGs[0].run_loop()
-    time.sleep(0.1)
     
     
     ##create the digital down conversion filter if needed.
@@ -190,9 +176,13 @@ def pulsed_spec(instruments, settings):
     phasedat = np.zeros((len(powers), len(freqs)))
     
     first_it = True
-        
+    qubitgen.Power = max(powers)
+    
+    lin_amps = 10**((powers-max(powers))/20)
+    ge_amp = 10**((exp_settings['ge_power']-max(powers))/20)
     for powerind in range(len(powers)):
-        qubitgen.Power = powers[powerind]
+        
+        amp = lin_amps[powerind]
         
         total_samples = card.samples
 
@@ -211,17 +201,43 @@ def pulsed_spec(instruments, settings):
             
             ##Acquire signal
             freq = freqs[find]
-            qubitgen.Freq = freq
+            
+            time.sleep(0.1)
+            
+            f_shift = exp_settings['ge_freq']-freq
+            
+            env = gaussian(2.4e9, 1, sigma, num_sigma)
+            t = np.linspace(0, len(env), len(env))/2.4e9
+            mod_I = env*np.cos(2*np.pi*f_shift*t)
+            mod_Q = -env*np.sin(2*np.pi*f_shift*t)
+            position_ge = start_time-delay-2*num_sigma*sigma
+            position_ef = start_time-delay-num_sigma*sigma
+            qubit_I.add_pulse('gaussian', position=position_ge, amplitude=ge_amp*q_pulse['piAmp'], sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+            
+            qubit_I.add_pulse('custom', position=position_ef, amplitude=amp*q_pulse['piAmp'], wave=mod_I)
+            qubit_Q.add_pulse('custom', position=position_ef, amplitude=amp*q_pulse['piAmp'], wave=mod_Q)
+            qubit_marker.add_window(position_ge-2*num_sigma*sigma, position_ge+2*num_sigma*sigma)
+            ##
+            cavity_marker.add_window(start_time, start_time+window_time)
+            
+            awg_sched.plot_waveforms()
+            
+            [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
+            
+            loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
+            hdawg.AWGs[0].load_program(loadprog)
+            hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
+            hdawg.AWGs[0].run_loop()
             qubitgen.output='On'
-#            time.sleep(0.1)
-
+            time.sleep(0.1)
+    
             I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
                                                                          plot=first_it, 
                                                                          IQstorage = True)
             if exp_settings['subtract_background']:
                 #Acquire background trace
                 qubitgen.output='Off'
-#                time.sleep(0.1)
+                time.sleep(0.1)
                 I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
                                                                  plot=first_it, 
                                                                  IQstorage = True)
@@ -270,8 +286,7 @@ def pulsed_spec(instruments, settings):
         yaxis = powers[0:powerind+1] - Qbit_Attenuation
         labels = ['Freq (GHz)', 'Power (dBm)']
         simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
-        if not powerind%exp_settings['num_save']:
-            plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
+        plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
         full_time = {}
         full_time['xaxis']  = xaxis*1e6
@@ -294,24 +309,16 @@ def pulsed_spec(instruments, settings):
                         identifier, 
                         fig_num=2,
                         IQdata = True)
-        if not powerind%exp_settings['num_save']:
-            plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
-        
-        if not powerind%exp_settings['num_save']:
-            userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
-                                                   'powerdat', 'phasedat',
-                                                   'full_data', 'single_data', 
-                                                   'full_time', 'single_time'],
-                                                 locals(), 
-                                                 expsettings=settings, 
-                                                 instruments=instruments, saveHWsettings=False)
-    userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
-                                                       'powerdat', 'phasedat',
-                                                       'full_data', 'single_data', 
-                                                       'full_time', 'single_time'],
-                                                     locals(), 
-                                                     expsettings=settings, 
-                                                     instruments=instruments, saveHWsettings=True)
+        plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
+
+        userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
+                                               'powerdat', 'phasedat',
+                                               'full_data', 'single_data', 
+                                               'full_time', 'single_time'],
+                                             locals(), 
+                                             expsettings=settings, 
+                                             instruments=instruments)
+
     t2 = time.time()
     
     print('elapsed time = ' + str(t2-tstart))

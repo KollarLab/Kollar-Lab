@@ -227,7 +227,7 @@ def SaveInst(instruments):
 def makedict(vars, localdict):
     return {var:localdict[var] for var in vars}
 
-def SaveFull(path, name, variables, localdict, expsettings={}, instruments={}, figures=[]):
+def SaveFull(path, name, variables, localdict, expsettings={}, instruments={}, figures=[], saveHWsettings=True):
     
     if name[-4:] == '.pkl':
         saveName = name
@@ -239,7 +239,8 @@ def SaveFull(path, name, variables, localdict, expsettings={}, instruments={}, f
     toSave                = {}
     toSave['Data']        = makedict(variables, localdict)
     toSave['ExpSettings'] = expsettings
-    toSave['HWSettings']  = SaveInst(instruments)
+    if saveHWsettings:
+        toSave['HWSettings']  = SaveInst(instruments)
     toSave['Figures']     = figures
 
     pickle.dump(toSave, open(pathStr, 'wb'))

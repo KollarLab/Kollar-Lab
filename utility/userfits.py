@@ -45,7 +45,8 @@ def fit_T2(taus, amps, fit_guess):
     phi = 0
 
     try:
-        fit_out, pcov = curve_fit(T2_model, taus, amps, p0=fit_guess)
+        bounds = ([0, -np.inf, -np.inf, -np.inf, -np.inf], [1, np.inf, np.inf, np.inf, np.inf])
+        fit_out, pcov = curve_fit(T2_model, taus, amps, p0=fit_guess)#, bounds=bounds)
         tau, amp, offset, freq, phi, *_ = fit_out
         fit_curve = T2_model(ts, tau, amp, offset, freq, phi)   
     except:

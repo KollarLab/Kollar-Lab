@@ -168,6 +168,7 @@ def rabi_chevron(instruments, settings):
     f_mod = exp_settings['AM_freq']
     mod_depth = exp_settings['AM_depth']
     mod_sig = 1+mod_depth*(np.cos(2*np.pi*f_mod*AWG_x)-1)
+#    mod_sig = np.cos(2*np.pi*f_mod*AWG_x)
     
     for timeind in range(len(times)):
         hold_time = times[timeind]

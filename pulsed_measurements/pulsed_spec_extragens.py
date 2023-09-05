@@ -36,6 +36,10 @@ def get_default_settings():
     settings['start_power']     = -30
     settings['stop_power']      = -20
     settings['power_points']    = 5
+    
+    #Pi pulse parameters
+    settings['extra_freq'] = 4e9
+    settings['extra_power'] = -25
 
     #Card settings
     settings['segments']         = 1
@@ -44,7 +48,6 @@ def get_default_settings():
     
     #Measurement settings
     settings['Quasi_CW']    = False
-    settings['num_save'] = 1
     
     #background_subtraction (by taking reference trace with no qubit drive power)
     settings['subtract_background'] = False
@@ -56,6 +59,7 @@ def pulsed_spec(instruments, settings):
     ##Instruments used
     qubitgen  = instruments['qubitgen']
     cavitygen = instruments['cavitygen']
+    extragen  = instruments['extragen']
     card      = instruments['card']
     hdawg     = instruments['AWG']
     LO        = instruments['LO']
@@ -82,17 +86,16 @@ def pulsed_spec(instruments, settings):
     else:
         freqs  = np.round(np.linspace(start_freq,stop_freq,freq_points),-3)
     
-    Qbit_Attenuation = exp_globals['Qbit_Attenuation']
+    Qbit_Attenuation = exp_globals['Extragen_Attenuation']
     start_power  = exp_settings['start_power'] + Qbit_Attenuation
     stop_power   = exp_settings['stop_power']  + Qbit_Attenuation
     power_points = exp_settings['power_points']
     powers = np.round(np.linspace(start_power,stop_power,power_points),2)
-    
+      
     ## Generator settings
     cavitygen.Freq   = CAV_freq
     cavitygen.Power  = CAV_power
     cavitygen.Output = 'On'
-    qubitgen.Output  = 'On'
     
     LO.power = 12
     LO.freq = CAV_freq - exp_globals['IF']    
@@ -106,20 +109,29 @@ def pulsed_spec(instruments, settings):
     qubitgen.Power  = -20
     
     if exp_settings['Quasi_CW']:
-        qubitgen.disable_pulse()
-        qubitgen.disable_IQ()
+        extragen.disable_pulse()
+        extragen.disable_IQ()
     else:
-        qubitgen.enable_pulse()
-        qubitgen.enable_IQ()
+        extragen.enable_pulse()
+        extragen.enable_IQ()
+        
+    extragen.Output  = 'On'
+    ## Pi pulse generator settings
+    qubitgen.Freq   =  exp_settings['ge_freq']
+    qubitgen.Power  =  exp_settings['ge_power'] + exp_globals['Qbit_Attenuation']
+    qubitgen.Output = 'On'
     
+    qubitgen.enable_pulse() #*
+    qubitgen.enable_IQ() #*
+      
     ## Card config
     configure_card(card, settings)
 
     ## HDAWG settings
-#    configure_hdawg(hdawg, settings)
+    configure_hdawg(hdawg, settings)
     
     ## Sequencer program
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder_4channels.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -134,37 +146,50 @@ def pulsed_spec(instruments, settings):
 
     awg_sched.add_analog_channel(1, name='Qubit_I')
     awg_sched.add_analog_channel(2, name='Qubit_Q')
+    awg_sched.add_analog_channel(3, name='Extra_I')
+    awg_sched.add_analog_channel(4, name='Extra_Q')
     
     awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
     awg_sched.add_digital_channel(2, name='Cavity_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
-    
+    awg_sched.add_digital_channel(3, name='Extra_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
+    awg_sched.add_digital_channel(4, name='blank', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
     
     qubit_I       = awg_sched.analog_channels['Qubit_I']
+    extra_I       = awg_sched.analog_channels['Extra_I']
     qubit_marker  = awg_sched.digital_channels['Qubit_enable']
     cavity_marker = awg_sched.digital_channels['Cavity_enable']
+    extra_marker  = awg_sched.digital_channels['Extra_enable']
     
     delay = q_pulse['delay']
     sigma = q_pulse['sigma']
     num_sigma = q_pulse['num_sigma']
-
-    position = start_time-delay-num_sigma*sigma-q_pulse['hold_time']
-    qubit_I.add_pulse('gaussian_square', position=position, 
-                              amplitude=q_pulse['piAmp'], length = q_pulse['hold_time'], 
-                              ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
     
-    qubit_marker.add_window(position-160e-9, position+2*160e-9+q_pulse['hold_time'])
-#    qubitgen.disable_IQ()
-#    qubit_marker.add_window(0,start_time+2e-6)
+    ##pi pulse
+    position = start_time-delay-2*num_sigma*sigma
+    qubit_I.add_pulse('gaussian', position=position, amplitude=q_pulse['piAmp'], 
+                      sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+    
+    qubit_marker.add_window(position-num_sigma*sigma, position+2*num_sigma*sigma)
+    
+    ##qubit pulse
+    position = start_time-delay-num_sigma*sigma
+    extra_I.add_pulse('gaussian', position=position, amplitude=q_pulse['piAmp'], 
+                      sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+    
+    extra_marker.add_window(position-num_sigma*sigma, position+2*num_sigma*sigma)
+
     ##
     cavity_marker.add_window(start_time, start_time+window_time)
     
     awg_sched.plot_waveforms()
     
-    [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
+    [ch1, ch2, marker]  = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
+    [ch3, ch4, marker2] = awg_sched.compile_schedule('HDAWG', ['Extra_I', 'Extra_Q'], ['Extra_enable', 'blank'])
     
     loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
     hdawg.AWGs[0].load_program(loadprog)
     hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
+    hdawg.AWGs[1].load_waveform('0', ch3, ch4, marker2)
     hdawg.AWGs[0].run_loop()
     time.sleep(0.1)
     
@@ -192,7 +217,7 @@ def pulsed_spec(instruments, settings):
     first_it = True
         
     for powerind in range(len(powers)):
-        qubitgen.Power = powers[powerind]
+        extragen.Power = powers[powerind]
         
         total_samples = card.samples
 
@@ -211,17 +236,17 @@ def pulsed_spec(instruments, settings):
             
             ##Acquire signal
             freq = freqs[find]
-            qubitgen.Freq = freq
-            qubitgen.output='On'
-#            time.sleep(0.1)
+            extragen.Freq = freq
+            extragen.output='On'
+            time.sleep(0.1)
 
             I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
                                                                          plot=first_it, 
                                                                          IQstorage = True)
             if exp_settings['subtract_background']:
                 #Acquire background trace
-                qubitgen.output='Off'
-#                time.sleep(0.1)
+                extragen.output='Off'
+                time.sleep(0.1)
                 I_window_b, Q_window_b, I_full_b, Q_full_b, xaxis_b = read_and_process(card, settings, 
                                                                  plot=first_it, 
                                                                  IQstorage = True)
@@ -240,12 +265,7 @@ def pulsed_spec(instruments, settings):
             Q_final = Q_sig-Q_back #compute <Q_net> in the data window
             I_full_net = I_full-I_full_b #full I data with background subtracted
             Q_full_net = Q_full-Q_full_b #full Q data with background subtracted
-            
-#            I_final = I_sig #compute <I_net> in the data window
-#            Q_final = Q_sig #compute <Q_net> in the data window
-#            I_full_net = I_full#full I data without background subtracted
-#            Q_full_net = Q_full#full Q data without background subtracted
-            
+                      
             ##Estimat
             
             ##Store data
@@ -270,8 +290,7 @@ def pulsed_spec(instruments, settings):
         yaxis = powers[0:powerind+1] - Qbit_Attenuation
         labels = ['Freq (GHz)', 'Power (dBm)']
         simplescan_plot(full_data, single_data, yaxis, filename, labels, identifier='', fig_num=1)
-        if not powerind%exp_settings['num_save']:
-            plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
+        plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
         full_time = {}
         full_time['xaxis']  = xaxis*1e6
@@ -294,30 +313,23 @@ def pulsed_spec(instruments, settings):
                         identifier, 
                         fig_num=2,
                         IQdata = True)
-        if not powerind%exp_settings['num_save']:
-            plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
-        
-        if not powerind%exp_settings['num_save']:
-            userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
-                                                   'powerdat', 'phasedat',
-                                                   'full_data', 'single_data', 
-                                                   'full_time', 'single_time'],
-                                                 locals(), 
-                                                 expsettings=settings, 
-                                                 instruments=instruments, saveHWsettings=False)
-    userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
-                                                       'powerdat', 'phasedat',
-                                                       'full_data', 'single_data', 
-                                                       'full_time', 'single_time'],
-                                                     locals(), 
-                                                     expsettings=settings, 
-                                                     instruments=instruments, saveHWsettings=True)
+        plt.savefig(os.path.join(saveDir, filename+'_Raw_time_traces.png'), dpi = 150)
+
+        userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
+                                               'powerdat', 'phasedat',
+                                               'full_data', 'single_data', 
+                                               'full_time', 'single_time'],
+                                             locals(), 
+                                             expsettings=settings, 
+                                             instruments=instruments)
+
     t2 = time.time()
     
     print('elapsed time = ' + str(t2-tstart))
        
     cavitygen.Output = 'Off'
     qubitgen.Output = 'Off'
+    extragen.Output = 'Off'
     LO.output = 'Off'
     
     return full_data

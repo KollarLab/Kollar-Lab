@@ -66,8 +66,8 @@ def get_default_settings():
 def vna_spec_flux_scan(instruments, settings):
     ##Instruments used
     vna = instruments['VNA']
-    SRS = instruments['DCsupply']
-
+    #SRS = instruments['DCsupply']
+    awg = instruments['HDAWG']
     vna.reset()
 
     exp_globals  = settings['exp_globals']
@@ -101,7 +101,7 @@ def vna_spec_flux_scan(instruments, settings):
     stop_voltage  = spec_set['stop_voltage']
     voltage_points = spec_set['voltage_points']
     voltages = np.round(np.linspace(start_voltage, stop_voltage, voltage_points),6)
-    max_voltage = 10#3.5
+    max_voltage = 1#3.5
     if np.max(voltages) > max_voltage:
         raise ValueError('max voltage too large!')
     else:
@@ -113,7 +113,7 @@ def vna_spec_flux_scan(instruments, settings):
     mags   = np.zeros((voltage_points, spec_set['freq_points']))
     phases = np.zeros((voltage_points, spec_set['freq_points']))
     
-    SRS.Output = 'On'
+    #SRS.Output = 'On'
     
     tstart = time.time()
     
@@ -130,7 +130,8 @@ def vna_spec_flux_scan(instruments, settings):
         voltage = voltages[vind]
         print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
         
-        SRS.voltage_ramp(voltage)
+        awg.Channels[2].offset = voltage
+        #SRS.voltage_ramp(voltage)
         time.sleep(0.1)
         
         vna.reset()  
@@ -213,9 +214,7 @@ def vna_spec_flux_scan(instruments, settings):
     
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
-    
+
     data = {'saveDir': saveDir, 'filename': filename, 'transdata':transdata, 'specdata':specdata, 'voltages':voltages}
 
     return data
-
-    

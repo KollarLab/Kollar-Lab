@@ -220,3 +220,7 @@ def vna_spec_flux_scan_user_sweep(instruments, settings):
     
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
+
+    data = {'saveDir': saveDir, 'filename': filename, 'transdata':transdata, 'specdata':specdata, 'flux_points':flux_points}
+
+    return data
