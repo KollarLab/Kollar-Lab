@@ -171,7 +171,7 @@ def hold_time_sweep(instruments, settings):
     for tind in indices:
         
         tau = taus[tind]
-        print('Hold: {}'.format(tau))
+#        print('Hold: {}'.format(tau))
         
         hdawg.AWGs[0].stop()
         qubit_I.reset()
