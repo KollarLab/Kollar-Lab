@@ -44,6 +44,7 @@ def get_default_settings():
     
     #Measurement settings
     settings['Quasi_CW']    = False
+    settings['reverse'] = False
     settings['num_save'] = 1
     
     #background_subtraction (by taking reference trace with no qubit drive power)
@@ -307,8 +308,8 @@ def pulsed_spec(instruments, settings):
                                                  instruments=instruments, saveHWsettings=False)
     userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
                                                        'powerdat', 'phasedat',
-                                                       'full_data', 'single_data', 
-                                                       'full_time', 'single_time'],
+                                                       'full_data', 'single_data'], 
+                                                       #'full_time', 'single_time'],
                                                      locals(), 
                                                      expsettings=settings, 
                                                      instruments=instruments, saveHWsettings=True)
