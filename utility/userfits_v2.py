@@ -93,6 +93,22 @@ def T2_guess(t_ax, amps, plot=False):
     return [amp_guess, off_guess, tau_guess, freq_guess, phi_guess]
 
 def peak_guess(f_ax, amps):
+    #check if we have a hanger vs a peak type feature
+    edge = np.mean(amps[:5])
+    min_val = min(amps)
+    max_val = max(amps)
+    if edge-min_val>max_val-edge:
+        print('hanger?')
+        amps = abs(amps-max(amps))
+        #If we have a hanger, we know that the amplitude should be negative and 
+        #we have a positive offset
+        flip = -1
+        add_off = 1
+    else:
+        print('Normal?')
+        #Don't flip the amplitude and add 0 to the offset
+        flip = 1
+        add_off = 0
     center_ind = np.argmax(amps)
     center_guess = f_ax[center_ind]
     #find the larger fraction of the data to calculate HWHM
@@ -115,7 +131,7 @@ def peak_guess(f_ax, amps):
         offset_guess = np.mean(amps[0:int(center_ind/4)])
     amp_guess = max(amps)-offset_guess
     scaled_amp = amp_guess
-    return [scaled_amp, offset_guess, center_guess, sigma_guess]
+    return [scaled_amp*flip, offset_guess+add_off*edge, center_guess, sigma_guess]
 
 def gaussian_guess(f_ax, amps):
     [amp, offset, center, sigma] = peak_guess(f_ax, amps)
