@@ -44,6 +44,7 @@ def get_default_settings():
     
     #Measurement settings
     settings['Quasi_CW']    = False
+    settings['reverse']   = False
     settings['num_save'] = 1
     
     #background_subtraction (by taking reference trace with no qubit drive power)
@@ -119,7 +120,7 @@ def pulsed_spec(instruments, settings):
 #    configure_hdawg(hdawg, settings)
     
     ## Sequencer program
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
+    progFile = open(r"C:\Users\kollarlab\Documents\GitHub\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -300,15 +301,15 @@ def pulsed_spec(instruments, settings):
         if not powerind%exp_settings['num_save']:
             userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
                                                    'powerdat', 'phasedat',
-                                                   'full_data', 'single_data', 
-                                                   'full_time', 'single_time'],
+                                                   'full_data', 'single_data'], 
+                                                   #'full_time', 'single_time'],
                                                  locals(), 
                                                  expsettings=settings, 
                                                  instruments=instruments, saveHWsettings=False)
     userfuncs.SaveFull(saveDir, filename, ['powers','freqs', 'xaxis',
                                                        'powerdat', 'phasedat',
-                                                       'full_data', 'single_data', 
-                                                       'full_time', 'single_time'],
+                                                       'full_data', 'single_data'], 
+                                                       #'full_time', 'single_time'],
                                                      locals(), 
                                                      expsettings=settings, 
                                                      instruments=instruments, saveHWsettings=True)

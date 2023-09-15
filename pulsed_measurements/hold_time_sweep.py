@@ -94,7 +94,7 @@ def hold_time_sweep(instruments, settings):
     ## Configure HDAWG
 #    configure_hdawg(hdawg, settings)
     
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
+    progFile = open(r"C:\Users\kollarlab\Documents\GitHub\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -171,7 +171,7 @@ def hold_time_sweep(instruments, settings):
     for tind in indices:
         
         tau = taus[tind]
-        print('Hold: {}'.format(tau))
+        # print('Hold: {}'.format(tau))
         
         hdawg.AWGs[0].stop()
         qubit_I.reset()
