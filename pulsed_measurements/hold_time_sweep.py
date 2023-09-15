@@ -8,6 +8,7 @@ import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 import userfuncs
 from utility.userfits import fit_T1
@@ -94,7 +95,8 @@ def hold_time_sweep(instruments, settings):
     ## Configure HDAWG
 #    configure_hdawg(hdawg, settings)
     
-    progFile = open(r"C:\Users\kollarlab\Documents\GitHub\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
+    root_dir = Path(__file__).parent
+    progFile = open(os.path.join(root_dir, r"HDAWG_sequencer_codes\hdawg_placeholder.cpp"),'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
