@@ -147,7 +147,7 @@ def convert_prefix(string, val):
     prefix = string[0]
     return val/SI[prefix]
 
-def fit_model(t_ax, amps, model, plot=False, guess=None):
+def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None):
     xlabel = 'Time (us)'
     scale = 1e-6
     if model=='T1':
@@ -196,18 +196,20 @@ def fit_model(t_ax, amps, model, plot=False, guess=None):
     t_ax_fit = np.linspace(t_ax[0], t_ax[-1], len(t_ax)*10)
     param_dict = create_param_dict(params, fit_params)
     if plot:
-        plt.figure()
-        plt.plot(t_ax/scale, amps, label='Data')
-        plt.plot(t_ax_fit/scale, fit_func(t_ax_fit, *guess), label='Init guess')
-        plt.plot(t_ax_fit/scale, fit_func(t_ax_fit, *fit_params), label='Best Fit')
+        if not ax:
+            plt.figure()
+            ax = plt.subplot(111)
+        ax.plot(t_ax/scale, amps, label='Data')
+        ax.plot(t_ax_fit/scale, fit_func(t_ax_fit, *guess), label='Init guess')
+        ax.plot(t_ax_fit/scale, fit_func(t_ax_fit, *fit_params), label='Best Fit')
         base_string = 'Fit results, model:{}'.format(model)
         for p,u in zip(key_params, units):
             param_val = convert_prefix(u,param_dict[p])
             base_string+=',{}:{:.5f}{}'.format(p, param_val,u)
-        plt.title(base_string)
-        plt.legend()
-        plt.xlabel(xlabel)
-        plt.ylabel('Amp (arb)')
+        ax.set_title(base_string)
+        ax.legend()
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel('Amp (arb)')
     
     return param_dict
         
