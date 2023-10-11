@@ -23,6 +23,15 @@ Created on Tue Aug  1 15:03:07 2023
         
 10-5-23 AK adding the ability to auto fill from a file and display stuff
         by crawling the data file for relevant values
+        
+10-11-23 AK trying to mess with the auto plot settings to make the function a
+            little bit more general. e.g. able to handle hanger data which
+            goes the other way, and able to be called for a subplot
+            
+        GHzVHzCorrection for the frequency axis should now be autodetermined,
+        and is being removed as in input parameter for the class.
+        
+        Did not have hanger data to test this on but I pray that it works.
 
 
 
@@ -95,7 +104,7 @@ class replotter(object):
                  smoothe_data = False,
                  smoothing_sigma = 0.75,
                  verbose = False,
-                 GHzVHz_correction = False,
+                 # GHzVHz_correction = False,
                  default_phase = False,
                  auto_fill_from_file = False):
         
@@ -126,8 +135,9 @@ class replotter(object):
         self.smoothe_data = smoothe_data
         self.smoothing_sigma = smoothing_sigma
         
-        #correction factor for old data that has frequncy axis in GHz
-        self.GHzVHz_correction = GHzVHz_correction
+        # #correction factor for old data that has frequncy axis in GHz
+        # self.GHzVHz_correction = GHzVHz_correction
+        #changing to automated determination when the data is loaded
         
         #load the data and determine the plot limits
         self.load_data()
@@ -166,6 +176,9 @@ class replotter(object):
         self.datadict = pickledict['Data']
         self.settings = pickledict['ExpSettings']
         
+        #figure out some general settings of the data file
+        self.hanger = self.settings['exp_globals']['hanger']   #whether or not this is hanger data
+        
         if 'specdata' in self.datadict.keys():
             #this is spec data and I need to load differently
             specdict = self.datadict['specdata']
@@ -175,10 +188,19 @@ class replotter(object):
             
             self.mags = specdict['mags']
             self.phases = specdict['phases']
-            if self.GHzVHz_correction:
-                self.freqs = specdict['xaxis']
+            temp = specdict['xaxis']
+            if np.max(temp) < 100:
+                #clear sign that the frequency axis is in GHz
+                self.GHzVHz_correction = True
+                self.freqs = temp
             else:
-                self.freqs = specdict['xaxis']/1e9
+                #axis isn't in GHz. It had better be in Hz
+                self.GHzVHz_correction = False
+                self.freqs = temp/1e9
+            # if self.GHzVHz_correction:
+            #     self.freqs = specdict['xaxis']
+            # else:
+            #     self.freqs = specdict['xaxis']/1e9
             
             #pull up the transmission data to use for background subtractions
             self.transdatadict= self.datadict['transdata']
@@ -225,10 +247,20 @@ class replotter(object):
             
             self.mags = self.data['mags']
             self.phases = self.data['phases']
-            if self.GHzVHz_correction:
-                self.freqs = self.data['xaxis']
+            
+            temp = self.data['xaxis']
+            if np.max(temp) < 100:
+                #clear sign that the frequency axis is in GHz
+                self.GHzVHz_correction = True
+                self.freqs = temp
             else:
-                self.freqs = self.data['xaxis']/1e9
+                #axis isn't in GHz. It had better be in Hz
+                self.GHzVHz_correction = False
+                self.freqs = temp/1e9
+            # if self.GHzVHz_correction:
+            #     self.freqs = self.data['xaxis']
+            # else:
+            #     self.freqs = self.data['xaxis']/1e9
         
         if self.smoothe_data:
             raw_mags = copy.deepcopy(self.mags)
@@ -237,7 +269,7 @@ class replotter(object):
         return
         
     def compute_trimmed_data(self):
-        #zeroout the noisy stuff at low power
+        #zero out the noisy stuff at low power
         self.trimmedMat = copy.deepcopy(self.mags)
         noise_region = np.where(self.trimmedMat < self.diff_cutoff)
         self.trimmedMat[noise_region] = self.diff_cutoff
@@ -290,6 +322,15 @@ class replotter(object):
         return
     
     def show_transmission_plot(self, fignum = 2, savefig = False):
+        '''Make a non-differential plot fo the main data.
+        
+        Originally this was written assuming transmission data, but 
+        has since been modified to also work for spec data, but the old 
+        name remains. 
+        
+        New wrapper show_data_plot and show_spec_plot will be created so that
+        the names are more sensible and backwards compatibility is maintained
+        '''
         fig2 = plt.figure(fignum)
         plt.clf()
         
@@ -305,7 +346,11 @@ class replotter(object):
                        shading = 'auto')
         plt.xlabel(self.labels[0])
         plt.ylabel(self.labels[1])
-        plt.title('Transmission v Applied Flux')
+        if 'specdata' in self.datadict.keys():
+            plt.title('Spec v Applied Flux')
+        else:
+            plt.title('Transmission v Applied Flux')
+        
         plt.colorbar()
         ax.set_xlim(self.xlims)
         ax.set_ylim(self.ylims)
@@ -323,6 +368,28 @@ class replotter(object):
             # fig22.savefig(save_name)
         
         return
+
+    def show_data_plot(self, fignum = 2, savefig = False):
+        '''Wrapper for the function show_transmission plot
+        
+        That function is no longer specific to transmission data.
+        So this wrapper is to change the name.
+        
+        '''
+        self.show_transmission_plot(fignum = 2, savefig = False)
+        
+    def show_spec_plot(self, fignum = 2, savefig = False):
+        '''Wrapper for the function show_transmission plot
+        
+        That function is no longer specific to transmission data.
+        So this wrapper is to change the name.
+        
+        '''
+        if 'specdata' in self.datadict.keys():
+            self.show_transmission_plot(fignum = 2, savefig = False)
+        else:
+            raise ValueError('This is not a spec data set.')
+
     
     def show_differential_plot(self, fignum = 3, savefig = True):
         #plot the subtracted data, but using deltMat wich zeros
@@ -338,7 +405,11 @@ class replotter(object):
                        shading = 'auto')
         plt.xlabel(self.labels[0])
         plt.ylabel(self.labels[1])
-        plt.title('Differential Transmission v Applied Flux (cutoff, log mode)')
+        
+        if 'specdata' in self.datadict.keys():
+            plt.title('Differential Spec v Applied Flux')
+        else:
+            plt.title('Differential Transmission v Applied Flux')
         plt.colorbar()
         ax.set_xlim(self.xlims)
         ax.set_ylim(self.ylims)
@@ -363,7 +434,8 @@ class replotter(object):
         
         self.show_baseline_plot(fignum =1)
         
-        self.show_transmission_plot(fignum = 2, savefig = savefig)       
+        # self.show_transmission_plot(fignum = 2, savefig = savefig) 
+        self.show_data_plot(fignum = 2, savefig = savefig)  
         
         self.show_differential_plot(fignum = 3, savefig = savefig)
         
@@ -383,8 +455,12 @@ class replotter(object):
         
         It won't be perfect, but it should be a pretty good guess'
         '''
-        self.vmax = np.max(self.mags) - max_offset
-        self.vmin = self.vmax - trans_dynamic_range
+        if self.hanger:
+            self.vmin = np.min(self.mags) + max_offset #set the color bar edge to the dip
+            self.vmax = self.vmin + trans_dynamic_range
+        else:
+            self.vmax = np.max(self.mags) - max_offset #set the colorbar edge to the peak
+            self.vmin = self.vmax - trans_dynamic_range
         self.xlims = [self.freqs[0], self.freqs[-1]]
         self.ylims = [self.voltages[0], self.voltages[-1]]
         
@@ -401,22 +477,204 @@ class replotter(object):
             self.show_baseline_plot(fignum =71)
         
         if replot:
-            self.show_transmission_plot(fignum = figNums[0], savefig = False)       
+            # self.show_transmission_plot(fignum = figNums[0], savefig = False)
+            self.show_data_plot(fignum = figNums[0], savefig = False)  
         
             self.show_differential_plot(fignum = figNums[1], savefig = False)
 
             if savefig:
                 base_path= self.filepath[0:-4]
                 
-                trans_fig_path = base_path + '_TransReplot.png'
+                trans_fig_path = base_path + '_MainReplot.png'
                 currFig = plt.figure(figNums[0])
                 currFig.savefig(trans_fig_path)
                 
                 diff_fig_path = base_path + '_DiffReplot.png'
                 currFig = plt.figure(figNums[1])
                 currFig.savefig(diff_fig_path)
+        return
     
+    def make_data_subplot(self, ax,
+                          dynamic_range = 35, 
+                          ref_offset = 0,
+                          ref_level = np.NaN,
+                          xlims = [np.NaN, np.NaN],
+                          ylims = [np.NaN, np.NaN],
+                          plot_phase = np.NaN,
+                          title_with_filename = False):
+        ''' Replot that allows to you command that the plot be created in a specific subplot
+        axis, rather than creating a new figure for it.
+        
+        ax = axis object in which to plot
+        
+        dynamic_range = dynamic range for the color bar
+        
+        ref_offset = how far the edge of the colorbar should be from the 
+                        extremum of the data
+                        Sign of offset will depend on hanger v not
+        
+        ref_level = level in the data that should be used as a marker for
+                the edge of the color scale.
+                This looks totally redundant with ref aoffset, but I envison
+                that the auto behavior is ref_level = np.max(data),
+                the the offset is say how far you want to rail the color scale
+                on that side.
+                
+        xlims = x axis limtis (assumed these are frequencies)
+        
+        ylims = y axis limtis (assumed these are fvoltages)
+        
+        plot_phase = boolean to say whether should plot mag or phase.
+                     if nan, will sue the object default
+                     
+        title_with_filename = boolean to determine if file name should go in the title
+                            for easy identification
+                    
+        If any parameter is np.NaN by default, that means that it will use
+        the values already stored with the data file, rather than fine tuning.
+        
+        '''
+        plt.sca(ax)
+
+        
+        if np.isnan(ref_level):
+            #use the default
+            if self.hanger:
+                ref_level = self.vmin
+            else:
+                ref_level = self.vmax
+                
+        if np.isnan(xlims[0]):
+            #use the default
+            xlims = self.xlims
+        
+        if np.isnan(ylims[0]):
+            #use the default
+            ylims = self.ylims
+        
+        # #configure the offset and the dynamic range to match the hanger v not
+        # dynamic_range = signum*dynamic_range
+        # ref_offset = signum*ref_offset
+        
+                
+        #pull up the right data
+        if np.isnan(plot_phase):
+            #use the default
+            if self.default_phase:
+                plot_data = self.phases
+            else:
+                plot_data = self.mags
+        elif plot_phase:
+            plot_data = self.phases
+        else:
+            plot_data = self.mags
+            
+        #configure the plot limits
+        if self.hanger:
+            #set everything from the min value
+            vmin = ref_level + ref_offset
+            vmax = vmin + dynamic_range
+        else:
+            #set everything from the max value
+            vmax = ref_level - ref_offset
+            vmin = vmax - dynamic_range
+            
+        plt.pcolormesh(self.freqs, self.voltages, plot_data , 
+                       cmap = self.cmap,
+                       vmin = vmin,
+                       vmax = vmax,
+                       shading = 'auto')
+        plt.xlabel(self.labels[0])
+        plt.ylabel(self.labels[1])
+        if 'specdata' in self.datadict.keys():
+            plt.title('Spec v Applied Flux')
+        else:
+            plt.title('Transmission v Applied Flux')
+        
+        if title_with_filename:
+            plt.title(self.filename)
+        
+        plt.colorbar()
+        ax.set_xlim(xlims)
+        ax.set_ylim(ylims)
+
+        return
     
+    def make_diff_subplot(self, ax,
+                          dynamic_range = np.NaN, 
+                          diff_cutoff = np.NaN,
+                          xlims = [np.NaN, np.NaN],
+                          ylims = [np.NaN, np.NaN],
+                          title_with_filename = False):
+        ''' Replot that allows to you command that the plot be created in a specific subplot
+        axis, rather than creating a new figure for it. This version will plot the 
+        differential transmission
+        
+        ax = axis object in which to plot
+        
+        dynamic_range = dynamic range for the color bar (+- val for this)
+        
+        diff_cutoff = absolute power below which we zero the data for differential
+                
+        xlims = x axis limtis (assumed these are frequencies)
+        
+        ylims = y axis limtis (assumed these are fvoltages)
+        
+        title_with_filename = boolean to determine if file name should go in the title
+                            for easy identification
+                    
+        If any parameter is np.NaN by default, that means that it will use
+        the values already stored with the data file, rather than fine tuning.
+        
+        WARNING - To change the minimu value, this will have to recompute the cutoff and 
+        store the new version.
+        
+        '''
+        plt.sca(ax)
+
+        if np.isnan(xlims[0]):
+            #use the default
+            xlims = self.xlims
+        
+        if np.isnan(ylims[0]):
+            #use the default
+            ylims = self.ylims
+            
+        if np.isnan(dynamic_range):
+            #use the default
+            dynamic_range = self.diff_colorBound
+            
+        if np.isnan(diff_cutoff):
+            #use the default. Everything is already computed
+            pass
+        else:
+            #need to reconfigure the minimum cutoff and recompute differential
+            self.diff_cutoff = diff_cutoff
+            
+            #recompute the differential transmission
+            self.compute_trimmed_data()
+            self.compute_diff_transmission()
+            
+        plt.pcolormesh(self.freqs, self.voltages, self.deltaMat, 
+                       cmap = self.div_cmap, 
+                       vmax = dynamic_range, 
+                       vmin = -dynamic_range,
+                       shading = 'auto')
+        plt.xlabel(self.labels[0])
+        plt.ylabel(self.labels[1])
+        if 'specdata' in self.datadict.keys():
+            plt.title('Differential Spec v Applied Flux')
+        else:
+            plt.title('Differential Transmission v Applied Flux')
+        
+        if title_with_filename:
+            plt.title(self.filename)
+        
+        plt.colorbar()
+        ax.set_xlim(xlims)
+        ax.set_ylim(ylims)
+
+        return
     
     
     
