@@ -168,7 +168,7 @@ def multi_trans_flux_scan(instruments, settings):
                 if vind == 0:
                     print('Voltage {}: initial {}, final {}'.format(str(sind+1),full_voltages[vind][sind],full_voltages[-1][sind]))
             
-            print('Current Flux {}, Ending Flux {}'.format(str(fluxes[vind]),str(fluxes[-1])))
+            print('Current Flux {}, Ending Flux {}'.format(str(np.round(fluxes[vind],6)),str(fluxes[-1])))
 
             time.sleep(0.1)
             
