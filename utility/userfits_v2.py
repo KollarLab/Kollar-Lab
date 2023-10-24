@@ -93,6 +93,22 @@ def T2_guess(t_ax, amps, plot=False):
     return [amp_guess, off_guess, tau_guess, freq_guess, phi_guess]
 
 def peak_guess(f_ax, amps):
+    #check if we have a hanger vs a peak type feature
+    edge = np.mean(amps[:5])
+    min_val = min(amps)
+    max_val = max(amps)
+    if edge-min_val>max_val-edge:
+        print('hanger?')
+        amps = abs(amps-max(amps))
+        #If we have a hanger, we know that the amplitude should be negative and 
+        #we have a positive offset
+        flip = -1
+        add_off = 1
+    else:
+        print('Normal?')
+        #Don't flip the amplitude and add 0 to the offset
+        flip = 1
+        add_off = 0
     center_ind = np.argmax(amps)
     center_guess = f_ax[center_ind]
     #find the larger fraction of the data to calculate HWHM
@@ -115,7 +131,7 @@ def peak_guess(f_ax, amps):
         offset_guess = np.mean(amps[0:int(center_ind/4)])
     amp_guess = max(amps)-offset_guess
     scaled_amp = amp_guess
-    return [scaled_amp, offset_guess, center_guess, sigma_guess]
+    return [scaled_amp*flip, offset_guess+add_off*edge, center_guess, sigma_guess]
 
 def gaussian_guess(f_ax, amps):
     [amp, offset, center, sigma] = peak_guess(f_ax, amps)
@@ -147,7 +163,7 @@ def convert_prefix(string, val):
     prefix = string[0]
     return val/SI[prefix]
 
-def fit_model(t_ax, amps, model, plot=False, guess=None):
+def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None):
     xlabel = 'Time (us)'
     scale = 1e-6
     if model=='T1':
@@ -196,18 +212,20 @@ def fit_model(t_ax, amps, model, plot=False, guess=None):
     t_ax_fit = np.linspace(t_ax[0], t_ax[-1], len(t_ax)*10)
     param_dict = create_param_dict(params, fit_params)
     if plot:
-        plt.figure()
-        plt.plot(t_ax/scale, amps, label='Data')
-        plt.plot(t_ax_fit/scale, fit_func(t_ax_fit, *guess), label='Init guess')
-        plt.plot(t_ax_fit/scale, fit_func(t_ax_fit, *fit_params), label='Best Fit')
+        if not ax:
+            plt.figure()
+            ax = plt.subplot(111)
+        ax.plot(t_ax/scale, amps, label='Data')
+        ax.plot(t_ax_fit/scale, fit_func(t_ax_fit, *guess), label='Init guess')
+        ax.plot(t_ax_fit/scale, fit_func(t_ax_fit, *fit_params), label='Best Fit')
         base_string = 'Fit results, model:{}'.format(model)
         for p,u in zip(key_params, units):
             param_val = convert_prefix(u,param_dict[p])
             base_string+=',{}:{:.5f}{}'.format(p, param_val,u)
-        plt.title(base_string)
-        plt.legend()
-        plt.xlabel(xlabel)
-        plt.ylabel('Amp (arb)')
+        ax.set_title(base_string)
+        ax.legend()
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel('Amp (arb)')
     
     return param_dict
         

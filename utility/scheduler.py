@@ -78,9 +78,9 @@ class DigitalChannel():
             offset_on  = int(self.HW_offset_on*self.sample_rate)
             offset_off = int(self.HW_offset_off*self.sample_rate)
             if self.polarity=='Pos':
-                self.marker_array[start_ind-offset_on:stop_ind-offset_off] = self.ID
+                self.marker_array[start_ind-offset_on:stop_ind+offset_off] = self.ID
             if self.polarity=='Neg':
-                self.marker_array[start_ind-offset_on:stop_ind-offset_off] = 0
+                self.marker_array[start_ind-offset_on:stop_ind+offset_off] = 0
     
     def reset(self, polarity=None):
         if not polarity:
@@ -146,32 +146,52 @@ class scheduler():
         analog_traces = len(self.analog_channels)
         digital_traces = len(self.digital_channels)
         num_traces = analog_traces+digital_traces
-        fig = plt.figure(111)
+        fig = plt.figure(111, figsize=(10,8))
         plt.clf()
-        for i, key in enumerate(self.analog_channels.keys()):
-            if i==0:
-                ax1 = plt.subplot(num_traces, 1, i+1)
-                ax = ax1
-            else:
-                ax = plt.subplot(num_traces, 1, i+1, sharex=ax1)
-            active_channel = self.analog_channels[key]
+        ax_a = plt.subplot(211)
+        ax_a.set_title('Analog Traces')
+        ax_a.set_xlabel('Time (us)')
+        ax_a.set_ylabel('Amp')
+        ax_b = plt.subplot(212, sharex=ax_a)
+        ax_b.set_title('Digital Traces')
+        ax_b.set_xlabel('Time (us)')
+        ax_b.set_ylabel('Amp')
+        for a,b in zip(self.analog_channels.keys(), self.digital_channels.keys()):
+            active_channel = self.analog_channels[a]
             wave_data = active_channel.wave_array
             time_data = self.time_array*1e6
-            ax.plot(time_data, wave_data)
-            ax.set_title(key)
-            ax.set_xlabel('Time (us)')
-            ax.set_ylabel('Amp')
-
-        for i, key in enumerate(self.digital_channels.keys()):
-            ax = plt.subplot(num_traces, 1, i+analog_traces+1, sharex=ax1)
-            active_channel = self.digital_channels[key]
+            ax_a.plot(time_data, wave_data,label=a)
+            active_channel = self.digital_channels[b]
             active_channel.compile_channel()
-            marker_data = active_channel.marker_array
+            wave_data = active_channel.marker_array
             time_data = self.time_array*1e6
-            ax.plot(time_data, marker_data)
-            ax.set_title(key)
-            ax.set_xlabel('Time (us)')
-            ax.set_ylabel('Amp')
+            ax_b.plot(time_data, wave_data, label=b)
+        ax_a.legend()
+        ax_b.legend()
+        # for i, key in enumerate(self.analog_channels.keys()):
+        #     if i==0:
+        #         ax1 = plt.subplot(num_traces, 1, i+1)
+        #         ax = ax1
+        #     else:
+        #         ax = plt.subplot(num_traces, 1, i+1, sharex=ax1)
+        #     active_channel = self.analog_channels[key]
+        #     wave_data = active_channel.wave_array
+        #     time_data = self.time_array*1e6
+        #     ax.plot(time_data, wave_data)
+        #     ax.set_title(key)
+        #     ax.set_xlabel('Time (us)')
+        #     ax.set_ylabel('Amp')
+
+        # for i, key in enumerate(self.digital_channels.keys()):
+        #     ax = plt.subplot(num_traces, 1, i+analog_traces+1, sharex=ax1)
+        #     active_channel = self.digital_channels[key]
+        #     active_channel.compile_channel()
+        #     marker_data = active_channel.marker_array
+        #     time_data = self.time_array*1e6
+        #     ax.plot(time_data, marker_data)
+        #     ax.set_title(key)
+        #     ax.set_xlabel('Time (us)')
+        #     ax.set_ylabel('Amp')
 
 #        fig.canvas.draw()
 #        fig.canvas.flush_events()

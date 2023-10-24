@@ -39,10 +39,10 @@ class HDAWG():
         self.AWGs     = []
         self.OSCs     = []
         for i in range(4):
-            self.Channels.append(HDAWGchannel(self.daq,i))
+            self.Channels.append(HDAWGchannel(self.daq,i, device=device))
         for i in range(2):
-            self.AWGs.append(HDAWGawg(self.daq,i))
-            self.OSCs.append(HDAWGosc(self.daq,i))
+            self.AWGs.append(HDAWGawg(self.daq,i, device=device))
+            self.OSCs.append(HDAWGosc(self.daq,i, device=device))
         self.channelgrouping = '1x4'
         self.referenceClock  = 'External'
 

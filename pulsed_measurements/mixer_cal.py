@@ -38,7 +38,7 @@ def get_default_settings():
     return settings
 
 def configure_sequence(hdawg, exp_globals):
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
+    progFile = open(r"C:\Users\kollarlab\Documents\GitHub\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -80,7 +80,7 @@ def extract_data_local(raw, card, xaxis, measurement_pulse):
     data    = raw[data_start:data_start+window_width]
     return data, xaxis[data_start:data_start+window_width]
 
-def mixer_cal(instruments, settings):
+def mixer_cal(instruments, settings, ax=None):
     ##Instruments used
     cavitygen = instruments['cavitygen']
     card      = instruments['card']
@@ -157,5 +157,11 @@ def mixer_cal(instruments, settings):
         plt.subplot(133)
         plt.plot(xaxis, np.sqrt(I_net**2+Q_net**2))
         plt.plot(xI, np.sqrt(I_corr**2+Q_corr**2))
-
+    if ax:
+        xx,yy = make_elipse(axes, center, phi, 101)
+        ax.plot(I_win, Q_win, 'b',label='Data')
+        ax.plot(xx,yy, 'orange',label='Fit')
+        ax.set_aspect('equal')
+        ax.set_title('Ellipse fit')
+        ax.legend(loc='upper right')
     return mixer_config
