@@ -217,6 +217,47 @@ def read_and_process_two_pulses(card, settings, plot):
     Qnet_full = Q1_full-Q2_full
     return Inet, Qnet, Inet_full, Qnet_full, xaxis
             
+def read_and_process_single_channel(card, settings, plot):
+    '''
+    The original version of this function wanted to convert to 
+    amplitude(t) and phase(t). This has been found to be problematic.
+    To get the old version of operation, set
+    IQstorage = False
+    
+    IQstorage = True will instead return I(t) and Q(t) for 
+    later processing.
+    '''
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    Ip = np.mean(I, 0)
+
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
+            
+    I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Ip, xaxis, settings)
+    
+    I_full = I_cos_full
+    Q_full = I_sin_full
+    I_window = I_cos
+    Q_window = I_sin
+    
+    if plot:
+        fig0 = plt.figure(97)
+        plt.clf()
+        ax = plt.subplot(1,1,1)
+        plt.plot(xaxis*1e6, Ip, label = 'raw V1')
+        plt.xlabel('Time (us)')
+        plt.ylabel('Voltage')
+        plt.title('Card Voltages')
+        ax.legend(loc = 'upper right')
+      
+        fig0.canvas.draw()
+        fig0.canvas.flush_events()
+        
+        amp = np.sqrt(Q_window**2+I_window**2) #this is just the I signal
+        amp_full = np.sqrt(I_full**2+Q_full**2)
+        plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
+    
+    return I_window, Q_window, I_full, Q_full, xaxis
 def read_and_process(card, settings, plot, IQstorage = True):
     '''The original version of this function wanted to convert to 
     amplitude(t) and phase(t). This has been found to be problematic.
@@ -297,8 +338,8 @@ def read_and_process(card, settings, plot, IQstorage = True):
             #Quick fix to the problem of full cancellation in the DDC data. Turns out the channels got swapped 
             #during a reshuffle and combining the channels incorrectly leads to near perfect cancellation (offset by
             #the mixer impairements). For now I just swapped the definition of I and Q to match the combination phase
-            I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
-            Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
+            I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
+            Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
             
             
                 
