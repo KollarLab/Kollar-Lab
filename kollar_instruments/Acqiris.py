@@ -15,7 +15,7 @@ import time
 
 #import re
 import scipy
-import pylab
+import matplotlib.pyplot as plt
 #import tarfile
 #import struct
 #import glob
@@ -1240,26 +1240,26 @@ if __name__ == '__main__':
 
     print('Plotting.')
 
-    fig1 = pylab.figure(1)
-    pylab.clf()
-    ax = pylab.subplot(1,1,1)
+    fig1 = plt.figure(1)
+    plt.clf()
+    ax = plt.subplot(1,1,1)
     if multisegMode:
-        pylab.title('Multiseg: Active Channel')
+        plt.title('Multiseg: Active Channel')
         for segind in  range(0,dataSegments ):
             labelstr = 'seg: ' + str(segind)
-            pylab.plot(xaxis*1000, data[segind,:] + segind*0.125, label = labelstr)
+            plt.plot(xaxis*1000, data[segind,:] + segind*0.125, label = labelstr)
     else:
         if averageMode:
-            pylab.title('Averager: Active Channel')
+            plt.title('Averager: Active Channel')
         else:
-            pylab.title('Singleseg: Active Channel')
+            plt.title('Singleseg: Active Channel')
         labelstr = 'seg: 0' 
-        pylab.plot(xaxis*1000, data[:], label = labelstr)
+        plt.plot(xaxis*1000, data[:], label = labelstr)
     ax.legend(loc = 'upper right')
-    pylab.ylabel('Voltage (waterfall)')
-    pylab.xlabel('Time (ms)')
+    plt.ylabel('Voltage (waterfall)')
+    plt.xlabel('Time (ms)')
 
-    pylab.show()
+    plt.show()
 
 #
 #    print('Done plotting.')
@@ -1368,26 +1368,26 @@ if __name__ == '__main__':
 #
 #    print('Plotting.')
 #
-#    fig1 = pylab.figure(1)
-#    pylab.clf()
-#    ax = pylab.subplot(1,1,1)
+#    fig1 = plt.figure(1)
+#    plt.clf()
+#    ax = plt.subplot(1,1,1)
 #    if multisegMode:
-#        pylab.title('Multiseg: Active Channel')
+#        plt.title('Multiseg: Active Channel')
 #        for segind in  range(0,dataSegments ):
 #            labelstr = 'seg: ' + str(segind)
-#            pylab.plot(xaxis*1000, data[segind,:] + segind*0.125, label = labelstr)
+#            plt.plot(xaxis*1000, data[segind,:] + segind*0.125, label = labelstr)
 #    else:
 #        if averageMode:
-#            pylab.title('Averager: Active Channel')
+#            plt.title('Averager: Active Channel')
 #        else:
-#            pylab.title('Singleseg: Active Channel')
+#            plt.title('Singleseg: Active Channel')
 #        labelstr = 'seg: 0' 
-#        pylab.plot(xaxis*1000, data[:], label = labelstr)
+#        plt.plot(xaxis*1000, data[:], label = labelstr)
 #    ax.legend(loc = 'upper right')
-#    pylab.ylabel('Voltage (waterfall)')
-#    pylab.xlabel('Time (ms)')
+#    plt.ylabel('Voltage (waterfall)')
+#    plt.xlabel('Time (ms)')
 #
-#    pylab.show()
+#    plt.show()
 #
 #
 #    print('Done plotting.')
