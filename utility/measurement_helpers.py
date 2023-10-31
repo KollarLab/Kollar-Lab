@@ -423,7 +423,7 @@ def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     fig2.canvas.flush_events()
 
 def configure_hdawg(hdawg, settings):
-    hdawg_config = settings['exp_globals']['hdawg_config']
+    hdawg_config = settings['hdawg_config']
     amp = hdawg_config['amplitude']
     trigger_slope = hdawg_config['trigger_slope']
     hdawg.AWGs[0].samplerate = hdawg_config['samplerate']

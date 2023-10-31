@@ -17,6 +17,9 @@ from utility.scheduler import scheduler
 
 import scipy.signal as signal
 
+import pickle
+from scipy.signal import convolve
+
 def get_default_settings():
     settings = {}
     
@@ -100,7 +103,7 @@ def rabi_chevron(instruments, settings):
     ##Card settings
     configure_card(card, settings)
     
-    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder_4channels.cpp",'r')
+    progFile = open(r"C:\Users\kollarlab\Documents\GitHub\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder_4channels.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -118,7 +121,7 @@ def rabi_chevron(instruments, settings):
     awg_sched.add_analog_channel(3, name='Flux_pulse')
     awg_sched.add_analog_channel(4, name='blank')
     
-    awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
+    awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=200e-9, HW_offset_off=200e-9)
     awg_sched.add_digital_channel(2, name='Cavity_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
     awg_sched.add_digital_channel(3, name='blank1', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
     awg_sched.add_digital_channel(4, name='blank2', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
@@ -162,23 +165,25 @@ def rabi_chevron(instruments, settings):
     tstart = time.time()
     first_it = True
     #flat top gaussian ramp
+    buffer = exp_settings['buffer']
+    ramp_len = 2*exp_settings['ramp_sigma']
+    Bz_pos = buffer+2*ramp_len+exp_settings['flux_length']
     Flux_pulse.add_pulse('gaussian_square', 
-                         position=start_time-exp_settings['flux_offset'], 
+                         position=start_time-Bz_pos-exp_settings['flux_offset'], 
                          amplitude=exp_settings['flux_amp'],
                          length = exp_settings['flux_length'], 
-                         ramp_sigma=20e-9,#q_pulse['sigma'], 
-                         num_sigma=2) #q_pulse['num_sigma'])
-#    #Applying a flux pulse of opposite sign to try to remove the long term slow response of the system
-#    Flux_pulse.add_pulse('gaussian_square', 
-#                         position=start_time+window_time+3e-6, 
-#                         amplitude=-exp_settings['neg_pulse_amp']*exp_settings['flux_amp'],
-#                         length = exp_settings['flux_length'], 
-#                         ramp_sigma=1e-9,#q_pulse['sigma'], 
-#                         num_sigma=2) #q_pulse['num_sigma'])
+                         ramp_sigma=exp_settings['ramp_sigma'],#q_pulse['sigma'], 
+                         num_sigma=4) #q_pulse['num_sigma'])
+    [ch3, ch4, marker2] = awg_sched.compile_schedule('HDAWG', ['Flux_pulse', 'blank'], ['blank1', 'blank2'])
     #adding some sinusoidal modulation
+    raw = pickle.load(open(os.path.join(r'K:\Data\Topological_Pumping\Topo_pumping_V3B_0','convolution_kernel.pkl'),'rb'))
+    
+    inv_kernel = raw['inv_kernel_norm']
+    pre_comp = convolve(ch3, inv_kernel, mode='same',method='direct')
     t_axis = np.linspace(0, qubit_I.samples, qubit_I.samples)/2.4e9
     mod_amp = np.cos(2*np.pi*exp_settings['flux_freq']*t_axis)
-    Flux_pulse.wave_array = Flux_pulse.wave_array*mod_amp
+    if exp_settings['pre_comp']:
+        Flux_pulse.wave_array = pre_comp #Flux_pulse.wave_array*mod_amp
     for timeind in range(len(times)):
         hold_time = times[timeind]
         
@@ -186,12 +191,12 @@ def rabi_chevron(instruments, settings):
         qubit_I.reset()
         qubit_marker.reset()
         
-        position = start_time-delay-num_sigma*sigma
-        qubit_time = num_sigma*sigma
+        position = start_time-(buffer+ramp_len+exp_settings['flux_length']/2)+exp_settings['qubit_pulse_offset']
+        qubit_time = num_sigma*sigma+hold_time
         
-        qubit_I.add_pulse('gaussian_square', position=position-hold_time, amplitude=q_pulse['piAmp'], length = hold_time, ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
+        qubit_I.add_pulse('gaussian_square', position=position, amplitude=q_pulse['piAmp'], length = hold_time, ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
         
-        qubit_marker.add_window(position-hold_time-200e-9, position+qubit_time+200e-9)
+        qubit_marker.add_window(position, position+qubit_time)
         awg_sched.plot_waveforms()
         
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
@@ -282,7 +287,7 @@ def rabi_chevron(instruments, settings):
 #        userfuncs.SaveFull(saveDir, filename, ['times','freqs', 'timedat', 'phasedat','xaxis', 'full_data', 'single_data', 'full_time', 'single_time'], 
 #                    locals(), expsettings=settings, instruments=instruments, saveHWsettings=first_it)
         
-    userfuncs.SaveFull(saveDir, filename, ['times','freqs', 'timedat', 'phasedat','xaxis', 'full_data', 'single_data', 'full_time', 'single_time'], 
+    userfuncs.SaveFull(saveDir, filename, ['times','freqs', 'timedat', 'phasedat','xaxis', 'full_data', 'single_data'], 
                         locals(), expsettings=settings, instruments=instruments)
     t2 = time.time()
     
