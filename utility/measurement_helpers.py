@@ -297,8 +297,8 @@ def read_and_process(card, settings, plot, IQstorage = True):
             #Quick fix to the problem of full cancellation in the DDC data. Turns out the channels got swapped 
             #during a reshuffle and combining the channels incorrectly leads to near perfect cancellation (offset by
             #the mixer impairements). For now I just swapped the definition of I and Q to match the combination phase
-            I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
-            Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
+            I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
+            Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
             
             
                 
