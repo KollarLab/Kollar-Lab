@@ -54,11 +54,12 @@ class SGS100A(SCPIinst):
         
         super().__init__(address, self.commandlist, self.errcmds)
     
-    def enable_IQ(self, Ileak=0, Qleak=0):
+    def enable_IQ(self, Ileak=None, Qleak=None):
         self.IQ.Mod = 'On'
         self.IQ.Imp = 'On'
-        self.IQ.Ileak = Ileak
-        self.IQ.Qleak = Qleak
+        if Ileak is not None and Qleak is not None:
+            self.IQ.Ileak = Ileak
+            self.IQ.Qleak = Qleak
     
     def disable_IQ(self):
         self.IQ.Mod = 'Off'
