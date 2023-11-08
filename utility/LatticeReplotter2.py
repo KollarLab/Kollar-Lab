@@ -779,13 +779,14 @@ class replotter2(object):
     
     
     def make_data_subplot(self, ax,
-                          dynamic_range = 35, 
-                          ref_offset = 0,
+                          dynamic_range = np.NaN, 
+                          ref_offset = np.NaN,
                           ref_level = np.NaN,
                           xlims = [np.NaN, np.NaN],
                           ylims = [np.NaN, np.NaN],
                           plot_phase = np.NaN,
-                          title_with_filename = False):
+                          title_with_filename = False,
+                          colorbar = True):
         ''' Replot that allows to you command that the plot be created in a specific subplot
         axis, rather than creating a new figure for it.
         
@@ -817,9 +818,22 @@ class replotter2(object):
         If any parameter is np.NaN by default, that means that it will use
         the values already stored with the data file, rather than fine tuning.
         
+        11-8-23 AK made dynamic_range default to vmax-vmin, and ref offset default to zero
+        This should mean that if you don't pass any arguments to this function except the
+        axis, then you should get the same colorbar limits as the default entire figure
+            -- also adding the option to leave off the colorbar. This makes it easier
+            to fine tune it later
+        
         '''
         plt.sca(ax)
 
+        if np.isnan(dynamic_range):
+            #use the default
+            dynamic_range = self.vmax - self.vmin
+            
+        if np.isnan(ref_offset):
+            #use the default
+            ref_offset = 0
         
         if np.isnan(ref_level):
             #use the default
@@ -878,7 +892,8 @@ class replotter2(object):
         if title_with_filename:
             plt.title(self.filename)
         
-        plt.colorbar()
+        if colorbar:
+            plt.colorbar()
         ax.set_xlim(xlims)
         ax.set_ylim(ylims)
 
@@ -889,7 +904,8 @@ class replotter2(object):
                           diff_cutoff = np.NaN,
                           xlims = [np.NaN, np.NaN],
                           ylims = [np.NaN, np.NaN],
-                          title_with_filename = False):
+                          title_with_filename = False,
+                          colorbar = True):
         ''' Replot that allows to you command that the plot be created in a specific subplot
         axis, rather than creating a new figure for it. This version will plot the 
         differential transmission
@@ -912,6 +928,9 @@ class replotter2(object):
         
         WARNING - To change the minimu value, this will have to recompute the cutoff and 
         store the new version.
+        
+        11-8-23 Adding the option to leave off the colorbar. It makes it easier to 
+        fine tune it later
         
         '''
         plt.sca(ax)
@@ -960,7 +979,8 @@ class replotter2(object):
         if title_with_filename:
             plt.title(self.filename)
         
-        plt.colorbar()
+        if colorbar:
+            plt.colorbar()
         ax.set_xlim(xlims)
         ax.set_ylim(ylims)
 
