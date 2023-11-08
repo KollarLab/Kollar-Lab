@@ -9,7 +9,7 @@ from distutils.sysconfig import get_python_lib
 
 site_directory = get_python_lib()
 
-package_directory = os.getcwd()
+package_directory = os.path.dirname(os.path.realpath(__file__))#os.getcwd()
 
 filepath = os.path.join(site_directory,"ControlCode.pth")
 

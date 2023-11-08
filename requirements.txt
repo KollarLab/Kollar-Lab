@@ -1,0 +1,10 @@
+packages:
+	numpy
+	scipy
+	matplotlib
+	bidict
+	pyvisa
+	zhinst==22.8.3
+	scikit-image
+	lmfit
+	

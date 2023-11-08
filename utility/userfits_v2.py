@@ -98,14 +98,14 @@ def peak_guess(f_ax, amps):
     min_val = min(amps)
     max_val = max(amps)
     if edge-min_val>max_val-edge:
-        print('hanger?')
+        #print('hanger?')
         amps = abs(amps-max(amps))
         #If we have a hanger, we know that the amplitude should be negative and 
         #we have a positive offset
         flip = -1
         add_off = 1
     else:
-        print('Normal?')
+        #print('Normal?')
         #Don't flip the amplitude and add 0 to the offset
         flip = 1
         add_off = 0

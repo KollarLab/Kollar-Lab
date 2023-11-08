@@ -121,7 +121,7 @@ def meas_T2_phase_rotation(instruments, settings):
     awg_sched.add_analog_channel(1, name='Qubit_I')
     awg_sched.add_analog_channel(2, name='Qubit_Q')
     
-    awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
+    awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=400e-9, HW_offset_off=400e-9)
     awg_sched.add_digital_channel(2, name='Cavity_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
     
     loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
@@ -236,10 +236,9 @@ def meas_T2_phase_rotation(instruments, settings):
             raise ValueError('Invalid T2_mode')
             
         
-        
-        qubit_marker.add_window(position-tau-100e-9, position-tau+100e-9)
-        qubit_marker.add_window(position-100e-9, position+100e-9)
-    
+        qubit_marker.add_window(position-tau, position-tau+qubit_time)
+        qubit_marker.add_window(position, position+qubit_time)
+        # qubit_marker.add_window(position-tau, start_time)
         
         if exp_settings['pulse_count'] > 0:
             numPulses = exp_settings['pulse_count']
@@ -253,7 +252,7 @@ def meas_T2_phase_rotation(instruments, settings):
                                   amplitude=q_pulse['piAmp'], 
                                   ramp_sigma=q_pulse['sigma'], 
                                   num_sigma=q_pulse['num_sigma'])
-                qubit_marker.add_window(position-tp-100e-9, position-tp+100e-9)
+                qubit_marker.add_window(position-tp, position-tp+qubit_time)
       
         t_pulse_gen_t = time.time()
         t_pulse_gen = t_pulse_gen_t-t_reset_t
