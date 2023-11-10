@@ -297,6 +297,23 @@ class replotter2(object):
 
         try:
             #and now I just need to repload the data
+            
+            ####trying to fix the fact that the raw data file path is absolute at creation
+            ####this is a temporary hack
+            if os.path.exists(self.filepath):
+                pass
+            else:
+                testPath1 = os.path.join(r'Z:\Data\PeterChainPaperData\Raw Data Files', self.filename)
+                testPath2 = os.path.join(r'/Volumes/Kollar/Data/PeterChainPaperData/Raw Data Files', self.filename)
+            
+                if os.path.exists(testPath1):
+                    self.old_filepath = self.filepath
+                    self.filepath = testPath1
+                if os.path.exists(testPath2):
+                    self.old_filepath = self.filepath
+                    self.filepath = testPath2
+            
+            
             self.pickledict = pickle.load(open(self.filepath, "rb" ) )
             
             #fix differential cutoff, because I made it an attribute
