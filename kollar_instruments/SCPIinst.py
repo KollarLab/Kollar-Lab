@@ -5,8 +5,13 @@ class SCPIinst(object):
     def __init__(self, address, commands, errcmd, reset = True, baud_rate=115200):
         
         self.init = True
+<<<<<<< Updated upstream
         self.shape = 0
         self.size = 1
+=======
+        self.shape = 1
+        self.size  = 1
+>>>>>>> Stashed changes
         self.__len__ = 1
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
