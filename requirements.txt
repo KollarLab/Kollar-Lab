@@ -6,4 +6,5 @@ packages:
 	pyvisa
 	zhinst==22.8.3
 	scikit-image
+	lmfit
 	

@@ -21,10 +21,10 @@ def get_default_settings():
     #Save location
     settings['scanname']    = 'flux_Scan'
     settings['meas_type']   = 'multi_spec_flux_scan'
+    #settings['project_dir'] = r'Z:\Data'
     
-    settings['flux_start'] = np.array([0,0,0])
-    settings['flux_stop']  = np.array([0,0,0])
-    settings['flux_pts']   = 11
+    settings['voltages']  = np.zeros((2,11))
+    settings['fluxes']    = np.zeros((2,11))
     settings['qubit_num'] = False
     
     settings['RFport'] = 3
@@ -104,44 +104,12 @@ def multi_spec_flux_scan(instruments, settings):
         autoscan_set['RFpower'] = autoscan_set['RFpower'] + CAV_Attenuation
     
     #set voltage sweep
-    flux_start = spec_set['flux_start']
-    flux_stop  = spec_set['flux_stop']
-    flux_pts   = spec_set['flux_pts']
-    flux_holder = []
-
-    if len(flux_start) != len(flux_stop) or len(flux_start) != len(SRS_list):
-        raise ValueError('requesting invalid array of flux points')
-
-
-    for iind in range(len(SRS_list)):
-        flux_range = np.linspace(flux_start[iind],flux_stop[iind],flux_pts)
-        flux_holder.append(flux_range)
-    
-    flux_holder = tuple(flux_holder)
-
-    full_fluxes = np.stack(flux_holder,axis=1)
-
-
-    #Calculate corresponding voltage array
-    v2f = exp_globals['v2f']
-    f2v = np.linalg.inv(v2f)
-    v_offsets = exp_globals['v_offsets']
-
-    diags = np.diagonal(v2f) # Diagonal elements of the volt to flux matrix
-    phase_offsets = v_offsets * (diags)
-
-    full_voltages = np.zeros(full_fluxes.shape)
-
-    for i in range(flux_pts):
-        desired_phases = full_fluxes[i] + phase_offsets
-        full_voltages[i] = f2v@desired_phases
-
-
-
+    full_voltages = np.round(spec_set['voltages'],5)
+    full_fluxes   = np.round(spec_set['fluxes'],5)
     qubit_num = spec_set['qubit_num']
     
     if qubit_num:
-        fluxes = np.transpose(full_fluxes)[qubit_num-1]
+        fluxes = np.transpose(full_fluxes)[qubit_num]
     else:
         fluxes = np.linspace(0,len(full_voltages),len(full_voltages))
 

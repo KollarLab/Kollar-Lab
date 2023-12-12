@@ -169,6 +169,69 @@ class VNA(SCPIinst):
         data = self.get_channel_data(channel)
         
         return data
+    
+    
+    def reverse_spec_meas(self, settings):
+        '''
+        Perform reverse spec measurement using settings dict.
+        Measurement consists of:
+            -setting up a cavity port (fixed power, fixed freq), CAVport
+            -setting up a probe port (swept power, fixed freq), RFport
+        Currently just plots data on VNA
+        '''
+        channel      = settings['channel']
+        time         = settings['avg_time']
+        measurement  = settings['measurement']
+        start        = settings['start_freq']
+        stop         = settings['stop_freq']
+        sweep_points = settings['freq_points']
+        rf_power     = settings['RFpower']
+        rf_port      = settings['RFport']
+        rf_freq      = settings['RFfreq']
+        m_port       = settings['Mport']
+        cav_port     = settings['CAVport']
+        cav_power    = settings['CAVpower']
+        ifBW         = settings['ifBW']
+        mode         = settings['mode']
+        unwrap_phase = settings['unwrap_phase']
+        
+        #Turn off output and switch to single sweep mode instead of continuous sweeps
+        self.output = 'OFF'
+        self.inst.write('INIT:CONT OFF')
+
+        #Configure averaging
+        self.configure_averages(channel, 1e4, mode)
+
+        #Clear old traces on channels and define a new trace to measure 'S21'
+        self.configure_measurement(channel, measurement, unwrap_phase = unwrap_phase)
+  
+        #Configure frequency sweep and RF power
+        self.configure_frequency(channel, start, stop, sweep_points)
+        self.power = rf_power
+        self.ifBW = ifBW
+
+        #Configure ports
+        #RF
+        ##########################################
+        #It seems like the data comes out more cleanly when only the rf port is 
+        #configured in generator mode. Not sure why this is the case but this
+        #cleared out a lot of noise spikes in the spec data
+        ##########################################
+        #configures rf_port to always be on during measurements
+        self.inst.write('SOUR{}:POW{}:PERM ON'.format(channel, rf_port))
+        #Measure
+        self.inst.write('SOUR{}:FREQ{}:CONV:ARB:IFR 1, 1, {}, FIX'.format(channel, rf_port, rf_freq))
+        #fixed power of cav_power (ignores the power level of Ch1)
+        self.inst.write('SOUR{}:POW{}:OFFS {}, ONLY'.format(channel, cav_port, cav_power))
+        self.inst.query('*OPC?')
+        
+        self.error
+        self.avg_time(channel, time)
+        self.autoscale(window=1)
+
+        data = self.get_channel_data(channel)
+        
+        return data
 
     def trans_default_settings(self):
         '''Return default settings for trans measurement'''
