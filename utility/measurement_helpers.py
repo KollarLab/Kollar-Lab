@@ -216,7 +216,51 @@ def read_and_process_two_pulses(card, settings, plot):
     Inet_full = I1_full-I2_full
     Qnet_full = Q1_full-Q2_full
     return Inet, Qnet, Inet_full, Qnet_full, xaxis
+
+def read_and_process_dual_readout(card, settings, plot):
+    '''
+    
+
+    Parameters
+    ----------
+    card : TYPE
+        DESCRIPTION.
+    settings : TYPE
+        DESCRIPTION.
+    plot : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    '''
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    boost = np.mean(I, 0)
+    readout = np.mean(Q, 0)
+
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
             
+    boost_I, boost_Q, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(boost, xaxis, settings)
+    readout_I, readout_Q, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(readout, xaxis, settings)
+    
+    
+    if plot:
+        fig0 = plt.figure(97)
+        plt.clf()
+        ax = plt.subplot(1,1,1)
+        plt.plot(xaxis*1e6, boost, label = 'raw boost')
+        plt.plot(xaxis*1e6, readout, label = 'raw readout')
+        plt.xlabel('Time (us)')
+        plt.ylabel('Voltage')
+        plt.title('Card Voltages')
+        ax.legend(loc = 'upper right')
+      
+        fig0.canvas.draw()
+        fig0.canvas.flush_events()
+    
+    return boost_I, boost_Q, readout_I, readout_Q, xaxis            
 def read_and_process_single_channel(card, settings, plot):
     '''
     The original version of this function wanted to convert to 
