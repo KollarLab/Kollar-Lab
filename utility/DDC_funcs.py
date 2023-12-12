@@ -27,7 +27,7 @@ def demod(signal, settings):
 
 def filter_sig(signal, settings):
     method = settings['method']
-    IF     = settings['IF']
+    IF     = settings['cutoff']
     
     sample_rate  = settings['sample_rate']
     filter_order = settings['order']
