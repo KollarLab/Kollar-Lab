@@ -1,4 +1,4 @@
-from scheduler_v2 import base_schedule, pulse
+from .scheduler_v2 import base_schedule, pulse
 import os
 from pathlib import Path
 import matplotlib.pyplot as plt
