@@ -121,7 +121,7 @@ def meas_T2_phase_rotation(instruments, settings):
     awg_sched.add_analog_channel(1, name='Qubit_I')
     awg_sched.add_analog_channel(2, name='Qubit_Q')
     
-    awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=400e-9, HW_offset_off=400e-9)
+    awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=50e-9, HW_offset_off=50e-9)
     awg_sched.add_digital_channel(2, name='Cavity_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
     
     loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
