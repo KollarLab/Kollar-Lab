@@ -54,13 +54,24 @@ sweeper = simple_sweeper(instruments, settings, calibration)
 
 sweeper.initialize_sweep('Spec', 'Hz', 'qubitgen', 'freq', np.linspace(-50,50,101)*1e6+calibration['Q_Freq'])
 sweeper.initialize_sweep('Hold_time', 's', 'schedule', 'hold_time', np.linspace(0,100,51)*1e-9)
-sweeper.initialize_sweep('T1_test', 's', 'schedule', 'tau', np.linspace(0.1,150,51)*1e-6)
+sweeper.initialize_sweep('T1', 's', 'schedule', 'tau', np.linspace(0.1,150,51)*1e-6)
+
+fig, [[ax1,ax2],[ax3,ax4]] = plt.subplots(2,2,num=79)
 
 schedule.tau = 0.1e-6
 schedule.hold_time = 30e-6
 calibration['Q_Power'] = -10
-# sweeper.run_sweep('Spec')
+sweeper.configure_instruments(instruments, calibration)
+sweeper.run_sweep('Spec')
+data = sweeper.sweeps['Spec']
+fit_results = fit_model(data['values'], data['IQ_mag'], 'lorenz', True, ax=ax1)
+calibration['Q_Freq'] = fit_results['center']
 calibration['Q_Power'] = 15
+sweeper.configure_instruments(instruments, calibration)
 sweeper.run_sweep('Hold_time')
+data = sweeper.sweeps['Hold_time']
+fit_results = fit_model(data['values'], data['IQ_mag'], 'cos', True, ax=ax2)
 schedule.hold_time=3e-9
-sweeper.run_sweep('T1_test')
+sweeper.run_sweep('T1')
+data = sweeper.sweeps['T1']
+fit_results = fit_model(data['values'], data['IQ_mag'], 'T1', True, ax=ax3)
