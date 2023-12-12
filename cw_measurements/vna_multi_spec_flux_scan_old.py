@@ -23,9 +23,8 @@ def get_default_settings():
     settings['meas_type']   = 'multi_spec_flux_scan'
     #settings['project_dir'] = r'Z:\Data'
     
-    settings['flux_start'] = np.array([0,0,0])
-    settings['flux_stop']  = np.array([0,0,0])
-    settings['flux_pts']   = 11
+    settings['voltages']  = np.zeros((2,11))
+    settings['fluxes']    = np.zeros((2,11))
     settings['qubit_num'] = False
     
     settings['RFport'] = 3
