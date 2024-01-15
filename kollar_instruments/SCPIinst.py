@@ -21,6 +21,8 @@ class Module(object):
             cmds = self.__dict__['commandset']
             for k in cmds.keys():
                 if name == k.lower():
+                    print(name)
+                    print(cmds[k])
                     if isinstance(cmds[k], list):
                         val = self.inst.query(cmds[k][0]+'?').rstrip()
                         try:
@@ -112,14 +114,29 @@ class Module(object):
             self.__setattr__(setting, fullsettings[setting])
 
 class SCPIinst(Module):
-    
+    '''
+    Base class for all single channel instruments that use the SCPI standard. The idea is that the user
+    can specify the basic commands for each property of the instrument in a dictionary and structure the
+    property "chunks" into submodules. The base case usage is: instrument.setting (where setting is a prop)
+    For example, an SGS might have a set of settings relating to the reference clock (internal/ external, 
+    freq etc.), by making a subdictionary in the main "commandset" dictionary this code will create 
+    submodules that can be accessed as SGS.submodule.property
+    Properties:
+        address: the VISA address of the instrument
+        commands: the dictionary holding all the SCPI commands for the properties of the instrument. Can
+        include subdictionaries if submodules are a natural description of the instrument
+        errcmd: dictionary holding the basic error checking commands for the instrument
+        reset: boolean flag that sets whether the reset command is sent to the device, default: True
+        baud_rate: baud_rate for USB/ serial connections, defaults to 115200
+    '''
     def __init__(self, address, commands, errcmd, reset = True, baud_rate=115200):
         
         self.init = True
-
-        self.shape = 1
-        self.size  = 1
-        self.__len__ = 1
+        # Boiler plate variables so that spyder doesn't complain when it tries to be fancy with this 
+        # class
+        #self.shape = 1
+        #self.size  = 1
+        #self.__len__ = 1
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
         try:
