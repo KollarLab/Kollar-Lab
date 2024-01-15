@@ -19,3 +19,4 @@ print(filepath)
 
 f = open(filepath,"w")
 f.write(package_directory)
+f.close()
