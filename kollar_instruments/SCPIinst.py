@@ -52,6 +52,7 @@ class SCPIinst(object):
                             return eval(val)
                         except:
                             return val
+            super().__getattribute__(name)
             print('Trying to get an invalid command: {}'.format(name))
     
     def __setattr__(self, name, value):
