@@ -1,29 +1,52 @@
 import pyvisa
 
 class Module(object):
-
+    '''
+    Module is a class that holds a collection of scpi commands/ properties. It
+    overwrites the standard getattr and setattr object functions to replace them
+    with a SCPI function call. Currently it does not allow for submodules but
+    this could be implemented in the future. TO DO: add recursive option for modules, 
+    add general mapping from instrument return value to "useful" value (cast 0/1 
+    to "On"/"Off" for example), add bound checking for settings like frequency
+    Properties:
+        inst: handle to SCPI inst object where all the commands get sent
+        commands: dictionary of the SCPI command strings and "key", i.e. properties
+        the can be queried by the user
+        errcmd: dictionnary holding the error command (or commands for some instruments)
+        to perform error checking after applying a setting
+    '''
     def __init__(self,inst, commands, errcmd):
         self.init = True
         
         self.inst = inst
         self.commandset = commands
         self.errcmd = errcmd
-        
+        self.modules = []
         self.init = False
         
     def __getattr__(self, name):
+        '''
+        Wrapper for reading value from the instrument. We have to do some shenanigans
+        because we need to distinguish between the instrument properties (like voltage, 
+        frequency etc.) and software properties (like submodules, commandset etc.). The
+        normal use case for this is: instrument.property is called in the control code
+        which then leads to this function where the appropriate SCPI function call is
+        read out of the commandset dictionnary. The property is queried then returned to
+        the user. 
+        '''
         initializing = self.__dict__['init']
         full_dict = self.__dict__
+        #Checking if the property is a SW property instead of a HW property
         if initializing or name in full_dict.keys():
             super().__getattribute__(self, name)
         else:
+            #We cast all variables and settings to lower case to avoid problems with case
             name = name.lower()
             cmds = self.__dict__['commandset']
             for k in cmds.keys():
                 if name == k.lower():
-                    print(name)
-                    print(cmds[k])
                     if isinstance(cmds[k], list):
+                        #Hack to recast enum type return values to a useful text
                         val = self.inst.query(cmds[k][0]+'?').rstrip()
                         try:
                             val = eval(val)
@@ -33,14 +56,27 @@ class Module(object):
                             return val
                     else:
                         val = self.inst.query(cmds[k]+'?').rstrip()
+                        #Converts numbers in strings to regular numbers (e.g '5000000' to 5e6)
                         try:
                             return eval(val)
                         except:
                             return val
+            #We have to add this so that spyder doesn't complain that we've overwritten all the 
+            #object specific functions it likes to call (like size etc.). These properties aren't 
+            #used at all
             super().__getattribute__(name)
             print('Trying to get an invalid command: {}'.format(name))
     
     def __setattr__(self, name, value):
+        '''
+        Overwrites the setattr method so that we can intercept calls like: instrument.setting=value
+        As with the getattr function, we find the appropriate SCPI function call, check the valid
+        settings and apply them to the instrument. Every setting is accompanied by an error check
+        which simply calls the error command and returns the error code if it's not zero. Again, 
+        we have to distinguish between hardware and software settings as the SW settings need to 
+        behave like normal object settings
+        '''
+        #Checking if we are in initialization mode and if the setting is one of the SW properties
         try:
             initializing = self.__dict__['init']
         except:
@@ -48,7 +84,9 @@ class Module(object):
         full_dict = self.__dict__
         if initializing or name in full_dict.keys():
             super().__setattr__(name, value)
+        
         else:
+            #Made our properties case insensitive
             name = name.lower()
             cmds = {}
             try:
@@ -61,6 +99,7 @@ class Module(object):
                     setting = cmds[k]
                     if isinstance(setting, list):
                         command = setting[0]
+                        # Check that input value/ string is a valid option and print options if not
                         try:
                             value = setting[1].inverse[value]
                         except:
@@ -104,14 +143,30 @@ class Module(object):
     
     @property
     def settings(self):
+        '''
+        Collect all the settings inside the module and loops through all other modules
+        to accumulate their settings in subdictionnaries. 
+        '''
         fullsettings = {}
         for setting in self.commandset:
             fullsettings[setting] = self.__getattr__(setting)
+        for module in self.modules:
+            fullsettings[module] = {}
+            mod = getattr(self, module)
+            fullsettings[module] = mod.settings
         return fullsettings
+    
     @settings.setter
     def settings(self, fullsettings):
         for setting in fullsettings.keys():
-            self.__setattr__(setting, fullsettings[setting])
+            if not isinstance(fullsettings[setting], dict):
+                self.__setattr__(setting, fullsettings[setting])
+            else:
+                try:
+                    mod = getattr(self, setting)
+                    mod.settings = fullsettings[setting]
+                except:
+                    print('invalid')
 
 class SCPIinst(Module):
     '''
@@ -132,11 +187,6 @@ class SCPIinst(Module):
     def __init__(self, address, commands, errcmd, reset = True, baud_rate=115200):
         
         self.init = True
-        # Boiler plate variables so that spyder doesn't complain when it tries to be fancy with this 
-        # class
-        #self.shape = 1
-        #self.size  = 1
-        #self.__len__ = 1
         rm = pyvisa.ResourceManager()
         self.inst = rm.open_resource(address)
         try:
@@ -155,9 +205,16 @@ class SCPIinst(Module):
                 self.modules.append(key)
         
         self.init = False
-
+            
     def reset(self):
+        '''
+        Calls the standard SCPI reset and clear commands ('*RST' and '*CLS'). 
+        This function can be overwritten if the instrument does not follow the standard. 
+        '''
         self.inst.write('*RST; *CLS')
         
     def close(self):
+        '''
+        Closes the connection to the instrument (using the pyvisa.inst close method)
+        '''
         self.inst.close()
