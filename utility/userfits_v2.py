@@ -19,7 +19,7 @@ def gaussian_model(f_ax, amp, offset, center, sigma):
 def lorenztian_model(f_ax, amp, offset, center, sigma):
     return offset+amp/np.pi*(sigma/((f_ax-center)**2+sigma**2))
 
-def T1_guess(t_ax, amps, plot=False):
+def T1_guess(t_ax, amps, plot=False, verbose=False):
     #Amplitude guess
     amp_guess = amps[0]-amps[-1]
     #Offset guess
@@ -38,7 +38,7 @@ def T1_guess(t_ax, amps, plot=False):
     
     return [amp_guess, off_guess, tau_guess]
 
-def cos_guess(t_ax, amps, plot=False):
+def cos_guess(t_ax, amps, plot=False, verbose=False):
     #Amplitude guess
     amp_guess = (max(amps)-min(amps))/2
     #Offset guess
@@ -56,17 +56,18 @@ def cos_guess(t_ax, amps, plot=False):
     except:
         print('Phi guess out of range')
         phi_guess = 0
-    print(init_amp)
-    print(max_contrast)
+    if verbose:
+        print(init_amp)
+        print(max_contrast)
     phi_guess = 0
     if init_slope>0:
         phi_guess+=np.pi
 
     return [amp_guess, off_guess, freq_guess, phi_guess]
 
-def T2_guess(t_ax, amps, plot=False):
+def T2_guess(t_ax, amps, plot=False, verbose=False):
     
-    [amp_guess, off_guess, freq_guess, phi_guess] = cos_guess(t_ax, amps)
+    [amp_guess, off_guess, freq_guess, phi_guess] = cos_guess(t_ax, amps, verbose)
     fs = 1./np.mean(np.diff(t_ax))
     #Tau guess
     tau_max = 5*t_ax[-1]
@@ -92,7 +93,7 @@ def T2_guess(t_ax, amps, plot=False):
 
     return [amp_guess, off_guess, tau_guess, freq_guess, phi_guess]
 
-def peak_guess(f_ax, amps):
+def peak_guess(f_ax, amps, verbose=False):
     #check if we have a hanger vs a peak type feature
     edge = np.mean(amps[:5])
     min_val = min(amps)
@@ -133,14 +134,14 @@ def peak_guess(f_ax, amps):
     scaled_amp = amp_guess
     return [scaled_amp*flip, offset_guess+add_off*edge, center_guess, sigma_guess]
 
-def gaussian_guess(f_ax, amps):
-    [amp, offset, center, sigma] = peak_guess(f_ax, amps)
+def gaussian_guess(f_ax, amps, verbose=False):
+    [amp, offset, center, sigma] = peak_guess(f_ax, amps, verbose)
     sigma = sigma/np.sqrt(2*np.log(2))
     amp_scale = amp*np.sqrt(2*np.pi)*sigma
     return [amp_scale, offset, center, sigma]
 
-def lorenztian_guess(f_ax, amps):
-    [amp, offset, center, sigma] = peak_guess(f_ax, amps)
+def lorenztian_guess(f_ax, amps, verbose=False):
+    [amp, offset, center, sigma] = peak_guess(f_ax, amps, verbose)
     amp_scale = amp*np.pi*sigma
     return [amp_scale, offset, center, sigma]
 
@@ -163,7 +164,7 @@ def convert_prefix(string, val):
     prefix = string[0]
     return val/SI[prefix]
 
-def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None):
+def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None, verbose=False):
     xlabel = 'Time (us)'
     scale = 1e-6
     if model=='T1':
@@ -205,7 +206,7 @@ def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None):
         return {}
     
     if not guess:
-        guess = guess_func(t_ax, amps) 
+        guess = guess_func(t_ax, amps, verbose) 
         
     fit_params, pcov = curve_fit(fit_func, t_ax, amps, guess)
 
