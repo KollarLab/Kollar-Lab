@@ -156,7 +156,7 @@ class Acqiris(object):
     @samples.setter
     def samples(self,val):
         self.settingsCurrent = False
-        self._samples = val 
+        self._samples = int(val) 
 
     @property
     def segments(self):
@@ -166,7 +166,7 @@ class Acqiris(object):
     @segments.setter
     def segments(self,val):
         self.settingsCurrent = False
-        self._segments = val 
+        self._segments = int(val) 
     
     @property
     def averageMode(self):
@@ -186,7 +186,7 @@ class Acqiris(object):
     @averages.setter
     def averages(self,val):
         self.settingsCurrent = False
-        self._averages = val 
+        self._averages = int(val) 
         if val > 1:
             self.averageMode = 1
         else:
