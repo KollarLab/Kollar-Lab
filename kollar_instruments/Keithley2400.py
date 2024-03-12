@@ -1,9 +1,10 @@
 from .SCPIinst import SCPIinst
+import numpy as np
 
 #currently, we only want to use keithley as a stable source, so only set_voltage and set_current should be important
 #If trying to measure something, then a flashing 'cmpl' or value to the right of it means we've hit a range limit, and the range needs to be changed to measure what we have
 
-class keithley(SCPIinst):
+class Keithley2400(SCPIinst):
     errcmds           = {}
     errcmds['error']  = 'STAT:QUE?'
     
@@ -36,24 +37,30 @@ class keithley(SCPIinst):
     commandlist['voltage'] = voltage
     commandlist['current'] = current
 
-    def __init__(self, address, mode='current', volt_range=10z, Output=1):
+    def __init__(self, address, reset=True, mode='current', volt_range=10, Output=1):
         self.instrument_type = 'keithley'
         
-        super().__init__(address, self.commandlist, self.errcmds, baud_rate = 9600)
+        super().__init__(address, self.commandlist, self.errcmds, reset = reset, baud_rate = 9600)
         self.inst.read_termination = '\r'
         self.inst.write_termination = '\n'
-        self.mode=mode
-        if mode == 'current':
-            self.set_voltage_meas_range(volt_range)
-        self.Output=1
+        #self.mode=mode
+        #if mode == 'current':
+        #    self.set_voltage_meas_range(volt_range)
+        #self.Output=1
     
     def set_voltage(self,value): #0.13s operation
         self.voltage.output_range = value
         self.voltage.level = value
     
-    def set_current(self,value): #0.13s operation
+    def set_current(self,value, force=False, verbose=False): #0.13s operation
+        if value>0.01:
+            print('Caution, current units are A not mA. Set "force" flag to true')
+            if not force:
+                return
         self.current.output_range = value
         self.current.level = value
+        if verbose:
+            print(self.current.measurement[1])
     
     def set_voltage_meas_range(self,value): #0.13s operation
         #the user should set the range to encompass the expected measurment value
@@ -73,10 +80,13 @@ class keithley(SCPIinst):
         else:
             raise('mode is not current or voltage')
     
-    def ramp_current(self,value):
-        npoints=10
-        for i in range(0,npoints):
-            self.set_current(value*i/npoints)
+    def ramp_current(self,value, step_size=0.0002):
+        init_val = self.current.level
+        delta = abs(value-init_val)
+        ramp = np.linspace(init_val, value, int(delta/step_size)+2)
+        for amp in ramp:
+            self.set_current(amp)
+        self.measure()
     
     def ramp_voltage(self,value):
         npoints=10
