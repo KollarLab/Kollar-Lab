@@ -8,6 +8,8 @@ Created on Mon Mar 25 15:48:20 2024
 import numpy as np
 from scipy.optimize import curve_fit
 import userfuncs
+from utility.userfits_v2 import fit_model
+import os
 
 
 ################################################################################
@@ -219,3 +221,39 @@ def volt_finder(phase,v2f,v_offsets,SRS_ind):
     #Finds the phase for a qubit when one SRS is at a voltage point.
     diags = np.diagonal(v2f)
     return (1/diags[SRS_ind-1])*phase + v_offsets[SRS_ind-1]
+
+# For qubit frequency calibration script
+def calibration_slope(file_path):
+    full_data = userfuncs.LoadFull(file_path)
+    freq_list = []
+    flux_list = full_data[0]['fluxes']
+    flux_num = len(flux_list)
+    for i in range(flux_num):
+        result = fit_model(full_data[0]['specdata']['xaxis'], full_data[0]['specdata']['mags'][i], 'lorenz')
+        freq_list.append(result['center'])
+    popt, pcov = curve_fit(linear_func, freq_list, flux_list, method='lm')
+    slope = popt[0]
+    return freq_list, flux_list, slope
+
+def linear_func(x, a, b):
+    return a*x + b
+
+def calibration_flux(file_path, ref_freq_list, slope, qubit_num):
+    full_data = userfuncs.LoadFull(file_path)
+    del_f = []
+    del_phi = []
+    flux_list = full_data[0]['fluxes']
+    flux_pts = len(flux_list)
+    for i in range(flux_pts):
+        result = fit_model(full_data[0]['specdata']['xaxis'], full_data[0]['specdata']['mags'][i], 'lorenz')
+        del_f.append(ref_freq_list[i] - result['center'])
+        del_phi.append(slope*(del_f[i]))
+    avg_del_phi = sum(del_phi)/flux_pts
+    avg_del_f = sum(del_f)/flux_pts
+    new_flux_start = full_data[0]['full_fluxes'][0][qubit_num-1]+avg_del_phi
+    new_flux_stop = full_data[0]['full_fluxes'][flux_pts-1][qubit_num-1]+avg_del_phi
+    cali_flux_start = full_data[0]['full_fluxes'][0]
+    cali_flux_start[qubit_num-1] = new_flux_start
+    cali_flux_stop = full_data[0]['full_fluxes'][flux_pts-1]
+    cali_flux_stop[qubit_num-1] = new_flux_stop
+    return cali_flux_start, cali_flux_stop, avg_del_f
