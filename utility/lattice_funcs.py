@@ -130,7 +130,7 @@ def lin_fun(x,m,b):
     #You get it
     return m*x + b
 
-def kerr_fit(data_trans, data_transoe, data_spec, index=False):
+def kerr_fit(data_trans, data_transoe, data_spec, RF_atten, index=False):
     if index:
         data_trans_mags = data_trans['full_data']['mags'][index]
         data_trans_phases = data_trans['full_data']['phases'][index]
@@ -140,6 +140,7 @@ def kerr_fit(data_trans, data_transoe, data_spec, index=False):
         data_trans_phases = data_trans['full_data']['phases'][0]
         data_transoe_phases = data_transoe['full_data']['phases'][0]
     
+    
     zero_point_ind = np.argmax(data_trans_mags)
 
     data_spec_phase = data_spec['full_data']['phases']
@@ -147,7 +148,7 @@ def kerr_fit(data_trans, data_transoe, data_spec, index=False):
     for i in range(len(data_spec_phase)):
         data_spec_phase_min[i] = np.min(data_spec_phase[i])
 
-    lin_ax = 10**(data_spec['powers']/10)
+    lin_ax = 10**((data_spec['powers']-RF_atten)/10)
     
     normalize = data_transoe_phases[zero_point_ind] - data_trans_phases[zero_point_ind]
     normalized_phases = data_transoe_phases - normalize
