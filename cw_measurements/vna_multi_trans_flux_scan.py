@@ -116,10 +116,18 @@ def multi_trans_flux_scan(instruments, settings):
 
     qubit_num = exp_settings['qubit_num']
 
+
     if qubit_num:
         fluxes = np.transpose(full_fluxes)[qubit_num-1]
     else:
-        fluxes = np.linspace(0,len(full_voltages),len(full_voltages))
+        fluxes = np.linspace(1,len(full_voltages),len(full_voltages))
+
+    if fluxes[0] == fluxes[-1]:
+        print('')
+        print('Warning! Selected qubit is not being swept, reverting to general numbering system')
+        print('')
+        exp_settings['qubit_num'] = False
+        fluxes = np.linspace(1,len(full_voltages),len(full_voltages))
 
 
     max_voltage = 10
@@ -167,8 +175,10 @@ def multi_trans_flux_scan(instruments, settings):
                 time.sleep(0.1)
                 if vind == 0:
                     print('Voltage {}: initial {}, final {}'.format(str(sind+1),full_voltages[vind][sind],full_voltages[-1][sind]))
-            
+            print('')
+            print('Progress: ' + str(vind+1) + '/' + str(len(full_voltages)))                            
             print('Current Flux {}, Ending Flux {}'.format(str(np.round(fluxes[vind],6)),str(fluxes[-1])))
+            print('')
 
             time.sleep(0.1)
             

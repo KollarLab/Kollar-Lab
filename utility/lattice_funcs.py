@@ -18,28 +18,33 @@ def full_data_fit(spec_file,hanger = False):
     #hanger: bool, whether the device is a hanger
     #Loads spec flux data, finds max/min for trans and spec values to extract cavity/qubit frequencies at each voltage point.
     full_data = userfuncs.LoadFull(spec_file)
-    try:
-        voltages = full_data[0]['voltages']
-    except:
-        voltages = full_data[0]['fluxes']
-    trans_freqs_GHz = full_data[0]['transdata']['xaxis']/1e9
+
+    if 'powers' in full_data[0]:
+        xaxis = full_data[0]['powers']
+    elif 'voltages' in full_data[0]:
+        xaxis = full_data[0]['voltages']
+    elif 'fluxes' in full_data[0]:
+        xaxis = full_data[0]['fluxes']
+
+
+    trans_freqs_GHz = full_data[0]['transdata']['xaxis']
     trans_mags = full_data[0]['transdata']['phases']
     
     cfreqs = []
     
-    for f in range(0,len(voltages)):
+    for f in range(0,len(xaxis)):
         if hanger:
             fholder = trans_freqs_GHz[np.argmin(trans_mags[f])]
         else:
             fholder = trans_freqs_GHz[np.argmax(trans_mags[f])]
         cfreqs.append(fholder)
     
-    spec_freqs_GHz = full_data[0]['specdata']['xaxis']/1e9
+    spec_freqs_GHz = full_data[0]['specdata']['xaxis']
     spec_mags = full_data[0]['specdata']['phases']
     
     qfreqs = []
     
-    for f in range(0,len(voltages)):
+    for f in range(0,len(xaxis)):
         if hanger:
             qholder = spec_freqs_GHz[np.argmax(spec_mags[f])]
         else:
@@ -47,7 +52,7 @@ def full_data_fit(spec_file,hanger = False):
         qfreqs.append(qholder)
     
     
-    return voltages, cfreqs, qfreqs
+    return xaxis, cfreqs, qfreqs
 
 
 
@@ -56,28 +61,33 @@ def full_data_fit_mags(spec_file,hanger = False):
     #hanger: bool, whether the device is a hanger
     #Loads spec flux data, finds max/min for trans and spec values to extract cavity/qubit frequencies at each voltage point.
     full_data = userfuncs.LoadFull(spec_file)
-    try:
-        voltages = full_data[0]['voltages']
-    except:
-        voltages = full_data[0]['fluxes']
+    
+    if 'powers' in full_data[0]:
+        xaxis = full_data[0]['powers']
+    elif 'voltages' in full_data[0]:
+        xaxis = full_data[0]['voltages']
+    elif 'fluxes' in full_data[0]:
+        xaxis = full_data[0]['fluxes']
+    
+
     trans_freqs_GHz = full_data[0]['transdata']['xaxis']
     trans_mags = full_data[0]['transdata']['phases']
     
     cfreqs = []
     
-    for f in range(0,len(voltages)):
+    for f in range(0,len(xaxis)):
         if hanger:
             fholder = trans_freqs_GHz[np.argmin(trans_mags[f])]
         else:
             fholder = trans_freqs_GHz[np.argmax(trans_mags[f])]
         cfreqs.append(fholder)
     
-    spec_freqs_GHz = full_data[0]['specdata']['xaxis']/1e9
+    spec_freqs_GHz = full_data[0]['specdata']['xaxis']
     spec_mags = full_data[0]['specdata']['mags']
     
     qfreqs = []
     
-    for f in range(0,len(voltages)):
+    for f in range(0,len(xaxis)):
         if hanger:
             qholder = spec_freqs_GHz[np.argmax(spec_mags[f])]
         else:
@@ -85,7 +95,7 @@ def full_data_fit_mags(spec_file,hanger = False):
         qfreqs.append(qholder)
     
     
-    return voltages, cfreqs, qfreqs
+    return xaxis, cfreqs, qfreqs
 
 
 def trans_data_fit(spec_file,hanger = True):
@@ -93,23 +103,27 @@ def trans_data_fit(spec_file,hanger = True):
     #hanger: bool, whether the device is a hanger
     #Loads trans flux data, finds max/min for trans values to extract cavity frequencies at each voltage point.
     full_data = userfuncs.LoadFull(spec_file)
-    try:
-        voltages = full_data[0]['voltages']
-    except:
-        voltages = full_data[0]['fluxes']
+
+    if 'powers' in full_data[0]:
+        xaxis = full_data[0]['powers']
+    elif 'voltages' in full_data[0]:
+        xaxis = full_data[0]['voltages']
+    elif 'fluxes' in full_data[0]:
+        xaxis = full_data[0]['fluxes']
+    
     trans_freqs_GHz = full_data[0]['full_data']['xaxis']
     trans_mags = full_data[0]['full_data']['phases']
     
     cfreqs = []
     
-    for f in range(0,len(voltages)):
+    for f in range(0,len(xaxis)):
         if hanger:
             fholder = trans_freqs_GHz[np.argmin(trans_mags[f])]
         else:
             fholder = trans_freqs_GHz[np.argmax(trans_mags[f])]
         cfreqs.append(fholder)
     
-    return voltages, cfreqs
+    return xaxis, cfreqs
 
 ################################################################################
 
@@ -118,7 +132,7 @@ def lin_fun(x,m,b):
     #You get it
     return m*x + b
 
-def kerr_fit(data_trans, data_transoe, data_spec, index=False):
+def kerr_fit(data_trans, data_transoe, data_spec, RF_atten, index=False):
     if index:
         data_trans_mags = data_trans['full_data']['mags'][index]
         data_trans_phases = data_trans['full_data']['phases'][index]
@@ -128,6 +142,7 @@ def kerr_fit(data_trans, data_transoe, data_spec, index=False):
         data_trans_phases = data_trans['full_data']['phases'][0]
         data_transoe_phases = data_transoe['full_data']['phases'][0]
     
+    
     zero_point_ind = np.argmax(data_trans_mags)
 
     data_spec_phase = data_spec['full_data']['phases']
@@ -135,7 +150,7 @@ def kerr_fit(data_trans, data_transoe, data_spec, index=False):
     for i in range(len(data_spec_phase)):
         data_spec_phase_min[i] = np.min(data_spec_phase[i])
 
-    lin_ax = 10**(data_spec['powers']/10)
+    lin_ax = 10**((data_spec['powers']-RF_atten)/10)
     
     normalize = data_transoe_phases[zero_point_ind] - data_trans_phases[zero_point_ind]
     normalized_phases = data_transoe_phases - normalize

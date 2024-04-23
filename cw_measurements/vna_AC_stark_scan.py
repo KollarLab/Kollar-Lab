@@ -19,13 +19,10 @@ def get_default_settings():
     settings = {}
     autoscan_settings = {}
     #Save location
-    settings['scanname']    = 'flux_Scan'
-    settings['meas_type']   = 'multi_spec_flux_scan'
+    settings['scanname']    = 'AC_Stark_Scan'
+    settings['meas_type']   = 'spec_stark_scan'
     #settings['project_dir'] = r'Z:\Data'
     
-    settings['voltages']  = np.zeros((2,11))
-    settings['fluxes']    = np.zeros((2,11))
-    settings['qubit_num'] = False
     
     settings['RFport'] = 3
     settings['Mport'] = 2
@@ -40,6 +37,10 @@ def get_default_settings():
     settings['CAVpower'] = -55
     settings['RFpower'] = -15
     settings['ifBW'] = .2e3
+    
+    settings['cav_start_power']  = -60
+    settings['cav_stop_power']  = -55
+    settings['cav_power_points'] = 3
     
     settings['high_power_spec'] = False
     settings['unwrap_phase'] = True
@@ -63,17 +64,10 @@ def get_default_settings():
     
     return fullsettings
 
-def multi_spec_flux_scan(instruments, settings):
+def vna_spec_stark_scan(instruments, settings):
     ##Instruments used
     vna = instruments['VNA']
-    SRS_list = instruments['DCsupplies']
-    
-    true_instruments = instruments.copy()
-    del true_instruments['DCsupplies']
-    
-    for sind in range(len(SRS_list)):
-        true_instruments['DCsupply'+str(sind+1)] = SRS_list[sind]
-    
+
     vna.reset()
 
     exp_globals  = settings['exp_globals']
@@ -86,125 +80,109 @@ def multi_spec_flux_scan(instruments, settings):
 
     ##Data saving and naming
     #saveDir = userfuncs.saveDir(settings['project_dir'], settings['meas_type'])
-    stamp     = userfuncs.timestamp()
-    saveDir   = userfuncs.saveDir(settings)
-    filename  = spec_set['scanname'] + '_' + stamp
-    meas_type = spec_set['meas_type']
+    stamp    = userfuncs.timestamp()
+    saveDir  = userfuncs.saveDir(settings)
+    filename = spec_set['scanname'] + '_' + stamp
 
     CAV_Attenuation  = exp_globals['CAV_Attenuation']
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']
     
     
-    spec_set['CAVpower'] = spec_set['CAVpower'] + CAV_Attenuation
+    # spec_set['CAVpower'] = spec_set['CAVpower'] + CAV_Attenuation
     spec_set['RFpower']  = spec_set['RFpower']  + Qbit_Attenuation
+    
     if not spec_set['high_power_spec']:
         print('Using CAVpower from general settings, ignoring autoscan power')
         autoscan_set['RFpower'] = spec_set['CAVpower']
     else:
         autoscan_set['RFpower'] = autoscan_set['RFpower'] + CAV_Attenuation
     
-    #set voltage sweep
-    full_voltages = np.round(spec_set['voltages'],5)
-    full_fluxes   = np.round(spec_set['fluxes'],5)
-    qubit_num = spec_set['qubit_num']
+    #set cavity power sweep
+    start_power  = spec_set['cav_start_power'] + CAV_Attenuation
+    stop_power   = spec_set['cav_stop_power'] + CAV_Attenuation
+    power_points = spec_set['cav_power_points']
     
-    if qubit_num:
-        fluxes = np.transpose(full_fluxes)[qubit_num]
-    else:
-        fluxes = np.linspace(0,len(full_voltages),len(full_voltages))
-
-    max_voltage = 10
-    if np.amax(np.abs(full_voltages)) > max_voltage:
-        raise ValueError('max voltage too large!')
-    else:
-        settings['voltages'] = full_voltages
+    powers = np.linspace(start_power,stop_power,power_points)
     
-    if len(full_voltages[0]) != len(SRS_list):
-        raise ValueError('different number of DC supplies and voltages are specified')
+    trans_mags   = np.zeros((power_points, autoscan_set['freq_points']))
+    trans_phases = np.zeros((power_points, autoscan_set['freq_points']))
     
-    trans_mags   = np.zeros((len(full_voltages), autoscan_set['freq_points']))
-    trans_phases = np.zeros((len(full_voltages), autoscan_set['freq_points']))
+    mags   = np.zeros((power_points, spec_set['freq_points']))
+    phases = np.zeros((power_points, spec_set['freq_points']))
     
-    mags   = np.zeros((len(full_voltages), spec_set['freq_points']))
-    phases = np.zeros((len(full_voltages), spec_set['freq_points']))
-    
-    
-    
-    for i in range(len(SRS_list)):
-        if SRS_list[i].Output == 'Off':
-            SRS_list[i].voltage_ramp(0)
-            SRS_list[i].Output = 'On'
     
     tstart = time.time()
     
-    identifier = 'Cav Power : ' + str(spec_set['CAVpower'] - CAV_Attenuation) + ' dB'
+    identifier = 'Spec Power : ' + str(spec_set['RFpower'] - Qbit_Attenuation) + ' dB'
     
     if background_subtract:
-        vna.reset()
+        vna.reset()  
         print('Collecting background ripple, turning cavity power to 0 dBm (on vna)')
         back_settings = copy.deepcopy(autoscan_set)
         back_settings['RFpower'] = 0
         back_data = vna.trans_meas(back_settings)
         
-    for vind in range(len(full_voltages)):
-        for sind in range(len(SRS_list)):
-            SRS_list[sind].voltage_ramp(full_voltages[vind][sind])
-            time.sleep(0.1)
-            print('Voltage {}: {}, final voltage {}: {}'.format(str(sind+1),full_voltages[vind][sind],str(sind+1),full_voltages[-1][sind]))
-
+    for pind in range(power_points):
+        CAV_power = powers[pind]
+        print('Start Power: {}, Stop Power: {}'.format(CAV_power-CAV_Attenuation, powers[-1]-CAV_Attenuation))
+        autoscan_set['RFpower'] = powers[pind]
         
-        vna.reset()
+        time.sleep(0.1)
+        
+        vna.reset()  
         vna.output = 'on'
         
         print('trans')
         trans_data  = vna.trans_meas(autoscan_set)
         trans_freqs = trans_data['xaxis']
-        trans_mags[vind]   = trans_data['mag']
-        trans_phases[vind] = trans_data['phase']
+        trans_mags[pind]   = trans_data['mag']
+        trans_phases[pind] = trans_data['phase']
         
         if background_subtract:
-            trans_mags[vind] = trans_mags[vind] - back_data['mag']
+            trans_mags[pind] = trans_mags[pind] - back_data['mag']
         else:
-            trans_mags[vind] = trans_mags[vind]
+            trans_mags[pind] = trans_mags[pind]
 
         hanger = exp_globals['hanger']
         if hanger:
-            spec_set['CAVfreq'] = trans_freqs[np.argmin(trans_mags[vind])] 
+            spec_set['CAVfreq'] = trans_freqs[np.argmin(trans_mags[pind])] 
         else:
-            spec_set['CAVfreq'] = trans_freqs[np.argmax(trans_mags[vind])]
-
-        print('spec, CAV power: {}, cav freq: {}'.format(spec_set['CAVpower'], spec_set['CAVfreq']))
+            spec_set['CAVfreq'] = trans_freqs[np.argmax(trans_mags[pind])]
+        
+        spec_set['CAVpower'] = powers[pind]
+        
+        print('spec, CAV power: {}, cav freq: {}'.format(spec_set['CAVpower']-CAV_Attenuation, spec_set['CAVfreq']))
 
         data = vna.spec_meas(spec_set)
         
         vna.autoscale()
         
-        mags[vind]   = data['mag']
-        phases[vind] = data['phase']
+        mags[pind]   = data['mag']
+        phases[pind] = data['phase']
 
         freqs = data['xaxis']  
         
-        if vind==0:
+        if pind==0:
             tstop=time.time()
-            estimate_time(tstart, tstop, len(full_voltages))
+            estimate_time(tstart, tstop, len(powers))
             
         transdata = {}
-        transdata['xaxis'] = trans_freqs
-        transdata['mags'] = trans_mags[0:vind+1,:]
-        transdata['phases'] = trans_phases[0:vind+1,:]
+        transdata['xaxis'] = trans_freqs/1e9
+        transdata['mags'] = trans_mags[0:pind+1,:]
+        transdata['phases'] = trans_phases[0:pind+1,:]
         
         specdata = {}
-        specdata['xaxis'] = freqs
-        specdata['mags'] = mags[0:vind+1,:]
-        specdata['phases'] = phases[0:vind+1,:]
+        specdata['xaxis'] = freqs/1e9
+        specdata['mags'] = mags[0:pind+1,:]
+        specdata['phases'] = phases[0:pind+1,:]
         
         singledata = {}
-        singledata['xaxis'] = freqs
+        singledata['xaxis'] = freqs/1e9
         singledata['mag'] = data['mag'] 
         singledata['phase'] = data['phase']
         
-        trans_labels = ['Freq (GHz)','Flux']
-        spec_labels  = ['Freq (GHz)','Flux']
+        trans_labels = ['Freq (GHz)','Powers (dBm)']
+        spec_labels  = ['Freq (GHz)','Powers (dBm)']
         
         #modify the spec data to subtract the offset in amp and phase
         #and then plot the modified version
@@ -223,17 +201,19 @@ def multi_spec_flux_scan(instruments, settings):
             mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
         specplotdata['phases'] = mat
         
-        plots.autoscan_plot(transdata, specplotdata, singledata, fluxes[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
-
-        userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'full_voltages', 'full_fluxes',
-                                       'fluxes', 'filename', 'trans_labels', 'spec_labels','meas_type'], 
-                                       locals(), expsettings=settings, instruments=true_instruments)
+        plots.autoscan_plot(transdata, specplotdata, singledata, powers[0:pind+1]-CAV_Attenuation, filename, trans_labels, spec_labels, identifier, fig_num = 1)
+            
+        userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'powers', 
+                                       'filename', 'trans_labels', 'spec_labels'], 
+                                       locals(), expsettings=settings, instruments=instruments)
         plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
             
     
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
-
-    data = {'saveDir': saveDir, 'filename': filename, 'transdata':transdata, 'specdata':specdata,'fluxes':fluxes}
+    
+    data = {'saveDir': saveDir, 'filename': filename, 'transdata':transdata, 'specdata':specdata, 'powers':powers}
 
     return data
+
+    
