@@ -171,25 +171,29 @@ def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None, verbose=False)
         fit_func = T1_model
         guess_func = T1_guess
         params = ['amp', 'offset', 'tau']
-        key_params = ['tau']
+        key_names = ['tau']
+        key_params = ['$\\tau$']
         units = ['us']
     elif model=='T2':
         fit_func = T2_model
         guess_func = T2_guess
         params = ['amp', 'offset', 'tau', 'freq', 'phi']
-        key_params = ['tau', 'freq']
+        key_names = ['tau', 'freq']
+        key_params = ['$\\tau$', '$f_0$']
         units = ['us', 'MHz']
     elif model=='cos':
         fit_func = cos_model
         guess_func = cos_guess
         params = ['amp', 'offset', 'freq', 'phi']
-        key_params = ['freq']
+        key_names = ['freq']
+        key_params = ['$f_0$']
         units = ['MHz']
     elif model=='gauss':
         fit_func = gaussian_model
         guess_func = gaussian_guess
         params = ['amp', 'offset', 'center', 'sigma']
-        key_params = ['center', 'sigma']
+        key_names = ['center', 'sigma']
+        key_params = ['$f_0$', '$\sigma$']
         units = ['GHz', 'MHz']
         xlabel = 'Freq (GHz)'
         scale = 1e9
@@ -197,7 +201,8 @@ def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None, verbose=False)
         fit_func = lorenztian_model
         guess_func = lorenztian_guess
         params = ['amp', 'offset', 'center', 'sigma']
-        key_params = ['center', 'sigma']
+        key_names = ['center', 'sigma']
+        key_params = ['$f_0$', '$\sigma$']
         units = ['GHz', 'MHz']
         xlabel = 'Freq (GHz)'
         scale = 1e9
@@ -219,10 +224,10 @@ def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None, verbose=False)
         ax.plot(t_ax/scale, amps, label='Data')
         ax.plot(t_ax_fit/scale, fit_func(t_ax_fit, *guess), label='Init guess')
         ax.plot(t_ax_fit/scale, fit_func(t_ax_fit, *fit_params), label='Best Fit')
-        base_string = 'Fit results, model:{}'.format(model)
-        for p,u in zip(key_params, units):
-            param_val = convert_prefix(u,param_dict[p])
-            base_string+=',{}:{:.5f}{}'.format(p, param_val,u)
+        base_string = 'Model:{}\n'.format(model)
+        for p,n,u in zip(key_params, key_names, units):
+            param_val = convert_prefix(u,param_dict[n])
+            base_string+='{}: {:.5f}{} '.format(p, param_val,u)
         ax.set_title(base_string)
         ax.legend()
         ax.set_xlabel(xlabel)
