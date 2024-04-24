@@ -38,7 +38,7 @@ class Keithley2400(SCPIinst):
     commandlist['current'] = current
 
     def __init__(self, address, reset=True, mode='current', volt_range=10, Output=1):
-        self.instrument_type = 'keithley'
+        self.instrument_type = 'keithley2400'
         
         super().__init__(address, self.commandlist, self.errcmds, reset = reset, baud_rate = 9600)
         self.inst.read_termination = '\r'
