@@ -146,7 +146,7 @@ def pulsed_trans(instruments, settings):
 #        cavitygen.Power = powers[powerind]
         cavitygen.power = powers[powerind]
         
-        time.sleep(0.2)
+        # time.sleep(0.2)
 
         total_samples = card.samples 
 #        amps   = np.zeros((len(freqs), total_samples))
@@ -167,7 +167,7 @@ def pulsed_trans(instruments, settings):
             
             cavitygen.phase = 0
             LO.phase = 0
-            time.sleep(0.2)
+            # time.sleep(0.2)
 
 #            amp, phase, amp_full, phase_full, xaxis = read_and_process(card, settings, plot=first_it, IQstorage = False)
             I_window, Q_window, I_full, Q_full, xaxis = read_and_process(card, settings, 
