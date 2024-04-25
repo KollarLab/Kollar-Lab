@@ -238,14 +238,15 @@ def volt_finder(phase,v2f,v_offsets,SRS_ind):
     return (1/diags[SRS_ind-1])*phase + v_offsets[SRS_ind-1]
 
 # For qubit frequency calibration script
-def calibration_slope(file_path):
-    full_data = userfuncs.LoadFull(file_path)
+def calibration_slope(file_path, qubit_num):
+    full_data = userfuncs.LoadFull(file_path+'.pkl')
     freq_list = []
-    flux_list = full_data[0]['fluxes']
-    flux_num = len(flux_list)
+    flux_list = []
+    flux_num = len(full_data[0]['full_fluxes'])
     for i in range(flux_num):
         result = fit_model(full_data[0]['specdata']['xaxis'], full_data[0]['specdata']['mags'][i], 'lorenz')
         freq_list.append(result['center'])
+        flux_list.append(full_data[0]['full_fluxes'][i][qubit_num-1])
     popt, pcov = curve_fit(linear_func, freq_list, flux_list, method='lm')
     slope = popt[0]
     return freq_list, flux_list, slope
@@ -254,7 +255,7 @@ def linear_func(x, a, b):
     return a*x + b
 
 def calibration_flux(file_path, ref_freq_list, slope, qubit_num):
-    full_data = userfuncs.LoadFull(file_path)
+    full_data = userfuncs.LoadFull(file_path+'.pkl')
     del_f = []
     del_phi = []
     flux_list = full_data[0]['fluxes']
@@ -267,6 +268,7 @@ def calibration_flux(file_path, ref_freq_list, slope, qubit_num):
     avg_del_f = sum(del_f)/flux_pts
     new_flux_start = full_data[0]['full_fluxes'][0][qubit_num-1]+avg_del_phi
     new_flux_stop = full_data[0]['full_fluxes'][flux_pts-1][qubit_num-1]+avg_del_phi
+    print(qubit_num-1)
     cali_flux_start = full_data[0]['full_fluxes'][0]
     cali_flux_start[qubit_num-1] = new_flux_start
     cali_flux_stop = full_data[0]['full_fluxes'][flux_pts-1]
