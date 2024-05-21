@@ -14,6 +14,9 @@ import matplotlib.pyplot as plt
 import userfuncs
 from utility.plotting_tools import simplescan_plot
       
+#Heavily considering getting rid of the initial and post buffers for the speedup classes...
+#Don't see the use when we can't acquire_decimated` anyway.
+
 class PulsedSpecSweep(NDAveragerProgram):
     def initialize(self):
         cfg=self.cfg   
@@ -156,7 +159,7 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
         'num_sigma'       : q_pulse['num_sigma'],
         
         'readout_length'  : m_pulse['meas_window'],
-        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
+        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'] - m_pulse['init_buffer'],
 
 
         'relax_delay'     : exp_globals['relax_delay'],
