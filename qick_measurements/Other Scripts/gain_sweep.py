@@ -159,7 +159,7 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
         'num_sigma'       : q_pulse['num_sigma'],
         
         'readout_length'  : m_pulse['meas_window'],
-        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'] - m_pulse['init_buffer'],
+        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
 
 
         'relax_delay'     : exp_globals['relax_delay'],
@@ -246,89 +246,3 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
     print("Elapsed Time: " + str(t_single))
 
     return full_data
-
-    # for g in range(0,len(gpts)):
-    #     print("Current Gain: " + str(gpts[g]) + ", Max Gain: " + str(gpts[-1]))
-    #     config["qub_gain"] = gpts[g]
-
-    #     total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
-
-    #     Is  = np.zeros((len(fpts), total_samples))
-    #     Qs  = np.zeros((len(fpts), total_samples))
-        
-    #     for f in range(0,len(fpts)):
-    #         board_freq = fpts[f]/1e6
-    #         config["qub_freq"] = board_freq
-    #         prog = PulsedSpec(soccfg,config)
-    #         #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
-    #         holder = prog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
-    #         I_full = holder[0][0]
-    #         Q_full = holder[0][1]
-    #         I_window = I_full[meas_start:meas_end]
-    #         Q_window = Q_full[meas_start:meas_end]
-           
-    #         I_final = np.mean(I_window)
-    #         Q_final = np.mean(Q_window)
-
-    #         Is[f,:]   = I_full
-    #         Qs[f,:] = Q_full
-    #         powerdat[g, f] = np.sqrt(I_final**2 + Q_final**2)
-    #         phasedat[g, f] = np.arctan2(Q_final, I_final)*180/np.pi
-        
-    #     if g == 0:
-    #         xaxis = np.linspace(0,len(I_full)-1,len(I_full))
-
-    #         for x in range(0,len(xaxis)):
-    #             xaxis[x] = prog.cycles2us(xaxis[x],ro_ch=0)
-
-    #     full_data = {}
-    #     full_data['xaxis']  = fpts/1e9
-    #     full_data['mags']   = powerdat[0:g+1]
-    #     full_data['phases'] = phasedat[0:g+1]
-
-    #     #Currently no rescaling is implemented, ask Martin for tips implementing it.
-    #     plot_data = {}
-    #     plot_data['xaxis']  = fpts/1e9
-    #     plot_data['mags']   = powerdat[0:g+1]
-    #     plot_data['phases'] = phasedat[0:g+1]
-
-    #     single_data = {}
-    #     single_data['xaxis'] = fpts/1e9
-    #     single_data['mag']   = powerdat[g]
-    #     single_data['phase'] = phasedat[g]
-
-    #     yaxis  = gpts[0:g+1] #- CAV_Attenuation
-    #     labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
-
-
-    #     simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False) #normalized to drive level
-    #     plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-
-    #     full_time = {}
-    #     full_time['xaxis']  = xaxis
-    #     full_time['Is']   = Is
-    #     full_time['Qs'] = Qs
-
-    #     single_time = {}
-    #     single_time['xaxis'] = xaxis
-    #     single_time['I']   = I_full
-    #     single_time['Q'] = Q_full
-
-    #     time_labels = ['Time (us)', 'Freq (GHz)']
-    #     identifier = 'Gain: {}a.u.'.format(gpts[g])#-CAV_Attenuation)
-
-    #     simplescan_plot(full_time, single_time, fpts/1e9, 
-    #                     'Raw_time_traces\n'+filename, 
-    #                     time_labels, 
-    #                     identifier, 
-    #                     fig_num=2,
-    #                     IQdata = True)
-    #     plt.savefig(os.path.join(saveDir, filename+'_RawTimeTraces.png'), dpi = 150)
-
-    #     userfuncs.SaveFull(saveDir, filename, ['gpts','fpts', 'powerdat', 'phasedat','xaxis','full_data', 'single_data', 'full_time', 'single_time'],
-    #                          locals(), expsettings=settings, instruments={})
-    
-    # if exp_globals['LO']:
-    #     logen.output = 0
-        
-    # return full_data
