@@ -17,7 +17,7 @@ from utility.plotting_tools import simplescan_plot
 #Heavily considering getting rid of the initial and post buffers for the speedup classes...
 #Don't see the use when we can't acquire_decimated` anyway.
 
-class Quasi_CW(NDAveragerProgram):
+class gain_sweep(NDAveragerProgram):
     def initialize(self):
         cfg=self.cfg   
         gen_ch = cfg["cav_channel"]
@@ -44,9 +44,9 @@ class Quasi_CW(NDAveragerProgram):
         self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
         
         # Configure qubit DAC
-        freq_q  = self.freq2reg(cfg["freq_start"],gen_ch=qub_ch)
+        freq_q  = self.freq2reg(cfg["qub_freq"],gen_ch=qub_ch)
         phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=gen_ch)
-        gain_q  = cfg["qub_gain"]
+        gain_q  = cfg["gain_start"]
         
         self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
         
@@ -58,9 +58,9 @@ class Quasi_CW(NDAveragerProgram):
 
         ###Start sweep definition
         
-        self.qub_r_freq = self.get_gen_reg(qub_ch,"freq")
+        self.qub_r_gain = self.get_gen_reg(qub_ch,"gain")
         
-        self.add_sweep(QickSweep(self, self.qub_r_freq,cfg["freq_start"],cfg["freq_stop"],cfg["freq_points"]))
+        self.add_sweep(QickSweep(self, self.qub_r_gain,cfg["gain_start"],cfg["gain_stop"],cfg["gain_points"]))
         
         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
         # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
@@ -72,7 +72,7 @@ class Quasi_CW(NDAveragerProgram):
         sigma = self.us2cycles(self.cfg["qub_sigma"])
         num_sigma = self.cfg["num_sigma"]
         
-        pulse_len = self.us2cycles(self.cfg['quasi_CW_len'],gen_ch=self.cfg['qub_channel']) + int(num_sigma*sigma)
+        pulse_len = int(num_sigma*sigma)
 
         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
         meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
@@ -89,23 +89,24 @@ class Quasi_CW(NDAveragerProgram):
         self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
 
-def get_quasi_cw_settings():
+def get_gain_settings():
     settings = {}
     
     settings['scanname'] = 'initial_power_scan_q4'
-    settings['meas_type'] = 'PulsedSpec'
+    settings['meas_type'] = 'GainSweep'
     
     settings['cav_freq'] = 1e9
     settings['cav_gain'] = 1000
 
-    settings['qub_gain'] = 1000
+    settings['qub_freq'] = 1e9
 
-    settings['quasi_CW_len'] = 10
-    
     #Sweep parameters
-    settings['freq_start']   = 4e9  
-    settings['freq_stop']    = 4.5e9
-    settings['freq_points']  = 6
+    settings['gain_start']  = 1000
+    settings['gain_stop']   = 2000
+    settings['gain_points'] = 3
+    
+
+
 
     #Card settings
     settings['reps'] = 1
@@ -113,7 +114,7 @@ def get_quasi_cw_settings():
     
     return settings
 
-def quasi_cw(soc,soccfg,instruments,settings):
+def gain_sweep(soc,soccfg,instruments,settings):
 
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
@@ -150,15 +151,16 @@ def quasi_cw(soc,soccfg,instruments,settings):
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
 
-        'freq_start'      : exp_settings['freq_start']/1e6,
-        'freq_stop'       : exp_settings['freq_stop']/1e6,
-        'freq_points'     : exp_settings['freq_points'],
-        'qub_gain'        : exp_settings['qub_gain'],
+        'qub_freq'        : exp_settings['qub_freq'],
+        ### Fix the freq_start stuff in the original class
+
+        'gain_start'      : exp_settings['gain_start']/1e6,
+        'gain_stop'       : exp_settings['gain_stop']/1e6,
+        'gain_points'     : exp_settings['gain_points'],
 
         'qub_sigma'       : q_pulse['sigma'],
         'qub_delay'       : q_pulse['delay'],
         'num_sigma'       : q_pulse['num_sigma'],
-        'quasi_CW_len'    : exp_settings['quasi_CW_len'],
 
         'readout_length'  : m_pulse['meas_window'],
         'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
@@ -170,12 +172,12 @@ def quasi_cw(soc,soccfg,instruments,settings):
         }
 
 
-    prog = Quasi_CW(soccfg,config)
+    prog = gain_sweep(soccfg,config)
     rep_period = config['adc_trig_offset'] + config['readout_length'] + config['relax_delay']
     
     
     
-    projected_time = config['soft_avgs']*config['freq_points']*rep_period/1e6
+    projected_time = config['soft_avgs']*config['gain_points']*rep_period/1e6
     print("Projected Time: " + str(projected_time))
     
     t_i = time.time()
@@ -188,14 +190,14 @@ def quasi_cw(soc,soccfg,instruments,settings):
     Is = avg_di[0][0]
     Qs = avg_dq[0][0]
     
-    freqs = exp_pts[0]*1e6
+    gains = exp_pts[0]*1e6
     
     powerdat = np.sqrt(Is**2 + Qs**2)
     phasedat = np.arctan(Qs,Is)*180/np.pi
 
     full_data = {}
 
-    full_data['xaxis']  = freqs/1e9
+    full_data['xaxis']  = gains
     full_data['mags']   = powerdat
     full_data['phases'] = phasedat
     full_data['Is']     = Is
@@ -203,15 +205,15 @@ def quasi_cw(soc,soccfg,instruments,settings):
 
     fig1 = plt.figure(1)
     plt.clf()
-    plt.plot(fpts/1e9, powerdat)
+    plt.plot(gains, powerdat)
     plt.title('Mag {}'.format(filename))
-    plt.xlabel('Frequency (GHz)')
+    plt.xlabel('Gain')
     plt.ylabel('Amplitude')
     fig1.canvas.draw()
     fig1.canvas.flush_events()
     plt.savefig(os.path.join(saveDir, filename+'.png'), dpi=150)
 
-    userfuncs.SaveFull(saveDir, filename, ['freqs','full_data'],
+    userfuncs.SaveFull(saveDir, filename, ['gains','full_data','filename'],
     locals(), expsettings=settings, instruments={})
     
     if exp_globals['LO']:
@@ -222,4 +224,6 @@ def quasi_cw(soc,soccfg,instruments,settings):
     
     print("Elapsed Time: " + str(t_single))
 
-    return full_data
+    data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data}
+
+    return data

@@ -194,13 +194,13 @@ def meas_T1(soc,soccfg,instruments,settings):
         'qub_freq'        : exp_settings['qub_freq']/1e6,
         'qub_gain'         : exp_settings['qub_gain'],
         'qub_sigma'        : q_pulse['sigma'],
-        'Tau_min'         : exp_settings['Tau_min'],
-        'Tau_max'         : exp_settings['Tau_max'],
+        'Tau_min'         : exp_settings['Tau_min']*1e6,
+        'Tau_max'         : exp_settings['Tau_max']*1e6,
         'Tau_pts'         : exp_settings['Tau_pts'],
         'num_sigma'       : q_pulse['num_sigma'],
         
-        'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'] + m_pulse['post_buffer'],
-        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'] - m_pulse['init_buffer'],
+        'readout_length'  : m_pulse['meas_window'],
+        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
 
 
         'relax_delay'     : exp_globals['relax_delay'],
@@ -208,26 +208,10 @@ def meas_T1(soc,soccfg,instruments,settings):
         'soft_avgs'       : exp_settings['soft_avgs']
         }
 
-    ################## Everything from this point onwards is wrong.
-    
-    
+    ################## Most things from this point onwards are wrong.    
     
     prog = T1_speedup(soccfg,config)
-    meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
-    meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
-    total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
     
-    ## Set up array of taus and randomize it
-
-    tau_list = np.linspace(exp_settings['Tau_min'], exp_settings['Tau_max'], exp_settings['Tau_points'])
-    taus = np.round(tau_list, 9)
-    
-    indices = list(range(len(taus)))
-    
-    amp_int = np.zeros(len(taus))
-    ang_int = np.zeros(len(taus))
-    amps    = np.zeros((len(taus),total_samples))
-    angles  = np.zeros((len(taus),total_samples))
     
     tstart = time.time()
     
@@ -240,111 +224,75 @@ def meas_T1(soc,soccfg,instruments,settings):
         holder = bprog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
         print('Background Trace Complete')
         I_full_b = holder[0][0]
-        Q_full_b = holder[0][1]
-        I_window_b = I_full_b[meas_start:meas_end]
-        Q_window_b = Q_full_b[meas_start:meas_end]     
+        Q_full_b = holder[0][1] 
     else:
-        I_window_b, Q_window_b, I_full_b, Q_full_b = 0,0,0,0
+        I_full_b, Q_full_b = 0,0,0,0
 
-    I_back, Q_back = [np.mean(I_window_b), np.mean(Q_window_b)] #<I>, <Q> for background trace
+    I_back, Q_back = [np.mean(I_full_b), np.mean(Q_full_b)] #<I>, <Q> for background trace
+    
+      
+    expt_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
+
     
 
-        
+    Is = avg_di[0][0]
+    Qs = avg_dq[0][1]
+    
 
+    taus = expt_pts[0]
         
-    expt_pts, avg_di, avg_dq = holder = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
-    I_full = holder[0][0]
-    Q_full = holder[0][1]
-    I_window = I_full[meas_start:meas_end]
-    Q_window = Q_full[meas_start:meas_end]
-    
-    ##No background subtraction here!!!!
-    I_sig, Q_sig   = [np.mean(I_window), np.mean(Q_window)] #<I>, <Q> for signal trace
-        
+    I_final = Is-I_back #compute <I_net> in the data window
+    Q_final = Qs-Q_back
 
-        
-#        I_final, Q_final   = [np.mean(I_window), np.mean(Q_window)] #<I>, <Q> for signal trace
-        
-        I_final = I_sig-I_back #compute <I_net> in the data window
-        Q_final = Q_sig-Q_back
-        
-#        amps[tind] = np.sqrt(I_full**2+Q_full**2)
-#        angles[tind] = np.arctan2(Q_full,I_full)*180/np.pi
-#        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
-#        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
-        
-        
-        amps[tind] = np.sqrt((I_full-I_full_b)**2+(Q_full-Q_full_b)**2)
-        angles[tind] = np.arctan2((Q_full-Q_full_b), (I_full-I_full_b))*180/np.pi
-        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
-        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
-        
+    powerdat = np.sqrt(I_final**2 + Q_final**2)
+    phasedat = np.arctan(Q_final,I_final)*180/np.pi
 
-        
-        if first_it:
-            tstop = time.time()
-            estimate_time(tstart, tstop, len(taus))
-            
-            xaxis = np.linspace(0,len(I_full)-1,len(I_full))
 
-            for x in range(0,len(xaxis)):
-                xaxis[x] = prog.cycles2us(xaxis[x],ro_ch=0)
-                
-            first_it = False  
-            
-        #_______________________________________#
-    
-        fig = plt.figure(1, figsize=(13,8))
-        plt.clf()
-        plt.subplot(121)
-        plt.plot(taus*1e6, amp_int, 'x')
-        plt.xlabel('Tau (us)')
-        plt.ylabel('Amplitude')  
-        plt.subplot(122)
-        plt.plot(taus*1e6, ang_int, 'x')
-        plt.xlabel('Tau (us)')
-        plt.ylabel('Phase')  
-        plt.title('Live T1 data (no fit)\n'+filename)
-        fig.canvas.draw()
-        fig.canvas.flush_events()
-        plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
-    
-        fig2 = plt.figure(2,figsize=(13,8))
-        plt.clf()
-    
-        ax = plt.subplot(1,1,1)
-        general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
-    
-        plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-        userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
 
     t2 = time.time()
-    print('Elapsed time: {}'.format(t2-tstart))
+    print('Elapsed time: {}'.format(t2-tstart))       
+        
+    fig = plt.figure(1, figsize=(13,8))
+    plt.clf()
+    plt.subplot(121)
+    plt.plot(taus, powerdat, 'x')
+    plt.xlabel('Tau (us)')
+    plt.ylabel('Amplitude')  
+    plt.subplot(122)
+    plt.plot(taus, phasedat, 'x')
+    plt.xlabel('Tau (us)')
+    plt.ylabel('Phase')  
+    plt.title('Live T1 data (no fit)\n'+filename)
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
+        
+    
 
     T1_guess = exp_settings['T1_guess']
-    amp_guess = max(amp_int)-min(amp_int)
-    offset_guess = np.mean(amp_int[-10:])
+    amp_guess = max(powerdat)-min(powerdat)
+    offset_guess = powerdat[-1]
 
     fit_guess = [T1_guess, amp_guess, offset_guess]
-    T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
-    fig3 = plt.figure(3)
+    T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus/1e6, powerdat, fit_guess)
+    fig2 = plt.figure(2)
     plt.clf()
-    plt.plot(taus*1e6, amp_int)
+    plt.plot(taus, powerdat)
     plt.plot(fit_xvals*1e6, fit_yvals)
     plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
     plt.xlabel('Time (us)')
     plt.ylabel('Amplitude')
-    fig3.canvas.draw()
-    fig3.canvas.flush_events()
+    fig2.canvas.draw()
+    fig2.canvas.flush_events()
     plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
 
-    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 'tau', 'amp', 'offset', 'fit_guess'],
+    userfuncs.SaveFull(saveDir, filename, ['taus', 'powerdat', 'phasedat', 'tau', 'amp', 'offset', 'fit_guess'],
                          locals(), expsettings=settings, instruments=instruments)
     
     if exp_globals['LO']:
         logen.output = 0
 
-    return T1, taus, amp_int
+    return T1, taus, powerdat
    
 
 
