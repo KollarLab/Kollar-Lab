@@ -12,12 +12,12 @@ import os
 import time
 import matplotlib.pyplot as plt
 import userfuncs
-from utility.plotting_tools import simplescan_plot
+
       
 #Heavily considering getting rid of the initial and post buffers for the speedup classes...
 #Don't see the use when we can't acquire_decimated` anyway.
 
-class gain_sweep(NDAveragerProgram):
+class GainSweep(NDAveragerProgram):
     def initialize(self):
         cfg=self.cfg   
         gen_ch = cfg["cav_channel"]
@@ -54,7 +54,7 @@ class gain_sweep(NDAveragerProgram):
         num_sigma = cfg["num_sigma"]
         
         self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma))        
-        self.set_pulse_registers(ch=qub_ch, style="flat_top", waveform="ex",length=self.us2cycles(cfg['quasi_CW_len'],gen_ch=qub_ch))
+        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex")
 
         ###Start sweep definition
         
@@ -151,11 +151,11 @@ def gain_sweep(soc,soccfg,instruments,settings):
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
 
-        'qub_freq'        : exp_settings['qub_freq'],
+        'qub_freq'        : exp_settings['qub_freq']/1e6,
         ### Fix the freq_start stuff in the original class
 
-        'gain_start'      : exp_settings['gain_start']/1e6,
-        'gain_stop'       : exp_settings['gain_stop']/1e6,
+        'gain_start'      : exp_settings['gain_start'],
+        'gain_stop'       : exp_settings['gain_stop'],
         'gain_points'     : exp_settings['gain_points'],
 
         'qub_sigma'       : q_pulse['sigma'],
@@ -172,7 +172,7 @@ def gain_sweep(soc,soccfg,instruments,settings):
         }
 
 
-    prog = gain_sweep(soccfg,config)
+    prog = GainSweep(soccfg,config)
     rep_period = config['adc_trig_offset'] + config['readout_length'] + config['relax_delay']
     
     
@@ -190,7 +190,7 @@ def gain_sweep(soc,soccfg,instruments,settings):
     Is = avg_di[0][0]
     Qs = avg_dq[0][0]
     
-    gains = exp_pts[0]*1e6
+    gains = exp_pts[0]
     
     powerdat = np.sqrt(Is**2 + Qs**2)
     phasedat = np.arctan(Qs,Is)*180/np.pi

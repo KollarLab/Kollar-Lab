@@ -50,7 +50,7 @@ class Quasi_CW(NDAveragerProgram):
         
         self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
         
-        sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch)
+        sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch) 
         num_sigma = cfg["num_sigma"]
         
         self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma))        
@@ -60,7 +60,11 @@ class Quasi_CW(NDAveragerProgram):
         
         self.qub_r_freq = self.get_gen_reg(qub_ch,"freq")
         
-        self.add_sweep(QickSweep(self, self.qub_r_freq,cfg["freq_start"],cfg["freq_stop"],cfg["freq_points"]))
+        
+        #freq_start_reg = self.freq2reg(cfg["freq_start"],gen_ch=qub_ch)
+        #freq_stop_reg = self.freq2reg(cfg["freq_stop"],gen_ch=qub_ch)
+        
+        self.add_sweep(QickSweep(self, self.qub_r_freq, cfg['freq_start'], cfg['freq_stop'], cfg["freq_points"]))
         
         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
         # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
@@ -181,8 +185,9 @@ def quasi_cw(soc,soccfg,instruments,settings):
     t_i = time.time()
     
     
-    
     exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
+    
+
     
     
     Is = avg_di[0][0]
@@ -190,7 +195,7 @@ def quasi_cw(soc,soccfg,instruments,settings):
     
     freqs = exp_pts[0]*1e6
     
-    powerdat = np.sqrt(Is**2 + Qs**2)
+    powerdat = np.sqrt(Is**2 + Qs**2)/exp_settings['cav_gain']
     phasedat = np.arctan(Qs,Is)*180/np.pi
 
     full_data = {}
@@ -209,8 +214,18 @@ def quasi_cw(soc,soccfg,instruments,settings):
     plt.ylabel('Amplitude')
     fig1.canvas.draw()
     fig1.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi=150)
-
+    plt.savefig(os.path.join(saveDir, filename+'_mag.png'), dpi=150)
+    
+    fig2 = plt.figure(2)
+    plt.clf()
+    plt.plot(freqs/1e9, phasedat)
+    plt.title('Phase {}'.format(filename))
+    plt.xlabel('Frequency (GHz)')
+    plt.ylabel('Phase (Degrees)')
+    fig1.canvas.draw()
+    fig1.canvas.flush_events()
+    plt.savefig(os.path.join(saveDir, filename+'_phase.png'), dpi=150)
+    
     userfuncs.SaveFull(saveDir, filename, ['freqs','full_data','filename'],
     locals(), expsettings=settings, instruments={})
     
@@ -224,4 +239,4 @@ def quasi_cw(soc,soccfg,instruments,settings):
 
     data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data}
 
-    return data
+    return data,prog

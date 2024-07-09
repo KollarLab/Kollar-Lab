@@ -166,6 +166,8 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
         'reps'            : exp_settings['reps'],
         'soft_avgs'       : exp_settings['soft_avgs']
         }
+    
+
 
 #Planning out how the eventual setup should work since we'll eventually want to plot out the pulses
 #for troubleshooting purposes.
@@ -245,4 +247,4 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
     
     print("Elapsed Time: " + str(t_single))
 
-    return full_data
+    return full_data, prog

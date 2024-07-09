@@ -20,7 +20,7 @@ settings['qub_freq']     = 4e9
 
 #Sweep Parameters
 settings['gain_start']      = 1000
-settings['gain_step']       = 30000
+settings['gain_stop']       = 30000
 settings['gain_points']     = 11
 
 #ADC settings

@@ -25,7 +25,7 @@ settings['quasi_CW_len'] = 10 #us
 
 #Sweep Parameters
 settings['freq_start']      = qub_center-span/2
-settings['freq_step']       = span/(freq_points-1)
+settings['freq_stop']       = span/(freq_points-1)
 settings['freq_points']     = freq_points 
 
 #ADC settings
