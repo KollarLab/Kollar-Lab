@@ -38,7 +38,7 @@ def simplescan_plot(full_data, singledata,
                     identifier='', 
                     fig_num='', 
                     cmap='hot', 
-                    vmin=np.NaN, vmax=np.NaN,
+                    vmin=np.nan, vmax=np.nan,
                     IQdata = False):
     if fig_num == '':
         fig = plt.figure(figsize=(13,8))
@@ -100,8 +100,8 @@ def simplescan_plot_update(full_data,
                            identifier='',
                            fig_num='', 
                            cmap='hot', 
-                           vmin=np.NaN, 
-                           vmax=np.NaN):
+                           vmin=np.nan, 
+                           vmax=np.nan):
     if fig_num == '':
         fig = plt.figure(figsize=(13,8))
     else:
@@ -172,7 +172,7 @@ def autoscan_plot(transdata, specdata, singledata, yaxis, scanname, trans_labels
     return
 
 def general_colormap_subplot(ax, xaxis, yaxis, data, labels, 
-                             title, cmap = 'hot', vmin = np.NaN, vmax = np.NaN, cbar=None):
+                             title, cmap = 'hot', vmin = np.nan, vmax = np.nan, cbar=None):
     '''given a subplot object, it should make a decent imshow plot of the data.
     
     You have to handle subtracting out any attenuation and do the labeling after.
