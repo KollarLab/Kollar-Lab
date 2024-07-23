@@ -1,6 +1,6 @@
-from .SCPIinst import SCPIinst
+from .SCPIinst import SCPIinst_c
 
-class SGS100A(SCPIinst):
+class SGS100A(SCPIinst_c):
     errcmds           = {}
     errcmds['error']  = 'SYST:ERR?'
     errcmds['serror'] = 'SYST:SERR?'

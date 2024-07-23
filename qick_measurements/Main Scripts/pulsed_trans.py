@@ -7,8 +7,17 @@ import userfuncs
 from utility.plotting_tools import simplescan_plot
 import time
 
+
 class CavitySweep(AveragerProgram):
+    '''    
+    This class sweeps the cavity in 2D with both frequency and gain to locate the cavity frequency and optimal transmission power. 
+    '''
     def initialize(self):
+
+        '''
+        Creates a pulse with each specified frequency and gain values.
+        '''
+        
         cfg=self.cfg   
         gen_ch = cfg["cav_channel"]
 
@@ -38,6 +47,10 @@ class CavitySweep(AveragerProgram):
         self.synci(200)   
     
     def body(self):
+
+        '''
+        Sets pulse registers and triggers the ADC.
+        '''
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
@@ -53,6 +66,29 @@ class CavitySweep(AveragerProgram):
         self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
 def get_trans_settings():
+
+    '''
+    Sets default settings for each scan.
+    All of the settings can be accessed from the driver and are mainly edited there.
+
+    **Parameters:**
+    #################
+        ``freq_start``: frequency where the sweep should start (Hz)
+        
+        ``freq_step``: distance between swept frequencies (Hz)
+        
+        ``freq_points``: number of points in the frequency sweep
+
+        ``gain_start``: gain amount to start power sweep (unitless)
+        
+        ``gain_step``: distance between swept powers
+        
+        ``gain_points``: number of points in the gain sweep
+    
+    **Returns:** 
+    ##############
+        ``settings``: a dictionary containing default parameters for the scan
+    '''
     settings = {}
     
     settings['scanname'] = 'initial_power_scan_q4'
@@ -74,6 +110,14 @@ def get_trans_settings():
     return settings
 
 def pulsed_trans(soc,soccfg,instruments,settings):
+
+    '''
+    The function called in the ``pulsed_trans_driver`` when run.
+
+    **Args:**
+    TODO: add the rest of the documentation for pulsed_trans! 
+
+    '''
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']

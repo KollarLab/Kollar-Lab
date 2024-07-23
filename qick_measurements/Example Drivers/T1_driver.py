@@ -6,6 +6,7 @@ Created on Wed Feb  1 11:32:50 2023
 """
 
 from T1 import meas_T1, get_T1_settings
+import numpy
 
 #scans = 80
 

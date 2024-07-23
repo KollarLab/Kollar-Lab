@@ -5,12 +5,14 @@ Created on Tue Sep  8 17:10:29 2020
 @author: Kollarlab
 """
 
-from .SCPIinst import SCPIinst
+
+from .SCPIinst import SCPIinst_c
 from bidict import bidict
 import numpy as np
 import time
 
-class DC205(SCPIinst):
+
+class DC205_c(SCPIinst_c):
     LEXE = bidict({
             0:'No exec error',
             1:'Illegal value',

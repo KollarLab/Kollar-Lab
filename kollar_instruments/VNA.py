@@ -7,9 +7,9 @@ from time import sleep, time
 
 import numpy
 
-from .SCPIinst import SCPIinst
+from .SCPIinst import SCPIinst_c
 
-class VNA(SCPIinst):
+class VNA_c(SCPIinst_c):
     '''
     Class representing RS VNA instrument
     Attributes:

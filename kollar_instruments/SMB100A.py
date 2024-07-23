@@ -5,9 +5,9 @@ Created on Fri Dec  4 12:10:12 2020
 @author: Kollarlab
 """
 
-from .SCPIinst import SCPIinst
+from .SCPIinst import SCPIinst_c
 
-class SMB100A(SCPIinst):
+class SMB100A_c(SCPIinst_c):
     errcmds           = {}
     errcmds['error']  = 'SYST:ERR?'
     errcmds['serror'] = 'SYST:SERR?'

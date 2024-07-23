@@ -1,0 +1,33 @@
+kollar\_instruments.HS9000B\_auto.HS9000B
+=========================================
+
+.. currentmodule:: kollar_instruments.HS9000B_auto
+
+.. autoclass:: HS9000B
+    :members:
+    :show-inheritance:
+    :inherited-members:
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~HS9000B.__init__
+      ~HS9000B.close
+      ~HS9000B.reset
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~HS9000B.settings
+   
+   

@@ -19,9 +19,14 @@ def check_inputs(inputs, defaults):
     Checks that the given input dictionary has the correct settings. It's easy
     to accidentally mistype something or us an old naming convention so this 
     function will throw an error if the keys in the dictionaries don't match
-    Input params:
-        inputs: input dictionary that is modified by user
-        defaults: default dictionary specified by script
+    
+    Parameters
+    __________
+            inputs: 
+                input dictionary that is modified by user
+            defaults: 
+                default dictionary specified by script
+
     '''
     diff1 = set(inputs) - set(defaults)
     diff2 = set(defaults) - set(inputs)
@@ -39,11 +44,14 @@ def remove_IQ_ellipse(Is, Qs, mixer_config):
     small SNR since the differences between high and low can be wiped out by
     the ellipse eccentricity. Expects axes center phi in the convention defined
     by the 'fitEllipse' function in the ellipse_fitting file
-    Input params:
-        Is, Qs: raw I, Q signals 
-        mixer config: dictionary with axes, center and phase rotation params
+    
+        Parameters:
+            Is, Qs: raw I, Q signals 
+
+            mixer config: dictionary with axes, center and phase rotation params
             of the ellipse as found in the fitEllipse function. This is initialized
             in the exp_globals function
+
     '''
     center = mixer_config['center']
     axes   = mixer_config['axes']
@@ -83,14 +91,24 @@ def extract_data(raw_data, xaxis, settings):
     data and background (assumes that they are the same length, which should
     be enforced by the card samples in the actual exp script) and splices the 
     correct ranges from the raw data. Returns a time axis for the data window 
-    and subtracts mean of background if specified
-    Key input params:
+    and subtracts mean of background if specified.
+
     ALL VALUES SHOULD BE IN TIME UNITS (base seconds)
-        init_buffer: buffer specified to card before the measurement tone
-        emp_delay: combination of line delay and other delays that correctly
-                   shifts the digitizer to match the HDAWG time axis
-        meas_window: width of the measurement pulse
-        post_buffer: time to wait after the pulse before measuring background
+
+
+    Parameters
+    ________________
+        
+
+        init_buffer: 
+            buffer specified to card before the measurement tone
+        emp_delay: 
+            combination of line delay and other delays that correctly shifts the digitizer to match the HDAWG time axis
+        meas_window: 
+            width of the measurement pulse
+        post_buffer: 
+            time to wait after the pulse before measuring background
+
     '''
     measurement_pulse = settings['exp_globals']['measurement_pulse']
     init_buffer = measurement_pulse['init_buffer']
@@ -121,17 +139,24 @@ def extract_data_heterodyne(raw_data, xaxis, settings):
     data and background (assumes that they are the same length, which should
     be enforced by the card samples in the actual exp script) and splices the 
     correct ranges from the raw data. Returns a time axis for the data window 
-    and subtracts mean of background if specified
-    Key input params:
+    and subtracts mean of background if specified.
+
     ALL VALUES SHOULD BE IN TIME UNITS (base seconds)
-        init_buffer: buffer specified to card before the measurement tone
-        emp_delay: combination of line delay and other delays that correctly
-                   shifts the digitizer to match the HDAWG time axis
-        meas_window: width of the measurement pulse
-        post_buffer: time to wait after the pulse before measuring background
+
+    This has been modified from extract_data so that it will work with heterodyne and digital down conversion
+    
+    Parameters
+    _________________
+
+        init_buffer: 
+            buffer specified to card before the measurement tone
+        emp_delay: 
+            combination of line delay and other delays that correctly shifts the digitizer to match the HDAWG time axis
+        meas_window: 
+            width of the measurement pulse
+        post_buffer: 
+            time to wait after the pulse before measuring background
         
-    modified from extract_data so that it will work with heterodyne and digital 
-    down conversion
         
     '''
     measurement_pulse = settings['exp_globals']['measurement_pulse']
@@ -260,7 +285,9 @@ def read_and_process_dual_readout(card, settings, plot):
         fig0.canvas.draw()
         fig0.canvas.flush_events()
     
-    return boost_I, boost_Q, readout_I, readout_Q, xaxis            
+    return boost_I, boost_Q, readout_I, readout_Q, xaxis        
+
+
 def read_and_process_single_channel(card, settings, plot):
     '''
     The original version of this function wanted to convert to 
@@ -302,6 +329,8 @@ def read_and_process_single_channel(card, settings, plot):
         plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
     
     return I_window, Q_window, I_full, Q_full, xaxis
+
+
 def read_and_process(card, settings, plot, IQstorage = True):
     '''The original version of this function wanted to convert to 
     amplitude(t) and phase(t). This has been found to be problematic.
@@ -484,25 +513,36 @@ def configure_card(card, settings):
     force a standard definition of what the digitizer timing should be. Computes
     the total acquisition time and converts it to samples (also configures the 
     rest of the digitizer but this is the main part that requires logic)
-    Inputs:
+
+    Inputs
+    _______
+
         settings dictionary with the following keys (should be initialized from
         the get_default_settings method)
-        meas_window: width of measurment tone
-        meas_pos: position of measurement tone relative to the rise edge of the 
-            trigger
-        emp_delay: line delay and other delays accumulated between the 
-            AWG and the digitizer
-        init_buffer: buffer to collect data before the pulse
-        post_buffer: buffer after measurment tone to wait out the ringing before
-            background subtraction
-        averages: number of averages for the card to perform in HW
-        segments: number of segments (will be averaged together), useful when
-            number of averages gets very high ~>50e3
-        sampleRate: sampling rate of digitizer (make this lower for longer acquisitions)
-        activeChannels: active channels on digitizer (both by default)
-        timeout: timeout (in s) for VISA communication (make this longer for 
-                         longer acquisitions)
-        channelRange: full scale (peak to peak) of each channel, 0.5 or 2.5 V
+
+        meas_window: 
+            width of measurment tone
+        meas_pos: 
+            position of measurement tone relative to the rise edge of the trigger
+        emp_delay: 
+            line delay and other delays accumulated between the AWG and the digitizer
+        init_buffer: 
+            buffer to collect data before the pulse
+        post_buffer: 
+            buffer after measurment tone to wait out the ringing before background subtraction
+        averages: 
+            number of averages for the card to perform in HW
+        segments: 
+            number of segments (will be averaged together), useful when number of averages gets very high ~>50e3
+        sampleRate: 
+            sampling rate of digitizer (make this lower for longer acquisitions)
+        activeChannels: 
+            active channels on digitizer (both by default)
+        timeout: 
+            timeout (in s) for VISA communication (make this longer for longer acquisitions)
+        channelRange: 
+            full scale (peak to peak) of each channel, 0.5 or 2.5 V
+
     '''
     exp_globals = settings['exp_globals']
     exp_settings = settings['exp_settings']

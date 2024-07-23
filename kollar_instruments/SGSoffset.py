@@ -5,8 +5,8 @@ Testing offset of SGS unit
 @author: Kollarlab
 """
 
-from Instruments.SGS import RFgen
-from Instruments.HDAWG import HDAWG
+#from kollar_instruments.SGS import RFgen # Ruthie commented out bc it does not exist
+from kollar_instruments.HDAWG import HDAWG
 from Acqiris_development.Acqiris import Acqiris
 
 import numpy

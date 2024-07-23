@@ -265,8 +265,8 @@ def meas_T1(soc,soccfg,instruments,settings):
         
 #        I_final, Q_final   = [np.mean(I_window), np.mean(Q_window)] #<I>, <Q> for signal trace
         
-        I_final = I_sig-I_back #compute <I_net> in the data window
-        Q_final = Q_sig-Q_back
+    I_final = I_sig-I_back #compute <I_net> in the data window
+    Q_final = Q_sig-Q_back
         
 #        amps[tind] = np.sqrt(I_full**2+Q_full**2)
 #        angles[tind] = np.arctan2(Q_full,I_full)*180/np.pi
@@ -274,49 +274,49 @@ def meas_T1(soc,soccfg,instruments,settings):
 #        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         
         
-        amps[tind] = np.sqrt((I_full-I_full_b)**2+(Q_full-Q_full_b)**2)
-        angles[tind] = np.arctan2((Q_full-Q_full_b), (I_full-I_full_b))*180/np.pi
-        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
-        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
-        
+    amps[tind] = np.sqrt((I_full-I_full_b)**2+(Q_full-Q_full_b)**2)
+    angles[tind] = np.arctan2((Q_full-Q_full_b), (I_full-I_full_b))*180/np.pi
+    amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
+    ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
+    
 
+    
+    if first_it:
+        tstop = time.time()
+        estimate_time(tstart, tstop, len(taus))
         
-        if first_it:
-            tstop = time.time()
-            estimate_time(tstart, tstop, len(taus))
-            
-            xaxis = np.linspace(0,len(I_full)-1,len(I_full))
+        xaxis = np.linspace(0,len(I_full)-1,len(I_full))
 
-            for x in range(0,len(xaxis)):
-                xaxis[x] = prog.cycles2us(xaxis[x],ro_ch=0)
-                
-            first_it = False  
+        for x in range(0,len(xaxis)):
+            xaxis[x] = prog.cycles2us(xaxis[x],ro_ch=0)
             
+        first_it = False  
+        
         #_______________________________________#
     
-        fig = plt.figure(1, figsize=(13,8))
-        plt.clf()
-        plt.subplot(121)
-        plt.plot(taus*1e6, amp_int, 'x')
-        plt.xlabel('Tau (us)')
-        plt.ylabel('Amplitude')  
-        plt.subplot(122)
-        plt.plot(taus*1e6, ang_int, 'x')
-        plt.xlabel('Tau (us)')
-        plt.ylabel('Phase')  
-        plt.title('Live T1 data (no fit)\n'+filename)
-        fig.canvas.draw()
-        fig.canvas.flush_events()
-        plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
-    
-        fig2 = plt.figure(2,figsize=(13,8))
-        plt.clf()
-    
-        ax = plt.subplot(1,1,1)
-        general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
-    
-        plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-        userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
+    fig = plt.figure(1, figsize=(13,8))
+    plt.clf()
+    plt.subplot(121)
+    plt.plot(taus*1e6, amp_int, 'x')
+    plt.xlabel('Tau (us)')
+    plt.ylabel('Amplitude')  
+    plt.subplot(122)
+    plt.plot(taus*1e6, ang_int, 'x')
+    plt.xlabel('Tau (us)')
+    plt.ylabel('Phase')  
+    plt.title('Live T1 data (no fit)\n'+filename)
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
+
+    fig2 = plt.figure(2,figsize=(13,8))
+    plt.clf()
+
+    ax = plt.subplot(1,1,1)
+    general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
+
+    plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
+    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
 
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
