@@ -47,7 +47,7 @@ class IQProgram_RB(AveragerProgram):
         freq_c  = self.freq2reg( cfg["cav_freq"], gen_ch = gen_ch, ro_ch = ro_chs[0])
         phase_c = self.deg2reg( cfg["cav_phase"], gen_ch = gen_ch)
         gain_c  = cfg["meas_gain"]
-        #TODO: check this and make sure it's right
+
         self.default_pulse_registers(ch = gen_ch, freq = freq_c, phase = phase_c, gain = gain_c, mode = "oneshot")
         self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
 
