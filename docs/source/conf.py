@@ -28,7 +28,7 @@ extensions = ['sphinx.ext.autodoc',
 
 
 autosummary_generate = True
-add_module_names = False
+#add_module_names = False
 
 templates_path = ['_templates']
 exclude_patterns = []

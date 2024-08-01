@@ -38,8 +38,8 @@ def rabi_blobs(data_in, amp, w0, rabi_rate, phi):
 
 
 
-#saveDir = r'Z:\Data\HouckQuadTransmon\rabi_chevron\20210226'
-#filename = 'rabi_chevron_fine_20210226_110039.pkl'
+saveDir = r'Z:\Data\HouckQuadTransmon\rabi_chevron\20210226'
+filename = 'rabi_chevron_fine_20210226_110039.pkl'
 raw_data = userfuncs.LoadFull(os.path.join(saveDir, filename))
 
 times = raw_data[0]['times']

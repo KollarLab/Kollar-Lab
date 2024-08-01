@@ -16,7 +16,9 @@ Here goes!
    
    cw_measurements
    kollar_instruments
+   pulsed_measurements
    utility
+
 
 
 
