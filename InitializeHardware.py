@@ -7,15 +7,15 @@ Created on Wed May  6 14:39:58 2020
 import pyvisa
 
 from kollar_instruments.HDAWG import HDAWG
-#from kollar_instruments.Acqiris import Acqiris
+from kollar_instruments.Acqiris import Acqiris
 from kollar_instruments.SGS import SGS100A
 from kollar_instruments.Generator import Keysight33500B
-from kollar_instruments.DC205 import DC205_c
-from kollar_instruments.VNA import VNA_c
+from kollar_instruments.DC205 import DC205
+from kollar_instruments.VNA import VNA
 
 #Digitizer
 hardwareAddress = "PXI23::0::0::INSTR" 
-#card = Acqiris(hardwareAddress)
+card = Acqiris(hardwareAddress)
 
 #HDAWG
 hdawg = HDAWG('dev8163')
@@ -54,11 +54,11 @@ triggergen.Volt       = '2 V'
 triggergen.Output     = 'ON'
 triggergen.Duty_cycle = '0.1'
 
-SRS = DC205_c('ASRL3::INSTR', reset = False)
+SRS = DC205('ASRL3::INSTR', reset = False)
 SRS.Output = 'Off'
 SRS.Range = '10 V'
-SRS2 = DC205_c('ASRL5::INSTR', reset = False)
+SRS2 = DC205('ASRL5::INSTR', reset = False)
 SRS2.Output = 'Off'
 SRS2.Range = '10 V'
 
-vna = VNA_c('TCPIP0::192.168.1.7::inst0::INSTR', reset = False)
+vna = VNA('TCPIP0::192.168.1.7::inst0::INSTR', reset = False)
