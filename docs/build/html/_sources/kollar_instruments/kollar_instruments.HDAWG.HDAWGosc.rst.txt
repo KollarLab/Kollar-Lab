@@ -1,10 +1,10 @@
-HDAWGosc
+﻿HDAWGosc
 ========
 
 .. currentmodule:: kollar_instruments.HDAWG
 
 .. autoclass:: HDAWGosc
-
+   :no-index:
    
    .. automethod:: __init__
 

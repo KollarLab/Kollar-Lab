@@ -1,10 +1,10 @@
-schedule\_driver
+﻿schedule\_driver
 ================
 
 .. currentmodule:: pulsed_measurements.schedule_runner_test
 
 .. autoclass:: schedule_driver
-
+   :no-index:
    
    .. automethod:: __init__
 

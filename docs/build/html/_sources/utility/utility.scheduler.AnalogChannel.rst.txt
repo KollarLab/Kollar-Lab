@@ -1,10 +1,10 @@
-AnalogChannel
+﻿AnalogChannel
 =============
 
 .. currentmodule:: utility.scheduler
 
 .. autoclass:: AnalogChannel
-
+   :no-index:
    
    .. automethod:: __init__
 

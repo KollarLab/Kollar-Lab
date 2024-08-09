@@ -1,10 +1,10 @@
-PulsedSpecSweep
+﻿PulsedSpecSweep
 ===============
 
 .. currentmodule:: qick_measurements.Other_Scripts.pulsed_spec_speedup
 
 .. autoclass:: PulsedSpecSweep
-
+   :no-index:
    
    .. automethod:: __init__
 

@@ -1,10 +1,10 @@
-SGS100A
+﻿SGS100A
 =======
 
 .. currentmodule:: kollar_instruments.SGS
 
 .. autoclass:: SGS100A
-
+   :no-index:
    
    .. automethod:: __init__
 

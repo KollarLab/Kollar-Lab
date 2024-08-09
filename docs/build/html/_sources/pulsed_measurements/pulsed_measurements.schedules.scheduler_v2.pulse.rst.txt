@@ -1,10 +1,10 @@
-pulse
+﻿pulse
 =====
 
 .. currentmodule:: pulsed_measurements.schedules.scheduler_v2
 
 .. autoclass:: pulse
-
+   :no-index:
    
    .. automethod:: __init__
 

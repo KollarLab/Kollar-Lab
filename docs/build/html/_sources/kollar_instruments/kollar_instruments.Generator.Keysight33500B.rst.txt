@@ -1,10 +1,10 @@
-Keysight33500B
+﻿Keysight33500B
 ==============
 
 .. currentmodule:: kollar_instruments.Generator
 
 .. autoclass:: Keysight33500B
-
+   :no-index:
    
    .. automethod:: __init__
 

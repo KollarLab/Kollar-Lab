@@ -1,10 +1,10 @@
-IQProgram\_RB
+﻿IQProgram\_RB
 =============
 
 .. currentmodule:: qick_measurements.random_benchmarking
 
 .. autoclass:: IQProgram_RB
-
+   :no-index:
    
    .. automethod:: __init__
 

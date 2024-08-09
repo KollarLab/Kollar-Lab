@@ -1,10 +1,10 @@
-keithley
+﻿keithley
 ========
 
 .. currentmodule:: kollar_instruments.Keithley2400
 
 .. autoclass:: keithley
-
+   :no-index:
    
    .. automethod:: __init__
 

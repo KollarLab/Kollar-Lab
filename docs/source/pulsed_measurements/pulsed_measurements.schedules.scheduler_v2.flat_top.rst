@@ -1,10 +1,10 @@
-flat\_top
+﻿flat\_top
 =========
 
 .. currentmodule:: pulsed_measurements.schedules.scheduler_v2
 
 .. autoclass:: flat_top
-
+   :no-index:
    
    .. automethod:: __init__
 

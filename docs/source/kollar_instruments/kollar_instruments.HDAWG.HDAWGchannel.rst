@@ -1,10 +1,10 @@
-HDAWGchannel
+﻿HDAWGchannel
 ============
 
 .. currentmodule:: kollar_instruments.HDAWG
 
 .. autoclass:: HDAWGchannel
-
+   :no-index:
    
    .. automethod:: __init__
 

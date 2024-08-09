@@ -1,10 +1,10 @@
-gaussian\_square
+﻿gaussian\_square
 ================
 
 .. currentmodule:: qick_measurements.random_benchmarking
 
 .. autoclass:: gaussian_square
-
+   :no-index:
    
    .. automethod:: __init__
 

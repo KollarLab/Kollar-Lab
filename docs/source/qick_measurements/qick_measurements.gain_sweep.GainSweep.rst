@@ -1,10 +1,10 @@
-GainSweep
+﻿GainSweep
 =========
 
 .. currentmodule:: qick_measurements.gain_sweep
 
 .. autoclass:: GainSweep
-
+   :no-index:
    
    .. automethod:: __init__
 

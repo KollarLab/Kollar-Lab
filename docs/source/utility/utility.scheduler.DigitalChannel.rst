@@ -1,10 +1,10 @@
-DigitalChannel
+﻿DigitalChannel
 ==============
 
 .. currentmodule:: utility.scheduler
 
 .. autoclass:: DigitalChannel
-
+   :no-index:
    
    .. automethod:: __init__
 

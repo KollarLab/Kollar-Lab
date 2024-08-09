@@ -1,10 +1,10 @@
-simple\_sweeper
+﻿simple\_sweeper
 ===============
 
 .. currentmodule:: pulsed_measurements.schedules.simple_sweep
 
 .. autoclass:: simple_sweeper
-
+   :no-index:
    
    .. automethod:: __init__
 

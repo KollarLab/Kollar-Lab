@@ -1,10 +1,10 @@
-DC205
+﻿DC205
 =====
 
 .. currentmodule:: kollar_instruments.DC205
 
 .. autoclass:: DC205
-
+   :no-index:
    
    .. automethod:: __init__
 

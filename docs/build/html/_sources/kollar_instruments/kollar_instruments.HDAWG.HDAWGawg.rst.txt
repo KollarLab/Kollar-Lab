@@ -1,10 +1,10 @@
-HDAWGawg
+﻿HDAWGawg
 ========
 
 .. currentmodule:: kollar_instruments.HDAWG
 
 .. autoclass:: HDAWGawg
-
+   :no-index:
    
    .. automethod:: __init__
 

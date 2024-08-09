@@ -1,10 +1,10 @@
-HDAWGtrigger
+﻿HDAWGtrigger
 ============
 
 .. currentmodule:: kollar_instruments.HDAWG
 
 .. autoclass:: HDAWGtrigger
-
+   :no-index:
    
    .. automethod:: __init__
 

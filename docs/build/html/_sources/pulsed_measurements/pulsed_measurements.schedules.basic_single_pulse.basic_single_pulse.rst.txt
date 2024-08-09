@@ -1,10 +1,10 @@
-basic\_single\_pulse
+﻿basic\_single\_pulse
 ====================
 
 .. currentmodule:: pulsed_measurements.schedules.basic_single_pulse
 
 .. autoclass:: basic_single_pulse
-
+   :no-index:
    
    .. automethod:: __init__
 

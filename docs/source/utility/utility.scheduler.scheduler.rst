@@ -1,10 +1,10 @@
-scheduler
+﻿scheduler
 =========
 
 .. currentmodule:: utility.scheduler
 
 .. autoclass:: scheduler
-
+   :no-index:
    
    .. automethod:: __init__
 

@@ -1,10 +1,10 @@
-T2\_sequence
+﻿T2\_sequence
 ============
 
 .. currentmodule:: qick_measurements.T2
 
 .. autoclass:: T2_sequence
-
+   :no-index:
    
    .. automethod:: __init__
 

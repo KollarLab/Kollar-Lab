@@ -1,10 +1,10 @@
-PulsedSpec
+﻿PulsedSpec
 ==========
 
 .. currentmodule:: qick_measurements.Other_Scripts.pulsed_spec
 
 .. autoclass:: PulsedSpec
-
+   :no-index:
    
    .. automethod:: __init__
 

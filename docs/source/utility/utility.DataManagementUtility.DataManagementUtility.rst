@@ -1,10 +1,10 @@
-DataManagementUtility
+﻿DataManagementUtility
 =====================
 
 .. currentmodule:: utility.DataManagementUtility
 
 .. autoclass:: DataManagementUtility
-
+   :no-index:
    
    .. automethod:: __init__
 

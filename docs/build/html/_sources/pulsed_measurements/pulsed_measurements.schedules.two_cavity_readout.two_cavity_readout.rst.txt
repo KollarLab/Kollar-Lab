@@ -1,10 +1,10 @@
-two\_cavity\_readout
+﻿two\_cavity\_readout
 ====================
 
 .. currentmodule:: pulsed_measurements.schedules.two_cavity_readout
 
 .. autoclass:: two_cavity_readout
-
+   :no-index:
    
    .. automethod:: __init__
 

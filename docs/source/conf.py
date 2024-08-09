@@ -74,6 +74,14 @@ html_theme_options = {
     "secondary_sidebar_items": ["page-toc", "edit-this-page", "sourcelink"],
     "navbar_align": "right",
     "navigation_depth": 2,
+    "icon_links":[
+        {
+            "name": "Github",
+            "url" : "https://github.com/MRitter95/Kollar-Lab",
+            "icon": "fa-brands fa-square-github",
+            "type": "fontawesome",
+        }
+    ]
 }
 
 

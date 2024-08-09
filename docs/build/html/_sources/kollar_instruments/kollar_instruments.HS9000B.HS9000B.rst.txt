@@ -1,10 +1,10 @@
-HS9000B
+﻿HS9000B
 =======
 
 .. currentmodule:: kollar_instruments.HS9000B
 
 .. autoclass:: HS9000B
-
+   :no-index:
    
    .. automethod:: __init__
 

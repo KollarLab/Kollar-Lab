@@ -1,10 +1,10 @@
-Quasi\_CW
+﻿Quasi\_CW
 =========
 
 .. currentmodule:: qick_measurements.quasi_cw
 
 .. autoclass:: Quasi_CW
-
+   :no-index:
    
    .. automethod:: __init__
 

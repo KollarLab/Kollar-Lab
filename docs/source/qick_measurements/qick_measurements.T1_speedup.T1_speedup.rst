@@ -1,10 +1,10 @@
-T1\_speedup
+﻿T1\_speedup
 ===========
 
 .. currentmodule:: qick_measurements.T1_speedup
 
 .. autoclass:: T1_speedup
-
+   :no-index:
    
    .. automethod:: __init__
 

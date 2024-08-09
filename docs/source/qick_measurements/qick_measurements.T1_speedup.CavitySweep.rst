@@ -1,10 +1,10 @@
-CavitySweep
+﻿CavitySweep
 ===========
 
 .. currentmodule:: qick_measurements.T1_speedup
 
 .. autoclass:: CavitySweep
-
+   :no-index:
    
    .. automethod:: __init__
 

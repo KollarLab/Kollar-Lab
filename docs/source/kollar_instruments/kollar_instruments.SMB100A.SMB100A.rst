@@ -1,10 +1,10 @@
-SMB100A
+﻿SMB100A
 =======
 
 .. currentmodule:: kollar_instruments.SMB100A
 
 .. autoclass:: SMB100A
-
+   :no-index:
    
    .. automethod:: __init__
 

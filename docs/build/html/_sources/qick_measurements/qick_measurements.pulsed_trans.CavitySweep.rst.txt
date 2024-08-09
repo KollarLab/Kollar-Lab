@@ -1,10 +1,10 @@
-CavitySweep
+﻿CavitySweep
 ===========
 
 .. currentmodule:: qick_measurements.pulsed_trans
 
 .. autoclass:: CavitySweep
-
+   :no-index:
    
    .. automethod:: __init__
 

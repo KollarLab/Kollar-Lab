@@ -1,10 +1,10 @@
-base\_schedule
+﻿base\_schedule
 ==============
 
 .. currentmodule:: pulsed_measurements.schedules.scheduler_v2
 
 .. autoclass:: base_schedule
-
+   :no-index:
    
    .. automethod:: __init__
 

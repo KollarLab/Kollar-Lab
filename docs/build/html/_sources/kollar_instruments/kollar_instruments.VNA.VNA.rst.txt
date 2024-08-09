@@ -1,10 +1,10 @@
-VNA
+﻿VNA
 ===
 
 .. currentmodule:: kollar_instruments.VNA
 
 .. autoclass:: VNA
-
+   :no-index:
    
    .. automethod:: __init__
 

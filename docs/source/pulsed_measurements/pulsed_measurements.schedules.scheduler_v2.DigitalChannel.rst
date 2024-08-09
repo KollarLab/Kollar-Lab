@@ -1,10 +1,10 @@
-DigitalChannel
+﻿DigitalChannel
 ==============
 
 .. currentmodule:: pulsed_measurements.schedules.scheduler_v2
 
 .. autoclass:: DigitalChannel
-
+   :no-index:
    
    .. automethod:: __init__
 

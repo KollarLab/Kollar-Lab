@@ -1,10 +1,10 @@
-replotter2
+﻿replotter2
 ==========
 
 .. currentmodule:: utility.LatticeReplotter2
 
 .. autoclass:: replotter2
-
+   :no-index:
    
    .. automethod:: __init__
 

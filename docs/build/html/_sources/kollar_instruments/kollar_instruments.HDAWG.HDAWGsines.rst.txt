@@ -1,10 +1,10 @@
-HDAWGsines
+﻿HDAWGsines
 ==========
 
 .. currentmodule:: kollar_instruments.HDAWG
 
 .. autoclass:: HDAWGsines
-
+   :no-index:
    
    .. automethod:: __init__
 

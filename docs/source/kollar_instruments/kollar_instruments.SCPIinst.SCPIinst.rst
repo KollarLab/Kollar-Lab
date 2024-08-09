@@ -1,10 +1,10 @@
-SCPIinst
+﻿SCPIinst
 ========
 
 .. currentmodule:: kollar_instruments.SCPIinst
 
 .. autoclass:: SCPIinst
-
+   :no-index:
    
    .. automethod:: __init__
 

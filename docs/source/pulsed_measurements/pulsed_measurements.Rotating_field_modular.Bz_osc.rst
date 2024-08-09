@@ -1,10 +1,10 @@
-Bz\_osc
+﻿Bz\_osc
 =======
 
 .. currentmodule:: pulsed_measurements.Rotating_field_modular
 
 .. autoclass:: Bz_osc
-
+   :no-index:
    
    .. automethod:: __init__
 

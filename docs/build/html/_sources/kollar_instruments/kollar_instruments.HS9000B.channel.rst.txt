@@ -1,10 +1,10 @@
-channel
+﻿channel
 =======
 
 .. currentmodule:: kollar_instruments.HS9000B
 
 .. autoclass:: channel
-
+   :no-index:
    
    .. automethod:: __init__
 

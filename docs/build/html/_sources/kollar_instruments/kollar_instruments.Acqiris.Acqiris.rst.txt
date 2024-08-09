@@ -1,10 +1,10 @@
-Acqiris
+﻿Acqiris
 =======
 
 .. currentmodule:: kollar_instruments.Acqiris
 
 .. autoclass:: Acqiris
-
+   :no-index:
    
    .. automethod:: __init__
 

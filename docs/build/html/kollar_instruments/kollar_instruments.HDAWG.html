@@ -217,6 +217,22 @@ document.write(`
 `);
 </script></div>
       
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MRitter95/Kollar-Lab" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
     </div>
     
   </div>
@@ -328,6 +344,22 @@ document.write(`
   </button>
 `);
 </script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MRitter95/Kollar-Lab" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
         
       </div>
     
@@ -507,22 +539,22 @@ document.write(`
 <p class="rubric">Classes</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="kollar_instruments.HDAWG.HDAWG.html#kollar_instruments.HDAWG.HDAWG" title="kollar_instruments.HDAWG.HDAWG"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWG</span></code></a>(device)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWG</span></code>(device)</p></td>
 <td><p>Class representing an HDAWG instrument Attributes:     channelgrouping (str) : string representation of channelgrouping (2x2 or 1x4)     referenceclock (str) : string representation of clock used to lock HDAWG (internal or external)     Channels (HDAWGchannel) : list of channels on the instrument     AWGs (HDAWGawg) : list of awgs accessible in the instrument</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="kollar_instruments.HDAWG.HDAWGawg.html#kollar_instruments.HDAWG.HDAWGawg" title="kollar_instruments.HDAWG.HDAWGawg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGawg</span></code></a>(daq, AWGcore[, samplerate, device, ...])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGawg</span></code>(daq, AWGcore[, samplerate, device, ...])</p></td>
 <td><p>Helper class used to access the awg cores on HDAWG. Contains two trigger objects that can be used to configure the triggering of the awg core Attributes:     index (int) : AWGcore identifier (0 or 1)     channelgrouping (str) : string rep of AWGcore configuration (2x2 with 2 independent cores or 1x4)     Triggers ([HDAWGtrigger]) : list of HDAWGtrigger objects     samplerate (str) : string rep of samplerate used by awg core, must be 2.4GHz/2^n      (examples '2.4GHz', '1.2MHz', etc.).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="kollar_instruments.HDAWG.HDAWGchannel.html#kollar_instruments.HDAWG.HDAWGchannel" title="kollar_instruments.HDAWG.HDAWGchannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGchannel</span></code></a>(daq, channelID[, device, amp, ...])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGchannel</span></code>(daq, channelID[, device, amp, ...])</p></td>
 <td><p>Helper class used to access all the output settings of the 4 HDAWG channels Attributes:     ID (int) : channel number     AWGcore (int) : AWGcore controlling output     AWGout (int) : channel number representation for AWGcore (i.e. channel 2 is on AWG1/channel0 etc.)     status (str) : string rep of channel state ('On'/'Off')     fullscale (double) : output voltage range on channel (V)     AWGamp (double) : scaling factor relative to fullscale for output voltage      amp (double) : output voltage amplitude of channel (fullscale*AWGamp). If set, will automatically set fullscale and AWGamp to optimal settings     offset (double) : output voltage offset (V)     delay (double) : delay applied to channel (s)     markers (str) : determines whether this channel has markers associated with it.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="kollar_instruments.HDAWG.HDAWGosc.html#kollar_instruments.HDAWG.HDAWGosc" title="kollar_instruments.HDAWG.HDAWGosc"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGosc</span></code></a>(daq, oscID[, freq, device])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGosc</span></code>(daq, oscID[, freq, device])</p></td>
 <td><p>Helper class used to control the two internal oscillators of the HDAWG Each oscillator controls two sine outputs that can be set nearly independently Two the sines need to be related by some harmonic ratio (m/n where both can go from 1 to 1023) Attributes:     freq (int): frequency of reference oscillator     sines ([HDAWGsines]) : list of HDAWGsines objects to hold the phase and      harmonic for each sine output</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="kollar_instruments.HDAWG.HDAWGsines.html#kollar_instruments.HDAWG.HDAWGsines" title="kollar_instruments.HDAWG.HDAWGsines"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGsines</span></code></a>(daq, oscID, channelID[, device, ...])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGsines</span></code>(daq, oscID, channelID[, device, ...])</p></td>
 <td><p>Helper class used to control the sine outputs of the HDAWG Attributes:     oscID(int): reference oscillator number (0 or 1)     channelID(int): self identifier (0 to 3)     phase (double) :phase delay on output     harmonic (int) : harmonic of reference oscillator used (1-1023)</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="kollar_instruments.HDAWG.HDAWGtrigger.html#kollar_instruments.HDAWG.HDAWGtrigger" title="kollar_instruments.HDAWG.HDAWGtrigger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGtrigger</span></code></a>(daq, triggerID, device, AWGcore)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">HDAWGtrigger</span></code>(daq, triggerID, device, AWGcore)</p></td>
 <td><p>Helper class to access trigger settings for AWG cores Attributes:     ID (int) : trigger identifier (0 or 1)     AWGcore (int) : AWGcore that trigger is applying to     slope (str) : string rep of trigger slope ('rising',etc.)     channel (str) : string rep for channel trigger is configured to listen to ('Trigger in 1',etc.)</p></td>
 </tr>
 </tbody>
