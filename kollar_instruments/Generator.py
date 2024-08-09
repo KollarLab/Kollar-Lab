@@ -1,7 +1,7 @@
 from userfuncs import freeze
-from .SCPIinst import SCPIinst_c
+from .SCPIinst import SCPIinst
 
-class Keysight33500B(SCPIinst_c):
+class Keysight33500B(SCPIinst):
     errorcmd    = 'SYST:ERR?'
     commandlist = {}
     commandlist['core']  = {}

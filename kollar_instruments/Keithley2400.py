@@ -1,9 +1,9 @@
-from .SCPIinst import SCPIinst_c
+from .SCPIinst import SCPIinst
 
 #currently, we only want to use keithley as a stable source, so only set_voltage and set_current should be important
 #If trying to measure something, then a flashing 'cmpl' or value to the right of it means we've hit a range limit, and the range needs to be changed to measure what we have
 
-class keithley(SCPIinst_c):
+class keithley(SCPIinst):
     errcmds           = {}
     errcmds['error']  = 'STAT:QUE?'
     

@@ -1,11 +1,8 @@
-{{ fullname | escape | underline}}
+{{ name | escape | underline}}
 
 .. currentmodule:: {{ module }}
 
 .. autoclass:: {{ objname }}
-    :members:
-    :show-inheritance:
-    :inherited-members:
 
    {% block methods %}
    .. automethod:: __init__

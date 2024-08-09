@@ -63,12 +63,32 @@ def remove_IQ_ellipse(Is, Qs, mixer_config):
     return Isprime, Qsprime
 
 def remove_slow_drift(I, Q, t):
+    '''
+    remove_slow_drift _summary_
+
+    :param I: _description_
+    :type I: _type_
+    :param Q: _description_
+    :type Q: _type_
+    :param t: _description_
+    :type t: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     angle = -0.00035*t*np.pi/180
     rot_mat = np.array([[np.cos(angle), -np.sin(angle)], 
                          [np.sin(angle), np.cos(angle)]])
     return rot_mat@np.array([I,Q])
 
 def generate_filter(card, settings):
+    '''
+    generate_filter _summary_
+
+    :param card: _description_
+    :type card: _type_
+    :param settings: _description_
+    :type settings: _type_
+    '''    
     exp_globals = settings['exp_globals']
     #create Chebychev type II digital filter
     filter_N = exp_globals['ddc_config']['order']
@@ -191,6 +211,16 @@ def extract_data_heterodyne(raw_data, xaxis, settings):
     return filtered_cos, filtered_sin, data_x, filtered_cos_full, filtered_sin_full, xaxis
         
 def estimate_time(t1, t2, steps):
+    '''
+    estimate_time _summary_
+
+    :param t1: _description_
+    :type t1: _type_
+    :param t2: _description_
+    :type t2: _type_
+    :param steps: _description_
+    :type steps: _type_
+    '''    
     one_step = t2-t1
     total_time = one_step*steps
     
@@ -204,6 +234,20 @@ def estimate_time(t1, t2, steps):
     print('    ')
 
 def heterodyne_martin(Ipp, Qpp, xaxis, settings):
+    '''
+    heterodyne_martin _summary_
+
+    :param Ipp: _description_
+    :type Ipp: _type_
+    :param Qpp: _description_
+    :type Qpp: _type_
+    :param xaxis: _description_
+    :type xaxis: _type_
+    :param settings: _description_
+    :type settings: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
     Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
     Qprime_sin = Q_cos
@@ -222,6 +266,18 @@ def heterodyne_martin(Ipp, Qpp, xaxis, settings):
     return I_window, Q_window, Itime, I_full, Q_full, time_full
 
 def read_and_process_two_pulses(card, settings, plot):
+    '''
+    read_and_process_two_pulses _summary_
+
+    :param card: _description_
+    :type card: _type_
+    :param settings: _description_
+    :type settings: _type_
+    :param plot: _description_
+    :type plot: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     card.ArmAndWait()
     I, Q = card.ReadAllData()
     Ipeven = np.mean(I[::2], 0)
@@ -462,6 +518,22 @@ def read_and_process(card, settings, plot, IQstorage = True):
         
 
 def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
+    '''
+    plot_data_extraction _summary_
+
+    :param amp_extract: _description_
+    :type amp_extract: _type_
+    :param time_extract: _description_
+    :type time_extract: _type_
+    :param amp_full: _description_
+    :type amp_full: _type_
+    :param time_full: _description_
+    :type time_full: _type_
+    :param I: _description_
+    :type I: _type_
+    :param Q: _description_
+    :type Q: _type_
+    '''    
     fig = plt.figure(99)
     plt.clf()
     plt.plot(time_full*1e6, amp_full, 'r')
@@ -496,6 +568,15 @@ def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     fig2.canvas.flush_events()
 
 def configure_hdawg(hdawg, settings):
+    '''
+    configure_hdawg _summary_
+
+    :param hdawg: _description_
+    :type hdawg: _type_
+    :param settings: _description_
+    :type settings: _type_
+    '''
+
     hdawg_config = settings['hdawg_config']
     amp = hdawg_config['amplitude']
     trigger_slope = hdawg_config['trigger_slope']

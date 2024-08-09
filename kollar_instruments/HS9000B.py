@@ -7,7 +7,7 @@ Created on Thu Dec  3 18:04:20 2020
 import pyvisa
 import numpy as np
 
-class HS9000B_c():
+class HS9000B():
     '''
     Holzworth class, currently hard coded to 2 channels.
     Attributes:

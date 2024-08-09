@@ -1,7 +1,7 @@
 
 import pyvisa
 
-class InstModule(object):
+class Module(object):
     '''
     Module is a class that holds a collection of scpi commands/ properties. It
     overwrites the standard getattr and setattr object functions to replace them
@@ -169,7 +169,7 @@ class InstModule(object):
                 except:
                     print('invalid')
 
-class SCPIinst_c(InstModule):
+class SCPIinst(Module):
     '''
     Base class for all single channel instruments that use the SCPI standard. The idea is that the user
     can specify the basic commands for each property of the instrument in a dictionary and structure the
@@ -202,7 +202,7 @@ class SCPIinst_c(InstModule):
             if key == 'core':
                 self.commandset = commands['core']
             elif isinstance(commands[key],dict):
-                setattr(self,key,InstModule(self.inst, commands[key], errcmd))
+                setattr(self,key,Module(self.inst, commands[key], errcmd))
                 self.modules.append(key)
         
         self.init = False
