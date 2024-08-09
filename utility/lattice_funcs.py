@@ -7,8 +7,10 @@ Created on Mon Mar 25 15:48:20 2024
 
 import numpy as np
 from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
 import userfuncs
 from utility.userfits_v2 import fit_model
+from utility.plotting_tools import general_colormap_subplot
 import os
 
 
@@ -118,7 +120,8 @@ def full_data_fit_mags(spec_file,hanger = False):
     return xaxis, cfreqs, qfreqs
 
 
-def trans_data_fit(spec_file,hanger = True):
+
+def trans_data_fit(spec_file,hanger = False):
     '''
     trans_data_fit _summary_
 
@@ -421,16 +424,43 @@ def calibration_flux(file_path, ref_freq_list, slope, qubit_num):
     flux_list = full_data[0]['fluxes']
     flux_pts = len(flux_list)
     for i in range(flux_pts):
-        result = fit_model(full_data[0]['specdata']['xaxis'], full_data[0]['specdata']['mags'][i], 'lorenz')
-        del_f.append(ref_freq_list[i] - result['center'])
+        #result = fit_model(full_data[0]['specdata']['xaxis'], full_data[0]['specdata']['mags'][i], 'lorenz')
+        #del_f.append(ref_freq_list[i] - result['center'])
+        resultarg = np.argmin(full_data[0]['specdata']['mags'][i])
+        del_f.append(ref_freq_list[i] - full_data[0]['specdata']['xaxis'][resultarg])
         del_phi.append(slope*(del_f[i]))
     avg_del_phi = sum(del_phi)/flux_pts
     avg_del_f = sum(del_f)/flux_pts
     new_flux_start = full_data[0]['full_fluxes'][0][qubit_num-1]+avg_del_phi
     new_flux_stop = full_data[0]['full_fluxes'][flux_pts-1][qubit_num-1]+avg_del_phi
     print(qubit_num-1)
-    cali_flux_start = full_data[0]['full_fluxes'][0]
+    cali_flux_start = np.copy(full_data[0]['full_fluxes'][0])
     cali_flux_start[qubit_num-1] = new_flux_start
-    cali_flux_stop = full_data[0]['full_fluxes'][flux_pts-1]
+    cali_flux_stop = np.copy(full_data[0]['full_fluxes'][flux_pts-1])
     cali_flux_stop[qubit_num-1] = new_flux_stop
-    return cali_flux_start, cali_flux_stop, avg_del_f
+    return cali_flux_start, cali_flux_stop, avg_del_f, avg_del_phi 
+
+def calibration_plot(transdata, specdata, yaxis, scanname, trans_labels, spec_labels, fig_num = ''):
+    if fig_num == '':
+        fig = plt.figure(figsize=(13,8))
+    else:
+        fig = plt.figure(fig_num, figsize=(13,8))
+    plt.clf()
+    
+    ax = plt.subplot(2,2,1)
+    general_colormap_subplot(ax,transdata['xaxis'], yaxis, transdata['mags'], trans_labels, 'Trans mag')
+    
+    ax = plt.subplot(2,2,2)
+    general_colormap_subplot(ax,transdata['xaxis'], yaxis, transdata['phases'], trans_labels, 'Trans phase')
+    
+    ax = plt.subplot(2,2,3)
+    general_colormap_subplot(ax,specdata['xaxis'], yaxis, specdata['mags'], spec_labels, 'Spec mag')
+    
+    ax = plt.subplot(2,2,4)
+    general_colormap_subplot(ax,specdata['xaxis'], yaxis, specdata['phases'], spec_labels, 'Spec phase')
+    
+    plt.suptitle('Filename: {}'.format(scanname))
+    
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+    return

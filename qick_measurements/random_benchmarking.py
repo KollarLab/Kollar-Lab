@@ -53,6 +53,7 @@ class IQProgram_RB(AveragerProgram):
 
 
         freq_q  = self.freq2reg( cfg["qub_freq"], gen_ch = qub_ch) #, ro_ch = ro_chs[0])
+
         phase_q = self.deg2reg( cfg["qub_phase"], gen_ch = gen_ch) #should this be gen_ch? 
         gain_q  = cfg["qub_gain"]
         
@@ -98,7 +99,6 @@ class IQProgram_RB(AveragerProgram):
                                 + pulse_len*( len( cfg['pulse_schedule'] ) + 1 ) 
                                 + buffer*len( cfg['pulse_schedule'] ) )
         
-        
         plot_pulse_I = []
         plot_pulse_Q = []
         
@@ -110,6 +110,7 @@ class IQProgram_RB(AveragerProgram):
             #print( "we have played the pulse {} at t = {}".format( item, playtime ) )
             
             #print(self.cycles2us( (38320-32128)/16, gen_ch = qub_ch))
+
             
             for i in range( len ( cfg["pulse_data"] ) ):
                 if item == cfg["pulse_data"][i][0]:
@@ -146,7 +147,6 @@ class IQProgram_RB(AveragerProgram):
                     plot_pulse_I.extend(buff_zero)
                     plot_pulse_Q.extend(gate[2].tolist())
                     plot_pulse_Q.extend(buff_zero)
-
 
 
         cfg['pulse_plot'] = [plot_pulse_I, plot_pulse_Q]
@@ -253,7 +253,7 @@ class gaussian_square():
         
 
 def random_seq_gen(config_dict):
-    
+   
     '''
     This function generates the RB schedule, both the total schedule and the truncated schedule for a given run.
     It also calculates and then adds the required pulse to return an ideal qubit back to the ground state at the end of the schedule.
@@ -298,6 +298,8 @@ def random_seq_gen(config_dict):
 def meas_pulse(config_dict):
         
     cfg = config_dict
+
+     
     
     '''
     This section takes the density matrix of the initial state and operates on it with the rotation matrices of each 
@@ -333,7 +335,7 @@ def meas_pulse(config_dict):
         if np.isclose(element.real, [0]):
             state[count].real = element.real*0
         if np.isclose(element.imag, [0]):
-            state[count].imag = element.imag*0
+            state[count].imag = element.imag*0    
 
     '''
     The following section puts the state we're left with in the conventional format that quantum states are written out in.
@@ -423,8 +425,8 @@ def meas_pulse(config_dict):
             cfg["pulse_schedule"].append(cfg["pulse_data"][i][0])
             print('added {}'.format(cfg["pulse_data"][i][0]))
     
-    
     return config_dict
+
 
 
 
@@ -447,6 +449,7 @@ def get_RB_settings():
     settings['buffer']         = .1 #[us]
     settings['gen_new']        = True
     settings['gen_num']        = 2
+
     settings['num_gates']      = 10
     settings['used_gates']     = 1
    
@@ -517,8 +520,9 @@ def random_bench(soc,soccfg,instruments,settings):
         'soft_avgs'       : exp_settings['soft_avgs']
         }
     
+
     # The following section sets up the I and Q data for each of the standard pulses
-    
+  
     x_pulse = pauli_gates['x_pulse']
     y_pulse = pauli_gates['y_pulse']
     x2_pulse = pauli_gates['x2_pulse']
