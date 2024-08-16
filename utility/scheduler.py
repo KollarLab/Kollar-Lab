@@ -97,7 +97,7 @@ class scheduler():
         self.total_time = total_time
         samples = int(total_time*sample_rate)
         if samples%32!=0:
-            print('Warning, waveform lengths not a multiple of 32, padding to match AWG reqs')
+            # print('Warning, waveform lengths not a multiple of 32, padding to match AWG reqs')
             samples = np.ceil(samples/32)*32
         self.samples = int(samples)
         self.time_array = np.linspace(0, total_time, self.samples)
