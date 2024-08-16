@@ -4,9 +4,41 @@ from scipy.optimize import curve_fit
 from scipy.signal import periodogram
 
 def T1_model(t_ax, amp, offset, tau):
+    '''
+    T1_model _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param tau: _description_
+    :type tau: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     return np.exp(-t_ax/tau)*amp+offset
 
 def T2_model(t_ax, amp, offset, tau, freq, phi):
+    '''
+    T2_model _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param tau: _description_
+    :type tau: _type_
+    :param freq: _description_
+    :type freq: _type_
+    :param phi: _description_
+    :type phi: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     return amp*np.cos(2*np.pi*freq*t_ax+phi)*np.exp(-t_ax/tau)+offset
 
 def T2_gaussian_model(t_ax, amp, off, freq, phi, amp_scale, offset, center, tphi):
@@ -17,16 +49,76 @@ def ring_up_model(t_ax, amp, offset, tau, freq, phi):
     return amp*np.cos(2*np.pi*freq*t_ax+phi)*(1-np.exp(-t_ax/tau))+offset
 
 def cos_model(t_ax, amp, offset, freq, phi):
+    '''
+    cos_model _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param freq: _description_
+    :type freq: _type_
+    :param phi: _description_
+    :type phi: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     return amp*np.cos(2*np.pi*t_ax*freq+phi)+offset
 
 def gaussian_model(f_ax, amp, offset, center, sigma):
+    '''
+    gaussian_model _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param center: _description_
+    :type center: _type_
+    :param sigma: _description_
+    :type sigma: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     exponent = -(f_ax-center)**2/(2*sigma**2)
     return offset+amp/(sigma*np.sqrt(2*np.pi))*np.exp(exponent)
 
 def lorenztian_model(f_ax, amp, offset, center, sigma):
+    '''
+    lorenztian_model _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param center: _description_
+    :type center: _type_
+    :param sigma: _description_
+    :type sigma: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     return offset+amp/np.pi*(sigma/((f_ax-center)**2+sigma**2))
 
 def T1_guess(t_ax, amps, plot=False, verbose=False):
+    '''
+    T1_guess _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :param plot: _description_, defaults to False
+    :type plot: bool, optional
+    :return: _description_
+    :rtype: _type_
+    '''    
     #Amplitude guess
     amp_guess = amps[0]-amps[-1]
     #Offset guess
@@ -46,6 +138,18 @@ def T1_guess(t_ax, amps, plot=False, verbose=False):
     return [amp_guess, off_guess, tau_guess]
 
 def cos_guess(t_ax, amps, plot=False, verbose=False):
+    '''
+    cos_guess _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :param plot: _description_, defaults to False
+    :type plot: bool, optional
+    :return: _description_
+    :rtype: _type_
+    '''    
     #Amplitude guess
     amp_guess = (max(amps)-min(amps))/2
     #Offset guess
@@ -73,6 +177,18 @@ def cos_guess(t_ax, amps, plot=False, verbose=False):
     return [amp_guess, off_guess, freq_guess, phi_guess]
 
 def T2_guess(t_ax, amps, plot=False, verbose=False):
+    '''
+    T2_guess _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :param plot: _description_, defaults to False
+    :type plot: bool, optional
+    :return: _description_
+    :rtype: _type_
+    '''    
     
     [amp_guess, off_guess, freq_guess, phi_guess] = cos_guess(t_ax, amps, verbose)
     fs = 1./np.mean(np.diff(t_ax))
@@ -129,6 +245,16 @@ def ring_up_guess(t_ax, amps, plot=False, verbose=False):
     return [amp_guess, off_guess, tau_guess, freq_guess, 0*phi_guess]
 
 def peak_guess(f_ax, amps, verbose=False):
+    '''
+    peak_guess _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     #check if we have a hanger vs a peak type feature
     edge = np.mean(amps[:5])
     min_val = min(amps)
@@ -170,6 +296,16 @@ def peak_guess(f_ax, amps, verbose=False):
     return [scaled_amp*flip, offset_guess+add_off*edge, center_guess, sigma_guess]
 
 def gaussian_guess(f_ax, amps, verbose=False):
+    '''
+    gaussian_guess _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     [amp, offset, center, sigma] = peak_guess(f_ax, amps, verbose)
     sigma = sigma/np.sqrt(2*np.log(2))
     amp_scale = amp*np.sqrt(2*np.pi)*sigma
@@ -213,17 +349,47 @@ def T2_gaussian_guess(t_ax, amps, plot=False, verbose=False):
     return [amp_guess, off_guess, freq_guess, phi_guess, amp_scale_guess, offset_guess, center_guess, tphi]
 
 def lorenztian_guess(f_ax, amps, verbose=False):
+    '''
+    lorenztian_guess _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     [amp, offset, center, sigma] = peak_guess(f_ax, amps, verbose)
     amp_scale = amp*np.pi*sigma
     return [amp_scale, offset, center, sigma]
 
 def create_param_dict(names, vals):
+    '''
+    create_param_dict _summary_
+
+    :param names: _description_
+    :type names: _type_
+    :param vals: _description_
+    :type vals: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     params = {}
     for name, val in zip(names, vals):
         params[name] = val
     return params
 
 def convert_prefix(string, val):
+    '''
+    convert_prefix _summary_
+
+    :param string: _description_
+    :type string: _type_
+    :param val: _description_
+    :type val: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     SI = {
         'n':1e-9,
         'u':1e-6,
@@ -237,6 +403,24 @@ def convert_prefix(string, val):
     return val/SI[prefix]
 
 def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None, verbose=False):
+    '''
+    fit_model _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :param model: _description_
+    :type model: _type_
+    :param plot: _description_, defaults to False
+    :type plot: bool, optional
+    :param guess: _description_, defaults to None
+    :type guess: _type_, optional
+    :param ax: _description_, defaults to None
+    :type ax: _type_, optional
+    :return: _description_
+    :rtype: _type_
+    '''    
     xlabel = 'Time (us)'
     scale = 1e-6
     if model=='T1':

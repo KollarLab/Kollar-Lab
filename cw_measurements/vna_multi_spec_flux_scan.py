@@ -15,6 +15,9 @@ import userfuncs
 import utility.plotting_tools as plots
 
 def get_default_settings():
+    '''
+    get_default_settings _summary_
+    '''    
     fullsettings = {}
     settings = {}
     autoscan_settings = {}
@@ -64,6 +67,19 @@ def get_default_settings():
     return fullsettings
 
 def multi_spec_flux_scan(instruments, settings):
+    '''
+    multi_spec_flux_scan _summary_
+
+    :param instruments: _description_
+    :type instruments: _type_
+    :param settings: _description_
+    :type settings: _type_
+    :raises ValueError: _description_
+    :raises ValueError: _description_
+    :raises ValueError: _description_
+    :return: _description_
+    :rtype: _type_
+    '''    
     ##Instruments used
     vna = instruments['VNA']
     SRS_list = instruments['DCsupplies']
@@ -143,7 +159,14 @@ def multi_spec_flux_scan(instruments, settings):
     if qubit_num:
         fluxes = np.transpose(full_fluxes)[qubit_num-1]
     else:
-        fluxes = np.linspace(0,len(full_voltages),len(full_voltages))
+        fluxes = np.linspace(1,len(full_voltages),len(full_voltages))
+
+    if fluxes[0] == fluxes[-1]:
+        print('')
+        print('Warning! Selected qubit is not being swept, reverting to general numbering system')
+        print('')
+        spec_set['qubit_num'] = False
+        fluxes = np.linspace(1,len(full_voltages),len(full_voltages))    
 
     max_voltage = 10
     if np.amax(np.abs(full_voltages)) > max_voltage:
@@ -182,7 +205,12 @@ def multi_spec_flux_scan(instruments, settings):
         for sind in range(len(SRS_list)):
             SRS_list[sind].voltage_ramp(full_voltages[vind][sind])
             time.sleep(0.1)
-            print('Voltage {}: {}, final voltage {}: {}'.format(str(sind+1),full_voltages[vind][sind],str(sind+1),full_voltages[-1][sind]))
+            if vind==0:
+                print('Voltage {}: {}, final voltage {}: {}'.format(str(sind+1),full_voltages[vind][sind],str(sind+1),full_voltages[-1][sind]))
+        print('')
+        print('Progress: ' + str(vind+1) + '/' + str(len(full_voltages)))                            
+        print('Current Flux {}, Ending Flux {}'.format(str(np.round(fluxes[vind],6)),str(fluxes[-1])))
+        print('')
 
         
         vna.reset()

@@ -151,7 +151,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
 
             Is[f,:]   = I_full
             Qs[f,:] = Q_full
-            powerdat[g, f] = np.sqrt(I_final**2 + Q_final**2)#/gpts[g] # Made this normalized since amplification washed everything out.
+            powerdat[g, f] = np.sqrt(I_final**2 + Q_final**2)/gpts[g] # Made this normalized since amplification washed everything out.
             phasedat[g, f] = np.arctan2(Q_final, I_final)*180/np.pi
             
         
