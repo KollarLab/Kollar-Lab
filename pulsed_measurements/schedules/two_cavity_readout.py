@@ -161,5 +161,6 @@ class two_cavity_readout(base_schedule):
             else:
                 full_settings[prop] = getattr(self,prop)
         full_settings['qpulse'] = self.qpulse.settings 
-        full_settings['mpulse'] = self.mpulse.settings
+        full_settings['mpulse1'] = self.mpulse1.settings
+        full_settings['mpulse2'] = self.mpulse2.settings
         return full_settings
