@@ -9,6 +9,13 @@ def T1_model(t_ax, amp, offset, tau):
 def T2_model(t_ax, amp, offset, tau, freq, phi):
     return amp*np.cos(2*np.pi*freq*t_ax+phi)*np.exp(-t_ax/tau)+offset
 
+def T2_gaussian_model(t_ax, amp, off, freq, phi, amp_scale, offset, center, tphi):
+    # t1_decay = 1 #np.exp(-t_ax/(2*T1))
+    return np.exp(-(t_ax-center)**2/(tphi**2))*amp*np.cos(2*np.pi*t_ax*freq+phi)+off
+
+def ring_up_model(t_ax, amp, offset, tau, freq, phi):
+    return amp*np.cos(2*np.pi*freq*t_ax+phi)*(1-np.exp(-t_ax/tau))+offset
+
 def cos_model(t_ax, amp, offset, freq, phi):
     return amp*np.cos(2*np.pi*t_ax*freq+phi)+offset
 
@@ -93,6 +100,34 @@ def T2_guess(t_ax, amps, plot=False, verbose=False):
 
     return [amp_guess, off_guess, tau_guess, freq_guess, phi_guess]
 
+def ring_up_guess(t_ax, amps, plot=False, verbose=False):
+    
+    [amp_guess, off_guess, freq_guess, phi_guess] = cos_guess(t_ax, amps, verbose)
+    fs = 1./np.mean(np.diff(t_ax))
+    #Tau guess
+    tau_max = 5*t_ax[-1]
+    norm = np.abs(amps-off_guess)
+    pt_per_period = int(fs/freq_guess)
+    #Average out the oscillations but dividing the array into chunks that
+    #are roughly a period before taking the mean
+    num_periods = int(np.floor(len(norm)/pt_per_period))
+    filtered_data = np.split(norm[:num_periods*pt_per_period], num_periods)
+    envelope = np.mean(filtered_data, 1)
+    new_time = np.linspace(t_ax[0], t_ax[-1], num_periods)
+    
+    try:
+        [m,b] = np.polyfit(new_time[:10], np.log(envelope[-1]-envelope[:10]),1)
+        tau_guess = -1/m
+        if tau_guess<0:
+            tau_guess = tau_max
+    except:
+        tau_guess = tau_max
+
+    if plot:
+        plt.plot(t_ax, envelope)
+
+    return [amp_guess, off_guess, tau_guess, freq_guess, 0*phi_guess]
+
 def peak_guess(f_ax, amps, verbose=False):
     #check if we have a hanger vs a peak type feature
     edge = np.mean(amps[:5])
@@ -140,6 +175,43 @@ def gaussian_guess(f_ax, amps, verbose=False):
     amp_scale = amp*np.sqrt(2*np.pi)*sigma
     return [amp_scale, offset, center, sigma]
 
+def T2_gaussian_guess(t_ax, amps, plot=False, verbose=False):
+    
+    [amp_guess, off_guess, freq_guess, phi_guess] = cos_guess(t_ax, amps, verbose)
+    #Removing T1 component
+    #amps = amps*np.exp(t_ax/(2*T1))
+    fs = 1./np.mean(np.diff(t_ax))
+    #T_Phi guess
+    tau_max = 5*t_ax[-1]
+    norm = np.abs(amps-off_guess)
+    pt_per_period = int(fs/freq_guess)
+    #Average out the oscillations but dividing the array into chunks that
+    #are roughly a period before taking the mean
+    num_periods = int(np.floor(len(norm)/pt_per_period))
+    filtered_data = np.split(norm[:num_periods*pt_per_period], num_periods)
+    envelope = np.mean(filtered_data, 1)
+    new_time = np.linspace(t_ax[0], t_ax[-1], num_periods)
+    #mirror the data along y axis to make a gaussian envelope
+    envelope_mirror = np.flip(envelope)
+    new_time_mirror = np.flip(new_time)*-1
+    envelope = np.hstack((envelope_mirror,envelope))
+    new_time = np.hstack((new_time_mirror,new_time))
+    
+    try:
+        [amp_scale_guess, offset_guess, center_guess, sigma_guess] = gaussian_guess(new_time, envelope, verbose)
+        tphi = np.sqrt(2)*sigma_guess
+        if sigma_guess<0:
+            print('tau is negative')
+            sigma_guess = tau_max # this is wrong!
+    except:
+        sigma_guess = tau_max
+        print('gaussian fit failed') # this is wrong!
+
+    if plot:
+        plt.plot(t_ax, envelope)
+        
+    return [amp_guess, off_guess, freq_guess, phi_guess, amp_scale_guess, offset_guess, center_guess, tphi]
+
 def lorenztian_guess(f_ax, amps, verbose=False):
     [amp, offset, center, sigma] = peak_guess(f_ax, amps, verbose)
     amp_scale = amp*np.pi*sigma
@@ -177,6 +249,20 @@ def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None, verbose=False)
     elif model=='T2':
         fit_func = T2_model
         guess_func = T2_guess
+        params = ['amp', 'offset', 'tau', 'freq', 'phi']
+        key_names = ['tau', 'freq']
+        key_params = ['$\\tau$', '$f_0$']
+        units = ['us', 'MHz']
+    elif model=='T2_gaussian':
+        fit_func = T2_gaussian_model
+        guess_func = T2_gaussian_guess
+        params = ['amp','off', 'freq', 'phi', 'amp_scale', 'offset', 'center', 'tphi']
+        key_names = ['tphi', 'freq']
+        key_params = ['$\\tau$', '$f_0$']
+        units = ['us', 'MHz']
+    elif model=='ring_up':
+        fit_func = ring_up_model
+        guess_func = ring_up_guess
         params = ['amp', 'offset', 'tau', 'freq', 'phi']
         key_names = ['tau', 'freq']
         key_params = ['$\\tau$', '$f_0$']
