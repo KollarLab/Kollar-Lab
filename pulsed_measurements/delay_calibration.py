@@ -42,7 +42,10 @@ def get_default_settings():
     settings['flux_offset'] = 0
     settings['flux_amp'] = 0
     
+    settings['drive_amp'] = 0
+    
     settings['X_pulse_buffer'] = 0
+    settings['sweep_foward'] = False
     
     return settings
     
@@ -137,7 +140,7 @@ def X_Z_delay_cal(instruments, settings):
     
     #Generate flux pulse that we're going to try to find with the x pulse
     buffer = exp_settings['Z_pulse_buffer']
-    ramp_len = 2*exp_settings['ramp_sigma']
+    ramp_len = 2*exp_settings['ramp_sigma'] #I think this ramp length should include num_sigma, but it doesn't currently
     Bz_pos = buffer+2*ramp_len+exp_settings['flux_length']
     Flux_pulse.add_pulse('gaussian_square', 
                          position=start_time-Bz_pos-exp_settings['flux_offset'], 
@@ -158,6 +161,10 @@ def X_Z_delay_cal(instruments, settings):
     phasedat = np.zeros(len(times))
     
     t1 = time.time()
+    if exp_settings['sweep_forward']:
+        filename += '_forward'
+    else:
+        filename += '_backward'
     for timeind in range(len(times)):
         hold_time = times[timeind]
         
@@ -167,11 +174,15 @@ def X_Z_delay_cal(instruments, settings):
         qubit_marker.reset()
         
         qubit_time = num_sigma*sigma+hold_time
-        position = start_time-qubit_time-q_pulse['delay']-exp_settings['X_pulse_buffer']
+        if exp_settings['sweep_forward']:
+            position = start_time-qubit_time -(max(times)-hold_time) -q_pulse['delay']-exp_settings['X_pulse_buffer']
+        else:
+            position = start_time-qubit_time-q_pulse['delay']-exp_settings['X_pulse_buffer']
         
         qubit_I.add_pulse('gaussian_square', 
                           position=position, 
-                          amplitude=q_pulse['piAmp'], 
+                          #amplitude=q_pulse['piAmp'], 
+                          amplitude=exp_settings['drive_amp'], 
                           length = hold_time, 
                           ramp_sigma=q_pulse['sigma'], 
                           num_sigma=q_pulse['num_sigma'])
@@ -233,6 +244,7 @@ def X_Z_delay_cal(instruments, settings):
         plt.xlabel('Hold time (ns)')
         plt.ylabel('Ang (deg.)')
         plt.title('Ang')
+        plt.suptitle(filename)
         fig.canvas.draw()
         fig.canvas.flush_events()
         userfuncs.SaveFull(saveDir, filename, ['times','timedat', 'phasedat','xaxis'], 
