@@ -7,4 +7,10 @@ packages:
 	zhinst==22.8.3
 	scikit-image
 	lmfit
+	pyvisa
+	tqdm
+	sphinx
+	Pyro4
+	
+	
 	
