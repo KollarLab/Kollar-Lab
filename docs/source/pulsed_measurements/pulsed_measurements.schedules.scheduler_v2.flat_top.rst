@@ -1,4 +1,4 @@
-﻿flat\_top
+flat\_top
 =========
 
 .. currentmodule:: pulsed_measurements.schedules.scheduler_v2

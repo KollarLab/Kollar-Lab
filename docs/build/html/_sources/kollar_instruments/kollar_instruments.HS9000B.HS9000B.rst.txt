@@ -1,4 +1,4 @@
-﻿HS9000B
+HS9000B
 =======
 
 .. currentmodule:: kollar_instruments.HS9000B

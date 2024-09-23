@@ -1,4 +1,4 @@
-﻿replotter2
+replotter2
 ==========
 
 .. currentmodule:: utility.LatticeReplotter2

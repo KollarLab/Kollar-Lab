@@ -20,6 +20,7 @@
    HS9000B_auto
    Keithley2400
    Keithley2400_example
+   Keysight33622A
    SCPIinst
    SGS
    SGShelper

@@ -383,21 +383,16 @@ document.write(`
 <li class="toctree-l2 current"><a class="current reference internal" href="#">T1</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="qick_measurements.T1.CavitySweep.html">CavitySweep</a></li>
 <li class="toctree-l3"><a class="reference internal" href="qick_measurements.T1.T1_sequence.html">T1_sequence</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#qick_measurements.T1.CavitySweep"><code class="docutils literal notranslate"><span class="pre">CavitySweep</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#qick_measurements.T1.CavitySweep.body"><code class="docutils literal notranslate"><span class="pre">CavitySweep.body()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#qick_measurements.T1.CavitySweep.initialize"><code class="docutils literal notranslate"><span class="pre">CavitySweep.initialize()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="#qick_measurements.T1.CavitySweep"><code class="docutils literal notranslate"><span class="pre">CavitySweep</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#qick_measurements.T1.T1_sequence"><code class="docutils literal notranslate"><span class="pre">T1_sequence</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#qick_measurements.T1.T1_sequence.body"><code class="docutils literal notranslate"><span class="pre">T1_sequence.body()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#qick_measurements.T1.T1_sequence.initialize"><code class="docutils literal notranslate"><span class="pre">T1_sequence.initialize()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#qick_measurements.T1.meas_T1"><code class="docutils literal notranslate"><span class="pre">meas_T1()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="qick_measurements.T1_speedup.html">T1_speedup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="qick_measurements.T2.html">T2</a></li>
-<li class="toctree-l2"><a class="reference internal" href="qick_measurements.exp_globals_FPGA.html">exp_globals_FPGA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="qick_measurements.gain_sweep.html">gain_sweep</a></li>
 <li class="toctree-l2"><a class="reference internal" href="qick_measurements.gain_sweep_pi_2.html">gain_sweep_pi_2</a></li>
 <li class="toctree-l2"><a class="reference internal" href="qick_measurements.pulsed_trans.html">pulsed_trans</a></li>
@@ -500,8 +495,8 @@ document.write(`
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_T1_settings</span></code>()</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">meas_T1</span></code>(soc, soccfg, instruments, settings)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#qick_measurements.T1.meas_T1" title="qick_measurements.T1.meas_T1"><code class="xref py py-obj docutils literal notranslate"><span class="pre">meas_T1</span></code></a>(soc, soccfg, instruments, settings)</p></td>
+<td><p>meas_T1 - This function is the core of the T1 script</p></td>
 </tr>
 </tbody>
 </table>
@@ -509,47 +504,51 @@ document.write(`
 <p class="rubric">Classes</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">CavitySweep</span></code>(soccfg, cfg)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#qick_measurements.T1.CavitySweep" title="qick_measurements.T1.CavitySweep"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CavitySweep</span></code></a>(*args, **kwargs)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">T1_sequence</span></code>(soccfg, cfg)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#qick_measurements.T1.T1_sequence" title="qick_measurements.T1.T1_sequence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T1_sequence</span></code></a>(*args, **kwargs)</p></td>
+<td><p>T1_sequence _summary_</p></td>
 </tr>
 </tbody>
 </table>
 </div>
 <dl class="py class">
 <dt class="sig sig-object py" id="qick_measurements.T1.CavitySweep">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CavitySweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">soccfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T1.html#CavitySweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qick_measurements.T1.CavitySweep" title="Link to this definition">#</a></dt>
-<dd><dl class="py method">
-<dt class="sig sig-object py" id="qick_measurements.T1.CavitySweep.body">
-<span class="sig-name descname"><span class="pre">body</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T1.html#CavitySweep.body"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qick_measurements.T1.CavitySweep.body" title="Link to this definition">#</a></dt>
-<dd><p>Abstract method for the body of the program</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="qick_measurements.T1.CavitySweep.initialize">
-<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T1.html#CavitySweep.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qick_measurements.T1.CavitySweep.initialize" title="Link to this definition">#</a></dt>
-<dd><p>Abstract method for initializing the program and can include any instructions that are executed once at the beginning of the program.</p>
-</dd></dl>
-
-</dd></dl>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CavitySweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T1.html#CavitySweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qick_measurements.T1.CavitySweep" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="qick_measurements.T1.T1_sequence">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">T1_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">soccfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T1.html#T1_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qick_measurements.T1.T1_sequence" title="Link to this definition">#</a></dt>
-<dd><dl class="py method">
-<dt class="sig sig-object py" id="qick_measurements.T1.T1_sequence.body">
-<span class="sig-name descname"><span class="pre">body</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T1.html#T1_sequence.body"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qick_measurements.T1.T1_sequence.body" title="Link to this definition">#</a></dt>
-<dd><p>Abstract method for the body of the program</p>
-</dd></dl>
-
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">T1_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T1.html#T1_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qick_measurements.T1.T1_sequence" title="Link to this definition">#</a></dt>
+<dd><p>T1_sequence _summary_</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>AveragerProgram</strong> (<em>_type_</em>) – _description_</p>
+</dd>
+</dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="qick_measurements.T1.T1_sequence.initialize">
 <span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T1.html#T1_sequence.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qick_measurements.T1.T1_sequence.initialize" title="Link to this definition">#</a></dt>
-<dd><p>Abstract method for initializing the program and can include any instructions that are executed once at the beginning of the program.</p>
+<dd><p>initialize _summary_</p>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="qick_measurements.T1.meas_T1">
+<span class="sig-name descname"><span class="pre">meas_T1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">soc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">soccfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">instruments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T1.html#meas_T1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qick_measurements.T1.meas_T1" title="Link to this definition">#</a></dt>
+<dd><p>meas_T1 - This function is the core of the T1 script</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>soc</strong> (<em>_type_</em>) – _description_</p></li>
+<li><p><strong>soccfg</strong> (<em>_type_</em>) – _description_</p></li>
+<li><p><strong>instruments</strong> (<em>_type_</em>) – _description_</p></li>
+<li><p><strong>settings</strong> (<em>_type_</em>) – _description_</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -600,16 +599,12 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#qick_measurements.T1.CavitySweep"><code class="docutils literal notranslate"><span class="pre">CavitySweep</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#qick_measurements.T1.CavitySweep.body"><code class="docutils literal notranslate"><span class="pre">CavitySweep.body()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#qick_measurements.T1.CavitySweep.initialize"><code class="docutils literal notranslate"><span class="pre">CavitySweep.initialize()</span></code></a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#qick_measurements.T1.CavitySweep"><code class="docutils literal notranslate"><span class="pre">CavitySweep</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#qick_measurements.T1.T1_sequence"><code class="docutils literal notranslate"><span class="pre">T1_sequence</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#qick_measurements.T1.T1_sequence.body"><code class="docutils literal notranslate"><span class="pre">T1_sequence.body()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#qick_measurements.T1.T1_sequence.initialize"><code class="docutils literal notranslate"><span class="pre">T1_sequence.initialize()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#qick_measurements.T1.meas_T1"><code class="docutils literal notranslate"><span class="pre">meas_T1()</span></code></a></li>
 </ul>
   </nav></div>
 

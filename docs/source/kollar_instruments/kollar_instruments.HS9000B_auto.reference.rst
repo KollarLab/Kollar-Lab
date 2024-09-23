@@ -1,4 +1,4 @@
-﻿reference
+reference
 =========
 
 .. currentmodule:: kollar_instruments.HS9000B_auto

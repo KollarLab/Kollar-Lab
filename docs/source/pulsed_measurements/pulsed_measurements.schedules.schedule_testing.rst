@@ -1,4 +1,4 @@
-﻿schedule\_testing
+schedule\_testing
 =================
 
 .. automodule:: pulsed_measurements.schedules.schedule_testing

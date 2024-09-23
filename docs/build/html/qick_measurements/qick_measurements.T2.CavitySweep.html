@@ -392,7 +392,6 @@ document.write(`
 <li class="toctree-l3"><a class="reference internal" href="qick_measurements.T2.html#qick_measurements.T2.T2_sequence"><code class="docutils literal notranslate"><span class="pre">T2_sequence</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="qick_measurements.exp_globals_FPGA.html">exp_globals_FPGA</a></li>
 <li class="toctree-l2"><a class="reference internal" href="qick_measurements.gain_sweep.html">gain_sweep</a></li>
 <li class="toctree-l2"><a class="reference internal" href="qick_measurements.gain_sweep_pi_2.html">gain_sweep_pi_2</a></li>
 <li class="toctree-l2"><a class="reference internal" href="qick_measurements.pulsed_trans.html">pulsed_trans</a></li>
@@ -492,184 +491,22 @@ document.write(`
 <h1>CavitySweep<a class="headerlink" href="#cavitysweep" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CavitySweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">soccfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T2.html#CavitySweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CavitySweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/qick_measurements/T2.html#CavitySweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><dl class="py method">
 <dt class="sig sig-object py" id="qick_measurements.T2.CavitySweep.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">soccfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#qick_measurements.T2.CavitySweep.__init__" title="Link to this definition">#</a></dt>
-<dd><p>Constructor for the AveragerProgram, calls make program at the end.
-For classes that inherit from this, if you want it to do something before the program is made and compiled:
-either do it before calling this __init__ or put it in the initialize method.</p>
-</dd></dl>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#qick_measurements.T2.CavitySweep.__init__" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
 
 <p class="rubric">Methods</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#qick_measurements.T2.CavitySweep.__init__" title="qick_measurements.T2.CavitySweep.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(soccfg, cfg)</p></td>
-<td><p>Constructor for the AveragerProgram, calls make program at the end.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">acquire</span></code>(soc[, threshold, angle, ...])</p></td>
-<td><p>This method optionally loads pulses on to the SoC, configures the ADC readouts, loads the machine code representation of the AveragerProgram onto the SoC, starts the program and streams the data into the Python, returning it as a set of numpy arrays.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">acquire_decimated</span></code>(soc[, load_pulses, ...])</p></td>
-<td><p>This method acquires the raw (downconverted and decimated) data sampled by the ADC.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_DRAG</span></code>(ch, name, sigma, length, delta[, ...])</p></td>
-<td><p>Adds a DRAG pulse to the waveform library.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_gauss</span></code>(ch, name, sigma, length[, maxv])</p></td>
-<td><p>Adds a Gaussian pulse to the waveform library.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_pulse</span></code>(ch, name[, idata, qdata])</p></td>
-<td><p>Adds a waveform to the waveform library within the program.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_triangle</span></code>(ch, name, length[, maxv])</p></td>
-<td><p>Adds a triangle pulse to the waveform library.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">append_instruction</span></code>(name, *args)</p></td>
-<td><p>Append instruction to the program list</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">asm</span></code>()</p></td>
-<td><p>Returns assembly representation of program as string, should be compatible with the parse_prog from the parser module.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">bin</span></code>()</p></td>
-<td><p>Returns binary representation of program as string.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="qick_measurements.T2.html#qick_measurements.T2.CavitySweep.body" title="qick_measurements.T2.CavitySweep.body"><code class="xref py py-obj docutils literal notranslate"><span class="pre">body</span></code></a>()</p></td>
-<td><p>Abstract method for the body of the program</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ch_page</span></code>(gen_ch)</p></td>
-<td><p>Gets tProc register page associated with generator channel.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ch_page_ro</span></code>(ro_ch)</p></td>
-<td><p>Gets tProc register page associated with tProc-controlled readout channel.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">compare_program</span></code>(fname)</p></td>
-<td><p>For debugging purposes to compare binary compilation of parse_prog with the compile.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">compile</span></code>([debug])</p></td>
-<td><p>Compiles program to machine code.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">compile_instruction</span></code>(inst, labels[, debug])</p></td>
-<td><p>Converts an assembly instruction into a machine bytecode.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">config_all</span></code>(soc[, load_pulses, start_src, debug])</p></td>
-<td><p>Load the waveform memory, gens, ROs, and program memory as specified for this program.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">config_bufs</span></code>(soc[, enable_avg, enable_buf])</p></td>
-<td><p>Configure the readout buffers specified in this program.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">config_gens</span></code>(soc)</p></td>
-<td><p>Configure the signal generators specified in this program.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">config_readouts</span></code>(soc)</p></td>
-<td><p>Configure the readout channels specified in this program.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">convert_immediate</span></code>(val)</p></td>
-<td><p>Convert the register value to ensure that it is positive and not too large.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">declare_gen</span></code>(ch[, nqz, mixer_freq, ...])</p></td>
-<td><p>Add a channel to the program's list of signal generators.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">declare_readout</span></code>(ch, length[, freq, sel, gen_ch])</p></td>
-<td><p>Add a channel to the program's list of readouts.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_pulse_registers</span></code>(ch, **kwargs)</p></td>
-<td><p>Set default values for pulse parameters.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_readout_registers</span></code>(ch, **kwargs)</p></td>
-<td><p>Set default values for readout parameters.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">dump_prog</span></code>()</p></td>
-<td><p>Dump the program to a dictionary.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_single_shots</span></code>(d_buf)</p></td>
-<td><p>This method converts the raw I/Q data to single shots according to the threshold and rotation angle</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">hex</span></code>()</p></td>
-<td><p>Returns hex representation of program as string.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="qick_measurements.T2.html#qick_measurements.T2.CavitySweep.initialize" title="qick_measurements.T2.CavitySweep.initialize"><code class="xref py py-obj docutils literal notranslate"><span class="pre">initialize</span></code></a>()</p></td>
-<td><p>Abstract method for initializing the program and can include any instructions that are executed once at the beginning of the program.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">label</span></code>(name)</p></td>
-<td><p>Add line number label to the labels dictionary.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_prog</span></code>(progdict)</p></td>
-<td><p>Load the program from a dictionary.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_program</span></code>(soc[, debug, reset])</p></td>
-<td><p>Load the compiled program into the tProcessor.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_pulses</span></code>(soc)</p></td>
-<td><p>Loads pulses that were added using add_pulse into the SoC's signal generator memories.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_program</span></code>()</p></td>
-<td><p>A template program which repeats the instructions defined in the body() method the number of times specified in self.cfg[&quot;reps&quot;].</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">measure</span></code>(adcs, pulse_ch[, pins, ...])</p></td>
-<td><p>Wrapper method that combines an ADC trigger, a pulse, and (optionally) the appropriate wait and a sync_all.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">pulse</span></code>(ch[, t])</p></td>
-<td><p>Play the pulse currently programmed into the registers for this generator channel.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">readout</span></code>(ch, t)</p></td>
-<td><p>Play the pulse currently programmed into the registers for this tProc-controlled readout channel.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reset_phase</span></code>([gen_ch, ro_ch, t])</p></td>
-<td><p>Reset the phase of generator and tproc-controlled readout channels at tproc time t.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">safe_regwi</span></code>(rp, reg, imm[, comment])</p></td>
-<td><p>Due to the way the instructions are setup immediate values can only be 30bits before not loading properly.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_pulse_registers</span></code>(ch, **kwargs)</p></td>
-<td><p>Set the pulse parameters including frequency, phase, address of pulse, gain, stdysel, mode register (compiled from length and other flags), outsel, and length.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_readout_registers</span></code>(ch, **kwargs)</p></td>
-<td><p>Set the readout parameters including frequency, mode, outsel, and length.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">setup_and_measure</span></code>(adcs, pulse_ch[, pins, ...])</p></td>
-<td><p>Set up a pulse on this generator channel, and immediately do a measurement with it.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">setup_and_pulse</span></code>(ch[, t])</p></td>
-<td><p>Set up a pulse on this generator channel, and immediately play it.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">sreg</span></code>(gen_ch, name)</p></td>
-<td><p>Gets tProc special register number associated with a generator channel and register name.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">sreg_ro</span></code>(ro_ch, name)</p></td>
-<td><p>Gets tProc special register number associated with a readout channel and register name.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">sync_all</span></code>([t])</p></td>
-<td><p>Aligns and syncs all channels with additional time t.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">trigger</span></code>([adcs, pins, adc_trig_offset, t, ...])</p></td>
-<td><p>Pulse the readout(s) and marker pin(s) with a specified pulse width at a specified time t+adc_trig_offset.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">wait_all</span></code>([t])</p></td>
-<td><p>Pause the tProc until all ADC readout windows are complete, plus additional time t.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p class="rubric">Attributes</p>
-<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
-<tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">dump_keys</span></code></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#qick_measurements.T2.CavitySweep.__init__" title="qick_measurements.T2.CavitySweep.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(*args, **kwargs)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">gentypes</span></code></p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">body</span></code>()</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">instructions</span></code></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">op_codes</span></code></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">pulse_registers</span></code></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">soccfg_methods</span></code></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">initialize</span></code>()</p></td>
 <td><p></p></td>
 </tr>
 </tbody>

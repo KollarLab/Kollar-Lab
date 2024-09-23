@@ -1,4 +1,4 @@
-﻿Keysight33500B
+Keysight33500B
 ==============
 
 .. currentmodule:: kollar_instruments.Generator

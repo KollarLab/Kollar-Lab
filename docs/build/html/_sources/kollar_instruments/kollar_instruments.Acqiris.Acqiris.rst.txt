@@ -1,4 +1,4 @@
-﻿Acqiris
+Acqiris
 =======
 
 .. currentmodule:: kollar_instruments.Acqiris

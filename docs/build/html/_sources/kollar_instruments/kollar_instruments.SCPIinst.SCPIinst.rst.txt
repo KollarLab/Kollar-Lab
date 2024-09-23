@@ -1,4 +1,4 @@
-﻿SCPIinst
+SCPIinst
 ========
 
 .. currentmodule:: kollar_instruments.SCPIinst

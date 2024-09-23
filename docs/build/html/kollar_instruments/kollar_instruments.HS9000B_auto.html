@@ -387,6 +387,7 @@ document.write(`
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="kollar_instruments.Keithley2400.html">Keithley2400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kollar_instruments.Keysight33622A.html">Keysight33622A</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kollar_instruments.SCPIinst.html">SCPIinst</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kollar_instruments.SGS.html">SGS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kollar_instruments.SGShelper.html">SGShelper</a></li>
@@ -494,10 +495,10 @@ document.write(`
 <p class="rubric">Classes</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">HS9000B</span></code>(address)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#kollar_instruments.HS9000B_auto.HS9000B" title="kollar_instruments.HS9000B_auto.HS9000B"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HS9000B</span></code></a>(address)</p></td>
 <td><p>Holzworth class, currently hard coded to 2 channels. Attributes:     settings: property that returns the settings of the submodules (channels and reference)     ch1, ch2: channel objects with frequency, phase, power, output control     ref: reference objet that controls the reference clock source (INT/EXT) and frequency (10/100MHz).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">channel</span></code>(inst, number)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#kollar_instruments.HS9000B_auto.channel" title="kollar_instruments.HS9000B_auto.channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">channel</span></code></a>(inst, number)</p></td>
 <td><p>Channel object for Holzworth. Very similar to SCPIinst object but with tweaked syntax because Holzworth doesn't follow the SCPI standard... Behavior is pretty much the same: a dictionary of commands is defined and the keys define  properties of the object that are accessed (e.g,: channel.freq queries the instrument and channel.freq = '5GHz' sets the instrument frequency to 5 GHz) All interactions with the instrument happen as queries because that's just how it is not sure why. Attributes:     ID: channel number     inst: pyvisa handle     props: dictionary of commands that can be set/ read from the instrument.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reference</span></code>(inst)</p></td>

@@ -32,19 +32,13 @@ add_module_names = False
 
 templates_path = ['_templates']
 exclude_patterns = [
-    "initialize_hardware", 
-    "exp_globals*", 
-    "measurement_globals*", 
-    "_build", 
-    "_templates", 
-    "rabi_chevron_fit*", 
-    "SketchExpFit*", 
-    "initialize_hardware_FPGA*",
-    "Keithley2400_example*"
-    "exp_globals_FPGA*",
+    "../../utility/SketchExpFit*",
+    "../../pulsed_measurements/rabi_chevron_fit*",
+    "../../kollar_instruments/Keithley2400_example*",
+    "../../kollar_instruments/harmonics*"
 
     ]
-autodoc_mock_imports = ['AqMD3', "hdawg", "pynq", 'xrfdc']
+autodoc_mock_imports = ['AqMD3', "hdawg", "pynq", 'xrfdc', 'qick']
 show_warning_types = True
 suppress_warnings = ['index', 'docutils']
 

@@ -1,4 +1,4 @@
-﻿two\_cavity\_readout
+two\_cavity\_readout
 ====================
 
 .. currentmodule:: pulsed_measurements.schedules.two_cavity_readout

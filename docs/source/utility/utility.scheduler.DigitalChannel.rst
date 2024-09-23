@@ -1,4 +1,4 @@
-﻿DigitalChannel
+DigitalChannel
 ==============
 
 .. currentmodule:: utility.scheduler

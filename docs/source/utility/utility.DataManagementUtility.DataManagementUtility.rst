@@ -1,4 +1,4 @@
-﻿DataManagementUtility
+DataManagementUtility
 =====================
 
 .. currentmodule:: utility.DataManagementUtility

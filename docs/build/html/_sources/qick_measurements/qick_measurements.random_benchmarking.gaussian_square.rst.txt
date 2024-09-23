@@ -1,4 +1,4 @@
-﻿gaussian\_square
+gaussian\_square
 ================
 
 .. currentmodule:: qick_measurements.random_benchmarking

@@ -1,4 +1,4 @@
-﻿keithley
+keithley
 ========
 
 .. currentmodule:: kollar_instruments.Keithley2400

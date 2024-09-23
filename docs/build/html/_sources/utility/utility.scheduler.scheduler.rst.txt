@@ -1,4 +1,4 @@
-﻿scheduler
+scheduler
 =========
 
 .. currentmodule:: utility.scheduler

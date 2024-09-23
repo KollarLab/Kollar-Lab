@@ -214,6 +214,22 @@ document.write(`
 `);
 </script></div>
       
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MRitter95/Kollar-Lab" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
     </div>
     
   </div>
@@ -323,6 +339,22 @@ document.write(`
   </button>
 `);
 </script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MRitter95/Kollar-Lab" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
         
       </div>
     
@@ -449,8 +481,6 @@ document.write(`
 <span class="sd">    by an empirical buffer defined in the config file. </span>
 <span class="sd">    &#39;&#39;&#39;</span>
     
-<div class="viewcode-block" id="IQProgram_RB.initialize">
-<a class="viewcode-back" href="../../qick_measurements/qick_measurements.random_benchmarking.html#qick_measurements.random_benchmarking.IQProgram_RB.initialize">[docs]</a>
     <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">cfg</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cfg</span>   
         <span class="n">gen_ch</span>  <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;cav_channel&quot;</span><span class="p">]</span>
@@ -479,6 +509,7 @@ document.write(`
 
 
         <span class="n">freq_q</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">freq2reg</span><span class="p">(</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;qub_freq&quot;</span><span class="p">],</span> <span class="n">gen_ch</span> <span class="o">=</span> <span class="n">qub_ch</span><span class="p">)</span> <span class="c1">#, ro_ch = ro_chs[0])</span>
+
         <span class="n">phase_q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">deg2reg</span><span class="p">(</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;qub_phase&quot;</span><span class="p">],</span> <span class="n">gen_ch</span> <span class="o">=</span> <span class="n">gen_ch</span><span class="p">)</span> <span class="c1">#should this be gen_ch? </span>
         <span class="n">gain_q</span>  <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;qub_gain&quot;</span><span class="p">]</span>
         
@@ -490,8 +521,7 @@ document.write(`
                            <span class="n">qdata</span> <span class="o">=</span> <span class="n">pulse</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">soccfg</span><span class="p">[</span><span class="s1">&#39;gens&#39;</span><span class="p">][</span><span class="n">qub_ch</span><span class="p">][</span><span class="s1">&#39;maxv&#39;</span><span class="p">])</span> <span class="p">)</span>
         
         
-        <span class="bp">self</span><span class="o">.</span><span class="n">synci</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>  <span class="c1"># give processor some time to configure pulses</span></div>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">synci</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>  <span class="c1"># give processor some time to configure pulses</span>
     
     
   
@@ -527,7 +557,6 @@ document.write(`
                                 <span class="o">+</span> <span class="n">pulse_len</span><span class="o">*</span><span class="p">(</span> <span class="nb">len</span><span class="p">(</span> <span class="n">cfg</span><span class="p">[</span><span class="s1">&#39;pulse_schedule&#39;</span><span class="p">]</span> <span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">)</span> 
                                 <span class="o">+</span> <span class="n">buffer</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span> <span class="n">cfg</span><span class="p">[</span><span class="s1">&#39;pulse_schedule&#39;</span><span class="p">]</span> <span class="p">)</span> <span class="p">)</span>
         
-        
         <span class="n">plot_pulse_I</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">plot_pulse_Q</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="w">        </span>
@@ -539,6 +568,7 @@ document.write(`
 <span class="sd">            #print( &quot;we have played the pulse {} at t = {}&quot;.format( item, playtime ) )</span>
 <span class="sd">            </span>
 <span class="sd">            #print(self.cycles2us( (38320-32128)/16, gen_ch = qub_ch))</span>
+
 <span class="sd">            </span>
 <span class="sd">            for i in range( len ( cfg[&quot;pulse_data&quot;] ) ):</span>
 <span class="sd">                if item == cfg[&quot;pulse_data&quot;][i][0]:</span>
@@ -575,7 +605,6 @@ document.write(`
                     <span class="n">plot_pulse_I</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">buff_zero</span><span class="p">)</span>
                     <span class="n">plot_pulse_Q</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">gate</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
                     <span class="n">plot_pulse_Q</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">buff_zero</span><span class="p">)</span>
-
 
 
         <span class="n">cfg</span><span class="p">[</span><span class="s1">&#39;pulse_plot&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">plot_pulse_I</span><span class="p">,</span> <span class="n">plot_pulse_Q</span><span class="p">]</span>
@@ -692,7 +721,7 @@ document.write(`
 <div class="viewcode-block" id="random_seq_gen">
 <a class="viewcode-back" href="../../qick_measurements/qick_measurements.random_benchmarking.html#qick_measurements.random_benchmarking.random_seq_gen">[docs]</a>
 <span class="k">def</span> <span class="nf">random_seq_gen</span><span class="p">(</span><span class="n">config_dict</span><span class="p">):</span>
-<span class="w">    </span>
+<span class="w">   </span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    This function generates the RB schedule, both the total schedule and the truncated schedule for a given run.</span>
 <span class="sd">    It also calculates and then adds the required pulse to return an ideal qubit back to the ground state at the end of the schedule.</span>
@@ -738,6 +767,8 @@ document.write(`
 <span class="k">def</span> <span class="nf">meas_pulse</span><span class="p">(</span><span class="n">config_dict</span><span class="p">):</span>
         
     <span class="n">cfg</span> <span class="o">=</span> <span class="n">config_dict</span>
+
+<span class="w">     </span>
 <span class="w">    </span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    This section takes the density matrix of the initial state and operates on it with the rotation matrices of each </span>
@@ -773,7 +804,7 @@ document.write(`
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
             <span class="n">state</span><span class="p">[</span><span class="n">count</span><span class="p">]</span><span class="o">.</span><span class="n">real</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">real</span><span class="o">*</span><span class="mi">0</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-            <span class="n">state</span><span class="p">[</span><span class="n">count</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">imag</span><span class="o">*</span><span class="mi">0</span>
+            <span class="n">state</span><span class="p">[</span><span class="n">count</span><span class="p">]</span><span class="o">.</span><span class="n">imag</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">imag</span><span class="o">*</span><span class="mi">0</span>    
 
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    The following section puts the state we&#39;re left with in the conventional format that quantum states are written out in.</span>
@@ -863,8 +894,8 @@ document.write(`
             <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;pulse_schedule&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;pulse_data&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
             <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;added </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;pulse_data&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]))</span>
     
-    
     <span class="k">return</span> <span class="n">config_dict</span>
+
 
 
 
@@ -887,6 +918,7 @@ document.write(`
     <span class="n">settings</span><span class="p">[</span><span class="s1">&#39;buffer&#39;</span><span class="p">]</span>         <span class="o">=</span> <span class="mf">.1</span> <span class="c1">#[us]</span>
     <span class="n">settings</span><span class="p">[</span><span class="s1">&#39;gen_new&#39;</span><span class="p">]</span>        <span class="o">=</span> <span class="kc">True</span>
     <span class="n">settings</span><span class="p">[</span><span class="s1">&#39;gen_num&#39;</span><span class="p">]</span>        <span class="o">=</span> <span class="mi">2</span>
+
     <span class="n">settings</span><span class="p">[</span><span class="s1">&#39;num_gates&#39;</span><span class="p">]</span>      <span class="o">=</span> <span class="mi">10</span>
     <span class="n">settings</span><span class="p">[</span><span class="s1">&#39;used_gates&#39;</span><span class="p">]</span>     <span class="o">=</span> <span class="mi">1</span>
    
@@ -957,8 +989,9 @@ document.write(`
         <span class="s1">&#39;soft_avgs&#39;</span>       <span class="p">:</span> <span class="n">exp_settings</span><span class="p">[</span><span class="s1">&#39;soft_avgs&#39;</span><span class="p">]</span>
         <span class="p">}</span>
     
+
     <span class="c1"># The following section sets up the I and Q data for each of the standard pulses</span>
-    
+  
     <span class="n">x_pulse</span> <span class="o">=</span> <span class="n">pauli_gates</span><span class="p">[</span><span class="s1">&#39;x_pulse&#39;</span><span class="p">]</span>
     <span class="n">y_pulse</span> <span class="o">=</span> <span class="n">pauli_gates</span><span class="p">[</span><span class="s1">&#39;y_pulse&#39;</span><span class="p">]</span>
     <span class="n">x2_pulse</span> <span class="o">=</span> <span class="n">pauli_gates</span><span class="p">[</span><span class="s1">&#39;x2_pulse&#39;</span><span class="p">]</span>

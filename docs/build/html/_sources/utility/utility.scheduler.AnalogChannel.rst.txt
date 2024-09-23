@@ -1,4 +1,4 @@
-﻿AnalogChannel
+AnalogChannel
 =============
 
 .. currentmodule:: utility.scheduler

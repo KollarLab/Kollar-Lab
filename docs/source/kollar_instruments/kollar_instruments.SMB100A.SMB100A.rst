@@ -1,4 +1,4 @@
-﻿SMB100A
+SMB100A
 =======
 
 .. currentmodule:: kollar_instruments.SMB100A

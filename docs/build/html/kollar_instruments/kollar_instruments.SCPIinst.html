@@ -43,7 +43,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Module" href="kollar_instruments.SCPIinst.Module.html" />
-    <link rel="prev" title="keithley" href="kollar_instruments.Keithley2400.keithley.html" />
+    <link rel="prev" title="Keysight33622A" href="kollar_instruments.Keysight33622A.Keysight33622A.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -380,6 +380,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="kollar_instruments.HS9000B.html">HS9000B</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kollar_instruments.HS9000B_auto.html">HS9000B_auto</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kollar_instruments.Keithley2400.html">Keithley2400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kollar_instruments.Keysight33622A.html">Keysight33622A</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">SCPIinst</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="kollar_instruments.SCPIinst.Module.html">Module</a></li>
 <li class="toctree-l3"><a class="reference internal" href="kollar_instruments.SCPIinst.SCPIinst.html">SCPIinst</a></li>
@@ -498,10 +499,10 @@ document.write(`
 <p class="rubric">Classes</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Module</span></code>(inst, commands, errcmd)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#kollar_instruments.SCPIinst.Module" title="kollar_instruments.SCPIinst.Module"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Module</span></code></a>(inst, commands, errcmd)</p></td>
 <td><p>Module is a class that holds a collection of scpi commands/ properties. It overwrites the standard getattr and setattr object functions to replace them with a SCPI function call. Currently it does not allow for submodules but this could be implemented in the future. TO DO: add recursive option for modules,  add general mapping from instrument return value to &quot;useful&quot; value (cast 0/1  to &quot;On&quot;/&quot;Off&quot; for example), add bound checking for settings like frequency Properties:     inst: handle to SCPI inst object where all the commands get sent     commands: dictionary of the SCPI command strings and &quot;key&quot;, i.e. properties     the can be queried by the user     errcmd: dictionnary holding the error command (or commands for some instruments)     to perform error checking after applying a setting.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">SCPIinst</span></code>(address, commands, errcmd[, reset, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#kollar_instruments.SCPIinst.SCPIinst" title="kollar_instruments.SCPIinst.SCPIinst"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SCPIinst</span></code></a>(address, commands, errcmd[, reset, ...])</p></td>
 <td><p>Base class for all single channel instruments that use the SCPI standard. The idea is that the user can specify the basic commands for each property of the instrument in a dictionary and structure the property &quot;chunks&quot; into submodules. The base case usage is: instrument.setting (where setting is a prop) For example, an SGS might have a set of settings relating to the reference clock (internal/ external,  freq etc.), by making a subdictionary in the main &quot;commandset&quot; dictionary this code will create  submodules that can be accessed as SGS.submodule.property Properties:     address: the VISA address of the instrument     commands: the dictionary holding all the SCPI commands for the properties of the instrument. Can     include subdictionaries if submodules are a natural description of the instrument     errcmd: dictionary holding the basic error checking commands for the instrument     reset: boolean flag that sets whether the reset command is sent to the device, default: True     baud_rate: baud_rate for USB/ serial connections, defaults to 115200.</p></td>
 </tr>
 </tbody>
@@ -579,12 +580,12 @@ This function can be overwritten if the instrument does not follow the standard.
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="kollar_instruments.Keithley2400.keithley.html"
+       href="kollar_instruments.Keysight33622A.Keysight33622A.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">keithley</p>
+        <p class="prev-next-title">Keysight33622A</p>
       </div>
     </a>
     <a class="right-next"

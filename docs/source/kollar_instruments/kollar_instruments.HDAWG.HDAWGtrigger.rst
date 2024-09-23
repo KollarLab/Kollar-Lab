@@ -1,4 +1,4 @@
-﻿HDAWGtrigger
+HDAWGtrigger
 ============
 
 .. currentmodule:: kollar_instruments.HDAWG

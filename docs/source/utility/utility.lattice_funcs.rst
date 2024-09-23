@@ -10,6 +10,7 @@ lattice\_funcs
    .. autosummary::
    
       calibration_flux
+      calibration_plot
       calibration_slope
       flux2v_generator
       full_data_fit

@@ -1,4 +1,4 @@
-﻿measurement
+measurement
 ===========
 
 .. currentmodule:: pulsed_measurements.schedules.simple_sweep

@@ -1,4 +1,4 @@
-﻿HDAWGchannel
+HDAWGchannel
 ============
 
 .. currentmodule:: kollar_instruments.HDAWG

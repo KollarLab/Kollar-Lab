@@ -1,4 +1,4 @@
-﻿schedule\_driver
+schedule\_driver
 ================
 
 .. currentmodule:: pulsed_measurements.schedule_runner_test

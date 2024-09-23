@@ -1,4 +1,4 @@
-﻿simple\_sweeper
+simple\_sweeper
 ===============
 
 .. currentmodule:: pulsed_measurements.schedules.simple_sweep

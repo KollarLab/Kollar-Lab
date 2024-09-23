@@ -214,6 +214,22 @@ document.write(`
 `);
 </script></div>
       
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MRitter95/Kollar-Lab" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
     </div>
     
   </div>
@@ -323,6 +339,22 @@ document.write(`
   </button>
 `);
 </script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MRitter95/Kollar-Lab" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
         
       </div>
     
@@ -444,9 +476,18 @@ document.write(`
 <div class="viewcode-block" id="T1_sequence">
 <a class="viewcode-back" href="../../qick_measurements/qick_measurements.T1.T1_sequence.html#qick_measurements.T1.T1_sequence">[docs]</a>
 <span class="k">class</span> <span class="nc">T1_sequence</span><span class="p">(</span><span class="n">AveragerProgram</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    T1_sequence _summary_</span>
+
+<span class="sd">    :param AveragerProgram: _description_</span>
+<span class="sd">    :type AveragerProgram: _type_</span>
+<span class="sd">    &#39;&#39;&#39;</span>    
 <div class="viewcode-block" id="T1_sequence.initialize">
 <a class="viewcode-back" href="../../qick_measurements/qick_measurements.T1.html#qick_measurements.T1.T1_sequence.initialize">[docs]</a>
     <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        initialize _summary_</span>
+<span class="sd">        &#39;&#39;&#39;</span>        
         <span class="n">cfg</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span>   
         <span class="n">gen_ch</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;cav_channel&quot;</span><span class="p">]</span>
         <span class="n">qub_ch</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;qub_channel&quot;</span><span class="p">]</span>
@@ -489,8 +530,6 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">synci</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>   </div>
 
     
-<div class="viewcode-block" id="T1_sequence.body">
-<a class="viewcode-back" href="../../qick_measurements/qick_measurements.T1.html#qick_measurements.T1.T1_sequence.body">[docs]</a>
     <span class="k">def</span> <span class="nf">body</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1">#The body sets the pulse sequence, it runs through it a number of times specified by &quot;reps&quot; and takes averages</span>
         <span class="c1">#specified by &quot;soft_averages.&quot; Both are required if you wish to acquire_decimated, only &quot;reps&quot; is otherwise.</span>
@@ -510,14 +549,11 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">pulse</span><span class="p">(</span><span class="n">ch</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;cav_channel&quot;</span><span class="p">],</span><span class="n">t</span><span class="o">=</span><span class="n">meas_time</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">wait_all</span><span class="p">()</span> <span class="c1">#Tells TProc to wait until pulses are complete before sending out the next command</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sync_all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">us2cycles</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;relax_delay&quot;</span><span class="p">]))</span> <span class="c1">#Syncs to an offset time after the final pulse is sent</span></div>
-</div>
 
 
 <div class="viewcode-block" id="CavitySweep">
 <a class="viewcode-back" href="../../qick_measurements/qick_measurements.T1.CavitySweep.html#qick_measurements.T1.CavitySweep">[docs]</a>
 <span class="k">class</span> <span class="nc">CavitySweep</span><span class="p">(</span><span class="n">AveragerProgram</span><span class="p">):</span>
-<div class="viewcode-block" id="CavitySweep.initialize">
-<a class="viewcode-back" href="../../qick_measurements/qick_measurements.T1.html#qick_measurements.T1.CavitySweep.initialize">[docs]</a>
     <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">cfg</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span>   
         <span class="n">gen_ch</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;cav_channel&quot;</span><span class="p">]</span>
@@ -545,11 +581,8 @@ document.write(`
         
         <span class="c1"># give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?</span>
         <span class="c1"># Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">synci</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>   </div>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">synci</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>   
     
-<div class="viewcode-block" id="CavitySweep.body">
-<a class="viewcode-back" href="../../qick_measurements/qick_measurements.T1.html#qick_measurements.T1.CavitySweep.body">[docs]</a>
     <span class="k">def</span> <span class="nf">body</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1">#The body sets the pulse sequence, it runs through it a number of times specified by &quot;reps&quot; and takes averages</span>
         <span class="c1">#specified by &quot;soft_averages.&quot; Both are required if you wish to acquire_decimated, only &quot;reps&quot; is otherwise.</span>
@@ -564,7 +597,6 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">pulse</span><span class="p">(</span><span class="n">ch</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;cav_channel&quot;</span><span class="p">],</span><span class="n">t</span><span class="o">=</span><span class="n">meas_time</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">wait_all</span><span class="p">()</span> <span class="c1">#Tells TProc to wait until pulses are complete before sending out the next command</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sync_all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">us2cycles</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;relax_delay&quot;</span><span class="p">]))</span></div>
-</div>
 
 
 
@@ -593,7 +625,22 @@ document.write(`
     
     <span class="k">return</span> <span class="n">settings</span>
 
+<div class="viewcode-block" id="meas_T1">
+<a class="viewcode-back" href="../../qick_measurements/qick_measurements.T1.html#qick_measurements.T1.meas_T1">[docs]</a>
 <span class="k">def</span> <span class="nf">meas_T1</span><span class="p">(</span><span class="n">soc</span><span class="p">,</span><span class="n">soccfg</span><span class="p">,</span><span class="n">instruments</span><span class="p">,</span><span class="n">settings</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    meas_T1 - This function is the core of the T1 script</span>
+
+<span class="sd">    :param soc: _description_</span>
+<span class="sd">    :type soc: _type_</span>
+<span class="sd">    :param soccfg: _description_</span>
+<span class="sd">    :type soccfg: _type_</span>
+<span class="sd">    :param instruments: _description_</span>
+<span class="sd">    :type instruments: _type_</span>
+<span class="sd">    :param settings: _description_</span>
+<span class="sd">    :type settings: _type_</span>
+<span class="sd">    &#39;&#39;&#39;</span>    
+
     <span class="n">exp_globals</span>  <span class="o">=</span> <span class="n">settings</span><span class="p">[</span><span class="s1">&#39;exp_globals&#39;</span><span class="p">]</span>
     <span class="n">exp_settings</span> <span class="o">=</span> <span class="n">settings</span><span class="p">[</span><span class="s1">&#39;exp_settings&#39;</span><span class="p">]</span> 
     <span class="n">m_pulse</span>      <span class="o">=</span> <span class="n">exp_globals</span><span class="p">[</span><span class="s1">&#39;measurement_pulse&#39;</span><span class="p">]</span>
@@ -780,7 +827,8 @@ document.write(`
     <span class="k">if</span> <span class="n">exp_globals</span><span class="p">[</span><span class="s1">&#39;LO&#39;</span><span class="p">]:</span>
         <span class="n">logen</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="mi">0</span>
 
-    <span class="k">return</span> <span class="n">T1</span><span class="p">,</span> <span class="n">taus</span><span class="p">,</span> <span class="n">amp_int</span>
+    <span class="k">return</span> <span class="n">T1</span><span class="p">,</span> <span class="n">taus</span><span class="p">,</span> <span class="n">amp_int</span></div>
+
    
     
 

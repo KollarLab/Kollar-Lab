@@ -1,4 +1,4 @@
-﻿SGS100A
+SGS100A
 =======
 
 .. currentmodule:: kollar_instruments.SGS

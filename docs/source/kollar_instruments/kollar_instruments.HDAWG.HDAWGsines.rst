@@ -1,4 +1,4 @@
-﻿HDAWGsines
+HDAWGsines
 ==========
 
 .. currentmodule:: kollar_instruments.HDAWG

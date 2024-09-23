@@ -214,6 +214,22 @@ document.write(`
 `);
 </script></div>
       
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MRitter95/Kollar-Lab" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
+      
     </div>
     
   </div>
@@ -323,6 +339,22 @@ document.write(`
   </button>
 `);
 </script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MRitter95/Kollar-Lab" title="Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Github</span></a>
+        </li>
+</ul></div>
         
       </div>
     
@@ -441,8 +473,6 @@ document.write(`
 <div class="viewcode-block" id="PulsedSpec">
 <a class="viewcode-back" href="../../../qick_measurements/qick_measurements.Other_Scripts.rabi_rate.PulsedSpec.html#qick_measurements.Other_Scripts.rabi_rate.PulsedSpec">[docs]</a>
 <span class="k">class</span> <span class="nc">PulsedSpec</span><span class="p">(</span><span class="n">AveragerProgram</span><span class="p">):</span>
-<div class="viewcode-block" id="PulsedSpec.initialize">
-<a class="viewcode-back" href="../../../qick_measurements/qick_measurements.Other_Scripts.rabi_rate.html#qick_measurements.Other_Scripts.rabi_rate.PulsedSpec.initialize">[docs]</a>
     <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">cfg</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span>   
         <span class="n">gen_ch</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;cav_channel&quot;</span><span class="p">]</span>
@@ -483,11 +513,8 @@ document.write(`
         
         <span class="c1"># give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?</span>
         <span class="c1"># Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">synci</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>   </div>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">synci</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>   
     
-<div class="viewcode-block" id="PulsedSpec.body">
-<a class="viewcode-back" href="../../../qick_measurements/qick_measurements.Other_Scripts.rabi_rate.html#qick_measurements.Other_Scripts.rabi_rate.PulsedSpec.body">[docs]</a>
     <span class="k">def</span> <span class="nf">body</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1">#The body sets the pulse sequence, it runs through it a number of times specified by &quot;reps&quot; and takes averages</span>
         <span class="c1">#specified by &quot;soft_averages.&quot; Both are required if you wish to acquire_decimated, only &quot;reps&quot; is otherwise.</span>
@@ -507,7 +534,6 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">pulse</span><span class="p">(</span><span class="n">ch</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;cav_channel&quot;</span><span class="p">],</span><span class="n">t</span><span class="o">=</span><span class="n">meas_time</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">wait_all</span><span class="p">()</span> <span class="c1">#Tells TProc to wait until pulses are complete before sending out the next command</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sync_all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">us2cycles</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;relax_delay&quot;</span><span class="p">]))</span> <span class="c1">#Syncs to an offset time after the final pulse is sent</span></div>
-</div>
 
 
 

@@ -1,4 +1,4 @@
-﻿DigitalChannel
+DigitalChannel
 ==============
 
 .. currentmodule:: pulsed_measurements.schedules.scheduler_v2

@@ -1,4 +1,4 @@
-﻿VNA
+VNA
 ===
 
 .. currentmodule:: kollar_instruments.VNA
