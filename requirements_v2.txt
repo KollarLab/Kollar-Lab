@@ -1,0 +1,8 @@
+python 3.10 (Acqiris drivers only compiled up to 3.10)
+scikit-image (only used for old ellipse fitting stuff)
+matplotlib
+scipy
+pyvisa
+bidict
+zhinst (22.8.3)
+lmfit

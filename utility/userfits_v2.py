@@ -4,22 +4,121 @@ from scipy.optimize import curve_fit
 from scipy.signal import periodogram
 
 def T1_model(t_ax, amp, offset, tau):
+    '''
+    T1_model _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param tau: _description_
+    :type tau: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     return np.exp(-t_ax/tau)*amp+offset
 
 def T2_model(t_ax, amp, offset, tau, freq, phi):
+    '''
+    T2_model _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param tau: _description_
+    :type tau: _type_
+    :param freq: _description_
+    :type freq: _type_
+    :param phi: _description_
+    :type phi: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     return amp*np.cos(2*np.pi*freq*t_ax+phi)*np.exp(-t_ax/tau)+offset
 
+def T2_gaussian_model(t_ax, amp, off, freq, phi, amp_scale, offset, center, tphi):
+    # t1_decay = 1 #np.exp(-t_ax/(2*T1))
+    return np.exp(-(t_ax-center)**2/(tphi**2))*amp*np.cos(2*np.pi*t_ax*freq+phi)+off
+
+def ring_up_model(t_ax, amp, offset, tau, freq, phi):
+    return amp*np.cos(2*np.pi*freq*t_ax+phi)*(1-np.exp(-t_ax/tau))+offset
+
 def cos_model(t_ax, amp, offset, freq, phi):
+    '''
+    cos_model _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param freq: _description_
+    :type freq: _type_
+    :param phi: _description_
+    :type phi: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     return amp*np.cos(2*np.pi*t_ax*freq+phi)+offset
 
 def gaussian_model(f_ax, amp, offset, center, sigma):
+    '''
+    gaussian_model _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param center: _description_
+    :type center: _type_
+    :param sigma: _description_
+    :type sigma: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     exponent = -(f_ax-center)**2/(2*sigma**2)
     return offset+amp/(sigma*np.sqrt(2*np.pi))*np.exp(exponent)
 
 def lorenztian_model(f_ax, amp, offset, center, sigma):
+    '''
+    lorenztian_model _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amp: _description_
+    :type amp: _type_
+    :param offset: _description_
+    :type offset: _type_
+    :param center: _description_
+    :type center: _type_
+    :param sigma: _description_
+    :type sigma: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     return offset+amp/np.pi*(sigma/((f_ax-center)**2+sigma**2))
 
-def T1_guess(t_ax, amps, plot=False):
+def T1_guess(t_ax, amps, plot=False, verbose=False):
+    '''
+    T1_guess _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :param plot: _description_, defaults to False
+    :type plot: bool, optional
+    :return: _description_
+    :rtype: _type_
+    '''    
     #Amplitude guess
     amp_guess = amps[0]-amps[-1]
     #Offset guess
@@ -38,7 +137,19 @@ def T1_guess(t_ax, amps, plot=False):
     
     return [amp_guess, off_guess, tau_guess]
 
-def cos_guess(t_ax, amps, plot=False):
+def cos_guess(t_ax, amps, plot=False, verbose=False):
+    '''
+    cos_guess _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :param plot: _description_, defaults to False
+    :type plot: bool, optional
+    :return: _description_
+    :rtype: _type_
+    '''    
     #Amplitude guess
     amp_guess = (max(amps)-min(amps))/2
     #Offset guess
@@ -56,17 +167,30 @@ def cos_guess(t_ax, amps, plot=False):
     except:
         print('Phi guess out of range')
         phi_guess = 0
-    print(init_amp)
-    print(max_contrast)
+    if verbose:
+        print(init_amp)
+        print(max_contrast)
     phi_guess = 0
     if init_slope>0:
         phi_guess+=np.pi
 
     return [amp_guess, off_guess, freq_guess, phi_guess]
 
-def T2_guess(t_ax, amps, plot=False):
+def T2_guess(t_ax, amps, plot=False, verbose=False):
+    '''
+    T2_guess _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :param plot: _description_, defaults to False
+    :type plot: bool, optional
+    :return: _description_
+    :rtype: _type_
+    '''    
     
-    [amp_guess, off_guess, freq_guess, phi_guess] = cos_guess(t_ax, amps)
+    [amp_guess, off_guess, freq_guess, phi_guess] = cos_guess(t_ax, amps, verbose)
     fs = 1./np.mean(np.diff(t_ax))
     #Tau guess
     tau_max = 5*t_ax[-1]
@@ -92,7 +216,45 @@ def T2_guess(t_ax, amps, plot=False):
 
     return [amp_guess, off_guess, tau_guess, freq_guess, phi_guess]
 
-def peak_guess(f_ax, amps):
+def ring_up_guess(t_ax, amps, plot=False, verbose=False):
+    
+    [amp_guess, off_guess, freq_guess, phi_guess] = cos_guess(t_ax, amps, verbose)
+    fs = 1./np.mean(np.diff(t_ax))
+    #Tau guess
+    tau_max = 5*t_ax[-1]
+    norm = np.abs(amps-off_guess)
+    pt_per_period = int(fs/freq_guess)
+    #Average out the oscillations but dividing the array into chunks that
+    #are roughly a period before taking the mean
+    num_periods = int(np.floor(len(norm)/pt_per_period))
+    filtered_data = np.split(norm[:num_periods*pt_per_period], num_periods)
+    envelope = np.mean(filtered_data, 1)
+    new_time = np.linspace(t_ax[0], t_ax[-1], num_periods)
+    
+    try:
+        [m,b] = np.polyfit(new_time[:10], np.log(envelope[-1]-envelope[:10]),1)
+        tau_guess = -1/m
+        if tau_guess<0:
+            tau_guess = tau_max
+    except:
+        tau_guess = tau_max
+
+    if plot:
+        plt.plot(t_ax, envelope)
+
+    return [amp_guess, off_guess, tau_guess, freq_guess, 0*phi_guess]
+
+def peak_guess(f_ax, amps, verbose=False):
+    '''
+    peak_guess _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     #check if we have a hanger vs a peak type feature
     edge = np.mean(amps[:5])
     min_val = min(amps)
@@ -133,24 +295,101 @@ def peak_guess(f_ax, amps):
     scaled_amp = amp_guess
     return [scaled_amp*flip, offset_guess+add_off*edge, center_guess, sigma_guess]
 
-def gaussian_guess(f_ax, amps):
-    [amp, offset, center, sigma] = peak_guess(f_ax, amps)
+def gaussian_guess(f_ax, amps, verbose=False):
+    '''
+    gaussian_guess _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
+    [amp, offset, center, sigma] = peak_guess(f_ax, amps, verbose)
     sigma = sigma/np.sqrt(2*np.log(2))
     amp_scale = amp*np.sqrt(2*np.pi)*sigma
     return [amp_scale, offset, center, sigma]
 
-def lorenztian_guess(f_ax, amps):
-    [amp, offset, center, sigma] = peak_guess(f_ax, amps)
+def T2_gaussian_guess(t_ax, amps, plot=False, verbose=False):
+    
+    [amp_guess, off_guess, freq_guess, phi_guess] = cos_guess(t_ax, amps, verbose)
+    #Removing T1 component
+    #amps = amps*np.exp(t_ax/(2*T1))
+    fs = 1./np.mean(np.diff(t_ax))
+    #T_Phi guess
+    tau_max = 5*t_ax[-1]
+    norm = np.abs(amps-off_guess)
+    pt_per_period = int(fs/freq_guess)
+    #Average out the oscillations but dividing the array into chunks that
+    #are roughly a period before taking the mean
+    num_periods = int(np.floor(len(norm)/pt_per_period))
+    filtered_data = np.split(norm[:num_periods*pt_per_period], num_periods)
+    envelope = np.mean(filtered_data, 1)
+    new_time = np.linspace(t_ax[0], t_ax[-1], num_periods)
+    #mirror the data along y axis to make a gaussian envelope
+    envelope_mirror = np.flip(envelope)
+    new_time_mirror = np.flip(new_time)*-1
+    envelope = np.hstack((envelope_mirror,envelope))
+    new_time = np.hstack((new_time_mirror,new_time))
+    
+    try:
+        [amp_scale_guess, offset_guess, center_guess, sigma_guess] = gaussian_guess(new_time, envelope, verbose)
+        tphi = np.sqrt(2)*sigma_guess
+        if sigma_guess<0:
+            print('tau is negative')
+            sigma_guess = tau_max # this is wrong!
+    except:
+        sigma_guess = tau_max
+        print('gaussian fit failed') # this is wrong!
+
+    if plot:
+        plt.plot(t_ax, envelope)
+        
+    return [amp_guess, off_guess, freq_guess, phi_guess, amp_scale_guess, offset_guess, center_guess, tphi]
+
+def lorenztian_guess(f_ax, amps, verbose=False):
+    '''
+    lorenztian_guess _summary_
+
+    :param f_ax: _description_
+    :type f_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
+    [amp, offset, center, sigma] = peak_guess(f_ax, amps, verbose)
     amp_scale = amp*np.pi*sigma
     return [amp_scale, offset, center, sigma]
 
 def create_param_dict(names, vals):
+    '''
+    create_param_dict _summary_
+
+    :param names: _description_
+    :type names: _type_
+    :param vals: _description_
+    :type vals: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     params = {}
     for name, val in zip(names, vals):
         params[name] = val
     return params
 
 def convert_prefix(string, val):
+    '''
+    convert_prefix _summary_
+
+    :param string: _description_
+    :type string: _type_
+    :param val: _description_
+    :type val: _type_
+    :return: _description_
+    :rtype: _type_
+    '''    
     SI = {
         'n':1e-9,
         'u':1e-6,
@@ -163,32 +402,68 @@ def convert_prefix(string, val):
     prefix = string[0]
     return val/SI[prefix]
 
-def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None):
+def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None, verbose=False):
+    '''
+    fit_model _summary_
+
+    :param t_ax: _description_
+    :type t_ax: _type_
+    :param amps: _description_
+    :type amps: _type_
+    :param model: _description_
+    :type model: _type_
+    :param plot: _description_, defaults to False
+    :type plot: bool, optional
+    :param guess: _description_, defaults to None
+    :type guess: _type_, optional
+    :param ax: _description_, defaults to None
+    :type ax: _type_, optional
+    :return: _description_
+    :rtype: _type_
+    '''    
     xlabel = 'Time (us)'
     scale = 1e-6
     if model=='T1':
         fit_func = T1_model
         guess_func = T1_guess
         params = ['amp', 'offset', 'tau']
-        key_params = ['tau']
+        key_names = ['tau']
+        key_params = ['$\\tau$']
         units = ['us']
     elif model=='T2':
         fit_func = T2_model
         guess_func = T2_guess
         params = ['amp', 'offset', 'tau', 'freq', 'phi']
-        key_params = ['tau', 'freq']
+        key_names = ['tau', 'freq']
+        key_params = ['$\\tau$', '$f_0$']
+        units = ['us', 'MHz']
+    elif model=='T2_gaussian':
+        fit_func = T2_gaussian_model
+        guess_func = T2_gaussian_guess
+        params = ['amp','off', 'freq', 'phi', 'amp_scale', 'offset', 'center', 'tphi']
+        key_names = ['tphi', 'freq']
+        key_params = ['$\\tau$', '$f_0$']
+        units = ['us', 'MHz']
+    elif model=='ring_up':
+        fit_func = ring_up_model
+        guess_func = ring_up_guess
+        params = ['amp', 'offset', 'tau', 'freq', 'phi']
+        key_names = ['tau', 'freq']
+        key_params = ['$\\tau$', '$f_0$']
         units = ['us', 'MHz']
     elif model=='cos':
         fit_func = cos_model
         guess_func = cos_guess
         params = ['amp', 'offset', 'freq', 'phi']
-        key_params = ['freq']
+        key_names = ['freq']
+        key_params = ['$f_0$']
         units = ['MHz']
     elif model=='gauss':
         fit_func = gaussian_model
         guess_func = gaussian_guess
         params = ['amp', 'offset', 'center', 'sigma']
-        key_params = ['center', 'sigma']
+        key_names = ['center', 'sigma']
+        key_params = ['$f_0$', '$\sigma$']
         units = ['GHz', 'MHz']
         xlabel = 'Freq (GHz)'
         scale = 1e9
@@ -196,7 +471,8 @@ def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None):
         fit_func = lorenztian_model
         guess_func = lorenztian_guess
         params = ['amp', 'offset', 'center', 'sigma']
-        key_params = ['center', 'sigma']
+        key_names = ['center', 'sigma']
+        key_params = ['$f_0$', '$\sigma$']
         units = ['GHz', 'MHz']
         xlabel = 'Freq (GHz)'
         scale = 1e9
@@ -205,7 +481,7 @@ def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None):
         return {}
     
     if not guess:
-        guess = guess_func(t_ax, amps) 
+        guess = guess_func(t_ax, amps, verbose) 
         
     fit_params, pcov = curve_fit(fit_func, t_ax, amps, guess)
 
@@ -218,10 +494,10 @@ def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None):
         ax.plot(t_ax/scale, amps, label='Data')
         ax.plot(t_ax_fit/scale, fit_func(t_ax_fit, *guess), label='Init guess')
         ax.plot(t_ax_fit/scale, fit_func(t_ax_fit, *fit_params), label='Best Fit')
-        base_string = 'Fit results, model:{}'.format(model)
-        for p,u in zip(key_params, units):
-            param_val = convert_prefix(u,param_dict[p])
-            base_string+=',{}:{:.5f}{}'.format(p, param_val,u)
+        base_string = 'Model:{}\n'.format(model)
+        for p,n,u in zip(key_params, key_names, units):
+            param_val = convert_prefix(u,param_dict[n])
+            base_string+='{}: {:.5f}{} '.format(p, param_val,u)
         ax.set_title(base_string)
         ax.legend()
         ax.set_xlabel(xlabel)

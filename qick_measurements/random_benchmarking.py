@@ -97,8 +97,7 @@ class IQProgram_RB(AveragerProgram):
         playtime = meas_time - ( self.us2cycles( cfg["qub_delay"], gen_ch = qub_ch) 
                                 + pulse_len*( len( cfg['pulse_schedule'] ) + 1 ) 
                                 + buffer*len( cfg['pulse_schedule'] ) )
-        
-        
+
         plot_pulse_I = []
         plot_pulse_Q = []
         
@@ -110,7 +109,7 @@ class IQProgram_RB(AveragerProgram):
             #print( "we have played the pulse {} at t = {}".format( item, playtime ) )
             
             #print(self.cycles2us( (38320-32128)/16, gen_ch = qub_ch))
-            
+
             for i in range( len ( cfg["pulse_data"] ) ):
                 if item == cfg["pulse_data"][i][0]:
                     gate = cfg["pulse_data"][i]
@@ -146,7 +145,6 @@ class IQProgram_RB(AveragerProgram):
                     plot_pulse_I.extend(buff_zero)
                     plot_pulse_Q.extend(gate[2].tolist())
                     plot_pulse_Q.extend(buff_zero)
-
 
 
         cfg['pulse_plot'] = [plot_pulse_I, plot_pulse_Q]
@@ -253,7 +251,7 @@ class gaussian_square():
         
 
 def random_seq_gen(config_dict):
-    
+
     '''
     This function generates the RB schedule, both the total schedule and the truncated schedule for a given run.
     It also calculates and then adds the required pulse to return an ideal qubit back to the ground state at the end of the schedule.
@@ -423,7 +421,6 @@ def meas_pulse(config_dict):
             cfg["pulse_schedule"].append(cfg["pulse_data"][i][0])
             print('added {}'.format(cfg["pulse_data"][i][0]))
     
-    
     return config_dict
 
 
@@ -447,6 +444,7 @@ def get_RB_settings():
     settings['buffer']         = .1 #[us]
     settings['gen_new']        = True
     settings['gen_num']        = 2
+
     settings['num_gates']      = 10
     settings['used_gates']     = 1
    
@@ -517,6 +515,7 @@ def random_bench(soc,soccfg,instruments,settings):
         'soft_avgs'       : exp_settings['soft_avgs']
         }
     
+
     # The following section sets up the I and Q data for each of the standard pulses
     
     x_pulse = pauli_gates['x_pulse']
