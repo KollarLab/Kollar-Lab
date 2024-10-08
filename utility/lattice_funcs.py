@@ -159,6 +159,54 @@ def trans_data_fit(spec_file,hanger = False):
     return xaxis, cfreqs
 
 ################################################################################
+def stark_fit(data_file,save_fig = True):
+    '''
+    Parameters
+    ----------
+    data_file : str
+        pkl file with stark scan data set
+    save_fig : bool
+        Whether you want the fitted data set to be saved at the end
+
+    Returns
+    -------
+    Slope + intercept of fitted AC Stark data set
+
+    '''
+    dataset = userfuncs.LoadFull(data_file)
+
+    spec_dat =  dataset[0]['specdata']
+    spec_freqs = spec_dat['xaxis']
+
+    stark_pows = dataset[0]['powers']
+    lin_pows = 10**((stark_pows-dataset[1]['exp_globals']['CAV_Attenuation'])/10)
+    lin_mags = 10**(spec_dat['mags']/20) #Martin says fit function works better if voltages are used instead of pows
+
+    centers = np.zeros(len(stark_pows))
+
+    for pind in range(len(stark_pows)):
+        results = fit_model(1e9*spec_freqs,lin_mags[pind],'gauss')
+        centers[pind] = results['center']/1e9
+
+    m_guess = (centers[-1] - centers[0])/(lin_pows[-1]-lin_pows[0])
+    fit_out1, pcov = curve_fit(lin_fun,lin_pows,centers,p0 = [m_guess,centers[0]])
+
+    plt.figure()
+    plt.clf()
+    plt.plot(lin_pows,centers,'x',label='Data')
+    plt.plot(lin_pows,lin_fun(lin_pows,fit_out1[0],fit_out1[1]))
+    plt.xlabel('VNA Power (mW)')
+    plt.ylabel('Qubit Frequency (GHz)')
+    plt.title('Stark Shift Fitting, m=' + str(np.round(fit_out1[0],3))+ ' GHz/mW: ' + data_file[-4])
+    
+    if save_fig:
+        plt.savefig(os.path.join(data_file[:-4] + '_Fitting.png'),dpi=150)
+        
+    qfreq = centers[0]
+    
+    return fit_out1[0], qfreq
+
+
 
 def lin_fun(x,m,b):
     '''
@@ -178,6 +226,64 @@ def lin_fun(x,m,b):
     return m*x + b
 
 def kerr_fit(data_trans, data_transoe, data_spec, RF_atten, index=False):
+    '''
+    kerr_fit _summary_
+
+    :param data_trans: _description_
+    :type data_trans: _type_
+    :param data_transoe: _description_
+    :type data_transoe: _type_
+    :param data_spec: _description_
+    :type data_spec: _type_
+    :param RF_atten: _description_
+    :type RF_atten: _type_
+    :param index: _description_, defaults to False
+    :type index: bool, optional
+    :return: _description_
+    :rtype: _type_
+    '''    
+    if index:
+        data_trans_mags = data_trans['full_data']['mags'][index]
+        data_trans_phases = data_trans['full_data']['phases'][index]
+        data_transoe_phases = data_transoe['full_data']['phases'][index]
+    else:
+        data_trans_mags = data_trans['full_data']['mags'][0]
+        data_trans_phases = data_trans['full_data']['phases'][0]
+        data_transoe_phases = data_transoe['full_data']['phases'][0]
+    
+    
+    zero_point_ind = np.argmax(data_trans_mags)
+
+    data_spec_phase = data_spec['full_data']['phases']
+    data_spec_phase_min = np.zeros(len(data_spec_phase))
+    for i in range(len(data_spec_phase)):
+        data_spec_phase_min[i] = np.min(data_spec_phase[i])
+
+    lin_ax = 10**((data_spec['powers']-RF_atten)/10)
+    
+    normalize = data_transoe_phases[zero_point_ind] - data_trans_phases[zero_point_ind]
+    normalized_phases = data_transoe_phases - normalize
+    normalized_phases = np.unwrap(normalized_phases,period=360)
+    
+    if normalized_phases[zero_point_ind]>180:
+        normalized_phases = normalized_phases - 360
+    elif normalized_phases[zero_point_ind]<-180:
+        normalized_phases = normalized_phases + 360
+    
+    monitor_tone = np.zeros(len(data_spec_phase))
+    for i in range(len(data_spec_phase_min)):
+        a = np.argmin(np.abs(normalized_phases - data_spec_phase_min[i]))
+        monitor_tone[i] = data_transoe['full_data']['xaxis'][zero_point_ind] - data_transoe['full_data']['xaxis'][a] 
+    
+    popt, pcov = curve_fit(lin_fun, lin_ax, monitor_tone, method='lm', maxfev=10000)
+    # txtstr = 'fit : ' + str(int(popt[0])) + '[KHz/mW]'
+    
+    
+    output_dict = {'power_mW': lin_ax, 'phase_shift' : data_spec_phase_min, 
+                   'freq_shift' : monitor_tone,'slope_GHz_mW' : popt[0], 'full_fit':popt}
+    return output_dict
+
+def kerr_fit_gauss(data_trans, data_transoe, data_spec, RF_atten, index=False):
     '''
     kerr_fit _summary_
 
