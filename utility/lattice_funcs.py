@@ -9,7 +9,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import userfuncs
-from utility.userfits_v2 import fit_model
+from utility.userfits_v2 import fit_model, lorenztian_model
 from utility.plotting_tools import general_colormap_subplot
 import os
 
@@ -159,7 +159,7 @@ def trans_data_fit(spec_file,hanger = False):
     return xaxis, cfreqs
 
 ################################################################################
-def stark_fit(data_file,save_fig = True):
+def stark_fit(data_file,save_fig = True,show_fig = False):
     '''
     Parameters
     ----------
@@ -183,15 +183,16 @@ def stark_fit(data_file,save_fig = True):
     lin_mags = 10**(spec_dat['mags']/20) #Martin says fit function works better if voltages are used instead of pows
 
     centers = np.zeros(len(stark_pows))
+    
 
     for pind in range(len(stark_pows)):
-        results = fit_model(1e9*spec_freqs,lin_mags[pind],'gauss')
+        results = fit_model(1e9*spec_freqs,lin_mags[pind],'gauss',plot=show_fig)
         centers[pind] = results['center']/1e9
 
     m_guess = (centers[-1] - centers[0])/(lin_pows[-1]-lin_pows[0])
     fit_out1, pcov = curve_fit(lin_fun,lin_pows,centers,p0 = [m_guess,centers[0]])
 
-    plt.figure()
+    plt.figure(5)
     plt.clf()
     plt.plot(lin_pows,centers,'x',label='Data')
     plt.plot(lin_pows,lin_fun(lin_pows,fit_out1[0],fit_out1[1]))
@@ -283,7 +284,7 @@ def kerr_fit(data_trans, data_transoe, data_spec, RF_atten, index=False):
                    'freq_shift' : monitor_tone,'slope_GHz_mW' : popt[0], 'full_fit':popt}
     return output_dict
 
-def kerr_fit_gauss(data_trans, data_transoe, data_spec, RF_atten, index=False):
+def kerr_fit_lorenz(data_trans, data_transoe, data_spec, RF_atten, index=False):
     '''
     kerr_fit _summary_
 
@@ -311,11 +312,17 @@ def kerr_fit_gauss(data_trans, data_transoe, data_spec, RF_atten, index=False):
     
     
     zero_point_ind = np.argmax(data_trans_mags)
-
+    
+    data_spec_freqs = data_spec['full_data']['xaxis']
     data_spec_phase = data_spec['full_data']['phases']
     data_spec_phase_min = np.zeros(len(data_spec_phase))
+    
+    sk_freqs = np.zeros(len(data_spec_phase))
+    
     for i in range(len(data_spec_phase)):
-        data_spec_phase_min[i] = np.min(data_spec_phase[i])
+        model = fit_model(data_spec_freqs,data_spec_phase[i], 'lorenz')
+        data_spec_phase_min[i] = lorenztian_model(model['center'], model['amp'], model['offset'], model['center'], model['sigma'])
+        sk_freqs[i] = model['center']
 
     lin_ax = 10**((data_spec['powers']-RF_atten)/10)
     
@@ -336,9 +343,11 @@ def kerr_fit_gauss(data_trans, data_transoe, data_spec, RF_atten, index=False):
     popt, pcov = curve_fit(lin_fun, lin_ax, monitor_tone, method='lm', maxfev=10000)
     # txtstr = 'fit : ' + str(int(popt[0])) + '[KHz/mW]'
     
+    popt_sk, pcov_sk = curve_fit(lin_fun, lin_ax, sk_freqs, method='lm', maxfev=10000)
     
     output_dict = {'power_mW': lin_ax, 'phase_shift' : data_spec_phase_min, 
-                   'freq_shift' : monitor_tone,'slope_GHz_mW' : popt[0], 'full_fit':popt}
+                   'freq_shift' : monitor_tone,'slope_GHz_mW' : popt[0], 'full_fit':popt,
+                   'self_Kerr_GHz_mW' : popt_sk[0], 'full_sk_fit' : popt_sk}
     return output_dict
 
 def full_flux_vector(flux_start,flux_stop,flux_pts):
