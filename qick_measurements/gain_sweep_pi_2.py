@@ -53,7 +53,7 @@ class GainSweepPi2(NDAveragerProgram):
         sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch)
         num_sigma = cfg["num_sigma"]
         
-        self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma))        
+        self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma), maxv=int(self.soccfg['gens'][qub_ch]['maxv']/2))        
         self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex")
 
         ###Start sweep definition
@@ -79,7 +79,9 @@ class GainSweepPi2(NDAveragerProgram):
         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
         meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
         ex_time = meas_time - self.us2cycles(self.cfg['qub_delay'],gen_ch=self.cfg["qub_channel"]) - pulse_len
-        ex_time_2 = ex_time - self.us2cycles(0.1,gen_ch=self.cfg['qub_channel']) - pulse_len
+        ex_time_2 = ex_time - self.us2cycles(0.01,gen_ch=self.cfg['qub_channel']) - pulse_len
+
+
         #Sets off the ADC
         self.trigger(adcs=self.ro_chs,
                     pins=[0],
@@ -127,9 +129,8 @@ def gain_sweep_pi2(soc,soccfg,instruments,settings):
     
     soc.reset_gens()
     
-    lo_freq = 0
-    
-    if exp_globals['LO']:
+    #if exp_globals['LO']:
+    if False:
         logen = instruments['LO']
         lo_freq = exp_globals['LO_freq']
         logen.freq   = lo_freq
@@ -150,7 +151,7 @@ def gain_sweep_pi2(soc,soccfg,instruments,settings):
         'meas_window'     : m_pulse['meas_window'],
         'meas_time'       : m_pulse['meas_pos'],
         'meas_gain'       : exp_settings['cav_gain'],
-        'cav_freq'        : (exp_settings['cav_freq']-lo_freq)/1e6,
+        'cav_freq'        : (exp_settings['cav_freq']-exp_globals['LO_freq'])/1e6,
         
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
@@ -221,7 +222,8 @@ def gain_sweep_pi2(soc,soccfg,instruments,settings):
     locals(), expsettings=settings, instruments={})
     
     if exp_globals['LO']:
-        logen.output = 0
+        #logen.output = 0
+        pass
 
     t_f    = time.time()
     t_single = t_f - t_i

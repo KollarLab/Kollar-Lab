@@ -12,12 +12,12 @@ import os
 import time
 import matplotlib.pyplot as plt
 import userfuncs
-from utility.plotting_tools import simplescan_plot
+
       
 #Heavily considering getting rid of the initial and post buffers for the speedup classes...
 #Don't see the use when we can't acquire_decimated` anyway.
 
-class PulsedSpecSweep(NDAveragerProgram):
+class GainSweep(NDAveragerProgram):
     def initialize(self):
         cfg=self.cfg   
         gen_ch = cfg["cav_channel"]
@@ -40,28 +40,26 @@ class PulsedSpecSweep(NDAveragerProgram):
         phase_c = self.deg2reg(cfg["cav_phase"], gen_ch=gen_ch)
         gain_c  = cfg["meas_gain"]
         
-        self.default_pulse_registers(ch=gen_ch, freq=freq_c, phase=phase_c, gain=gain_c, mode = "oneshot")
+        self.default_pulse_registers(ch=gen_ch, freq=freq_c, phase=phase_c, gain=gain_c)
         self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
         
         # Configure qubit DAC
-        freq_q  = self.freq2reg(cfg["freq_start"],gen_ch=qub_ch)
+        freq_q  = self.freq2reg(cfg["qub_freq"],gen_ch=qub_ch)
         phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=gen_ch)
         gain_q  = cfg["gain_start"]
         
-        self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q, mode = "oneshot")
+        self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
         
         sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch)
         num_sigma = cfg["num_sigma"]
         
-        self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma))        
+        self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma), maxv=int(self.soccfg['gens'][qub_ch]['maxv']/2))        
         self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex")
 
         ###Start sweep definition
         
-        self.qub_r_freq = self.get_gen_reg(qub_ch,"freq")
         self.qub_r_gain = self.get_gen_reg(qub_ch,"gain")
         
-        self.add_sweep(QickSweep(self, self.qub_r_freq,cfg["freq_start"],cfg["freq_stop"],cfg["freq_points"]))
         self.add_sweep(QickSweep(self, self.qub_r_gain,cfg["gain_start"],cfg["gain_stop"],cfg["gain_points"]))
         
         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
@@ -74,9 +72,11 @@ class PulsedSpecSweep(NDAveragerProgram):
         sigma = self.us2cycles(self.cfg["qub_sigma"])
         num_sigma = self.cfg["num_sigma"]
         
+        pulse_len = int(num_sigma*sigma)
+
         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
         meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
-        ex_time = meas_time - self.us2cycles(self.cfg['qub_delay'],gen_ch=self.cfg["qub_channel"]) - int(num_sigma*sigma)
+        ex_time = meas_time - self.us2cycles(self.cfg['qub_delay'],gen_ch=self.cfg["qub_channel"]) - pulse_len
         #Sets off the ADC
         self.trigger(adcs=self.ro_chs,
                     pins=[0],
@@ -89,30 +89,32 @@ class PulsedSpecSweep(NDAveragerProgram):
         self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
 
-def get_spec_settings():
+def get_gain_settings():
     settings = {}
     
     settings['scanname'] = 'initial_power_scan_q4'
-    settings['meas_type'] = 'PulsedSpec'
+    settings['meas_type'] = 'GainSweep'
     
     settings['cav_freq'] = 1e9
     settings['cav_gain'] = 1000
-    
-    #Sweep parameters
-    settings['freq_start']   = 4e9  
-    settings['freq_stop']    = 4.5e9
-    settings['freq_points']  = 6
 
-    settings['gain_start']  = 500
-    settings['gain_stop']   = 1000
-    settings['gain_points'] = 11
+    settings['qub_freq'] = 1e9
+
+    #Sweep parameters
+    settings['gain_start']  = 1000
+    settings['gain_stop']   = 2000
+    settings['gain_points'] = 3
+    
+
+
+
     #Card settings
     settings['reps'] = 1
     settings['soft_avgs'] = 5e3
     
     return settings
 
-def pulsed_spec_sweep(soc,soccfg,instruments,settings):
+def gain_sweep(soc,soccfg,instruments,settings):
 
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
@@ -123,8 +125,8 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
     
     lo_freq = exp_globals["LO_freq"]
     
-    #if exp_globals['LO']:
     if False:
+    #if exp_globals['LO']:
         logen = instruments['LO']
         lo_freq = exp_globals['LO_freq']
         logen.freq   = lo_freq
@@ -149,16 +151,18 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
         
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
-        'freq_start'      : exp_settings['freq_start']/1e6,
-        'freq_stop'       : exp_settings['freq_stop']/1e6,
-        'freq_points'     : exp_settings['freq_points'],
+
+        'qub_freq'        : exp_settings['qub_freq']/1e6,
+        ### Fix the freq_start stuff in the original class
+
         'gain_start'      : exp_settings['gain_start'],
         'gain_stop'       : exp_settings['gain_stop'],
         'gain_points'     : exp_settings['gain_points'],
+
         'qub_sigma'       : q_pulse['sigma'],
         'qub_delay'       : q_pulse['delay'],
         'num_sigma'       : q_pulse['num_sigma'],
-        
+
         'readout_length'  : m_pulse['meas_window'],
         'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
 
@@ -167,36 +171,14 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
         'reps'            : exp_settings['reps'],
         'soft_avgs'       : exp_settings['soft_avgs']
         }
-    
 
 
-#Planning out how the eventual setup should work since we'll eventually want to plot out the pulses
-#for troubleshooting purposes.
-
-#    fpts = exp_settings["freq_start"]+exp_settings["freq_step"]*np.arange(exp_settings["freq_points"])
-#    gpts = exp_settings["gain_start"]+exp_settings["gain_step"]*np.arange(exp_settings["gain_points"])
-    
-#    prog = PulsedSpec(soccfg,config)
-#    meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
-#    meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
-#prog.acquire_decimated type thing here
-    
-#    time_labels = ['Time (us)', 'Freq (GHz)']
-#    identifier = 'Gain: {}a.u.'.format(gpts[g])#-CAV_Attenuation)
-#    simplescan_plot(full_time, single_time, fpts/1e9, 
-#                        'Raw_time_traces\n'+filename, 
-#                        time_labels, 
-#                        identifier, 
-#                        fig_num=2,
-#                        IQdata = True)
-#    plt.savefig(os.path.join(saveDir, filename+'_RawTimeTraces.png'), dpi = 150)
-
-    prog = PulsedSpecSweep(soccfg,config)
+    prog = GainSweep(soccfg,config)
     rep_period = config['adc_trig_offset'] + config['readout_length'] + config['relax_delay']
     
     
     
-    projected_time = config['soft_avgs']*config['gain_points']*config['freq_points']*rep_period/1e6
+    projected_time = config['soft_avgs']*config['gain_points']*rep_period/1e6
     print("Projected Time: " + str(projected_time))
     
     t_i = time.time()
@@ -209,35 +191,30 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
     Is = avg_di[0][0]
     Qs = avg_dq[0][0]
     
-    fpts = exp_pts[0]*1e6
-    gpts = exp_pts[1]
+    gains = exp_pts[0]
     
     powerdat = np.sqrt(Is**2 + Qs**2)
     phasedat = np.arctan(Qs,Is)*180/np.pi
 
     full_data = {}
 
-    full_data['xaxis']  = fpts/1e9
+    full_data['xaxis']  = gains
     full_data['mags']   = powerdat
     full_data['phases'] = phasedat
+    full_data['Is']     = Is
+    full_data['Qs']     = Qs
 
-    plot_data = {}
-    plot_data['xaxis']  = fpts/1e9
-    plot_data['mags']   = powerdat
-    plot_data['phases'] = phasedat
+    fig1 = plt.figure(1)
+    plt.clf()
+    plt.plot(gains, powerdat)
+    plt.title('Mag {}'.format(filename))
+    plt.xlabel('Gain')
+    plt.ylabel('Amplitude')
+    fig1.canvas.draw()
+    fig1.canvas.flush_events()
+    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi=150)
 
-    single_data = {}
-    single_data['xaxis'] = fpts/1e9
-    single_data['mag']   = powerdat[-1]
-    single_data['phase'] = phasedat[-1]
-
-    yaxis  = gpts #- CAV_Attenuation
-    labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
-    
-    simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False) #normalized to drive level
-    plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
-
-    userfuncs.SaveFull(saveDir, filename, ['gpts','fpts', 'powerdat', 'phasedat','full_data'],
+    userfuncs.SaveFull(saveDir, filename, ['gains','full_data','filename'],
     locals(), expsettings=settings, instruments={})
     
     if exp_globals['LO']:
@@ -249,4 +226,6 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
     
     print("Elapsed Time: " + str(t_single))
 
-    return full_data, prog
+    data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data}
+
+    return data

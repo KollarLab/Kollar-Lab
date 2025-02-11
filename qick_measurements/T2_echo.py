@@ -13,12 +13,12 @@ import matplotlib.pyplot as plt
 import userfuncs
 import time
 
-from utility.userfits import fit_T2
+from utility.userfits import fit_T1
 from utility.plotting_tools import general_colormap_subplot
 from utility.measurement_helpers import estimate_time
 
       
-class T2_sequence(AveragerProgram):
+class T2_echo_sequence(AveragerProgram):
     def initialize(self):
         cfg=self.cfg   
         gen_ch = cfg["cav_channel"]
@@ -53,9 +53,8 @@ class T2_sequence(AveragerProgram):
         sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch)
         num_sigma = cfg["num_sigma"]
         
-        self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma),maxv=int(self.soccfg['gens'][qub_ch]['maxv']/2))        
-        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex")
-
+        self.add_gauss(ch=qub_ch, name="pi_2", sigma=sigma,length=int(sigma*num_sigma),maxv=int(self.soccfg['gens'][qub_ch]['maxv']/2))        
+        self.add_gauss(ch=qub_ch, name="pi", sigma=sigma,length=int(sigma*num_sigma))
         
         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
         # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
@@ -64,22 +63,31 @@ class T2_sequence(AveragerProgram):
     def body(self):
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
+        qub_ch = self.cfg["qub_channel"]
         sigma = self.us2cycles(self.cfg["qub_sigma"])
         num_sigma = self.cfg["num_sigma"]
         
         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
         meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
         ex_time_fixed = meas_time - self.us2cycles(self.cfg['qub_delay_fixed'],gen_ch=self.cfg["qub_channel"]) - int(num_sigma*sigma)
-        ex_time_t2 = ex_time_fixed - self.us2cycles(self.cfg['qub_delay_t2'],gen_ch=self.cfg["qub_channel"]) - int(num_sigma*sigma)
+        ex_time_pi = ex_time_fixed - self.us2cycles(self.cfg['qub_delay_t2']/2,gen_ch=self.cfg["qub_channel"]) - int(num_sigma*sigma)
+        ex_time_pi_2 = ex_time_pi - self.us2cycles(self.cfg['qub_delay_t2']/2,gen_ch=self.cfg["qub_channel"]) - int(num_sigma*sigma)
+        
         #Sets off the ADC
         self.trigger(adcs=self.ro_chs,
                     pins=[0],
                     adc_trig_offset=offset)
         
-        #Sends measurement pulse
-        self.pulse(ch=self.cfg["qub_channel"],t=ex_time_t2)
-        self.pulse(ch=self.cfg["qub_channel"],t=ex_time_fixed)
+        #Sends pi/2, then pi, then pi/2, all separated by the same amount of time
+        self.set_pulse_registers( qub_ch, style = "arb", waveform = "pi_2")
+        self.pulse(ch = qub_ch, t=ex_time_pi_2)
+        self.set_pulse_registers( qub_ch, style = "arb", waveform = "pi")
+        self.pulse(ch = qub_ch, t=ex_time_pi)
+        self.set_pulse_registers( qub_ch, style = "arb", waveform = "pi_2")
+        self.pulse(ch = qub_ch,t=ex_time_fixed)
+
         self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
+
         self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
         self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
@@ -128,11 +136,11 @@ class CavitySweep(AveragerProgram):
         self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
         self.sync_all(self.us2cycles(self.cfg["relax_delay"]))
 
-def get_T2_settings():
+def get_T2_echo_settings():
     settings = {}
     
     settings['scanname'] = 'T2_meas'
-    settings['meas_type'] = 'Tmeas'
+    settings['meas_type'] = 'T2_echo'
     
     settings['cav_freq'] = 1e9
     settings['meas_gain'] = 1000
@@ -147,14 +155,13 @@ def get_T2_settings():
     settings['spacing']    = 'Linear'
     
     settings['T2_guess'] = 10e-6
-    settings['detuning'] = 2e6
     #Card settings
     settings['reps'] = 1
     settings['soft_avgs'] = 5e3
     
     return settings
 
-def meas_T2(soc,soccfg,instruments,settings):
+def meas_T2_echo(soc,soccfg,instruments,settings):
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
@@ -188,7 +195,7 @@ def meas_T2(soc,soccfg,instruments,settings):
         
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
-        'qub_freq'        : (exp_settings['qub_freq']+exp_settings['detuning'])/1e6,
+        'qub_freq'        : (exp_settings['qub_freq'])/1e6,
         'qub_gain'        : exp_settings['qub_gain'],
         'qub_sigma'       : q_pulse['sigma'],
         'qub_delay_fixed' : q_pulse['delay'],
@@ -205,7 +212,7 @@ def meas_T2(soc,soccfg,instruments,settings):
         }
 
 
-    prog = T2_sequence(soccfg,config)
+    prog = T2_echo_sequence(soccfg,config)
     meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
     meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
     total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
@@ -228,7 +235,7 @@ def meas_T2(soc,soccfg,instruments,settings):
     
     
     
-    
+    tstart = time.time()
     first_it = True
     
     if exp_settings['subtract_background']:
@@ -244,7 +251,6 @@ def meas_T2(soc,soccfg,instruments,settings):
     else:
         I_back, Q_back = 0,0
     
-    tstart = time.time()
     
     for tind in indices:
         
@@ -252,7 +258,7 @@ def meas_T2(soc,soccfg,instruments,settings):
         print('Tau: {}'.format(tau))
         
         config['qub_delay_t2'] = tau*1e6
-        prog = T2_sequence(soccfg,config)
+        prog = T2_echo_sequence(soccfg,config)
         holder = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
         I_sig = holder[0][0][0]
         Q_sig = holder[1][0][0]
@@ -270,7 +276,7 @@ def meas_T2(soc,soccfg,instruments,settings):
         
         
 
-        amp_int[tind] = np.sqrt(I_final**2 + Q_final**2)
+        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
         ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         
         if first_it:
@@ -286,19 +292,19 @@ def meas_T2(soc,soccfg,instruments,settings):
         plt.clf()
         plt.subplot(121)
         plt.plot(taus*1e6, amp_int)
-        plt.suptitle('Live T2 data (no fit)')#, {} pi pulses'.format(exp_settings['pulse_count']))
+        plt.suptitle('Live T2 Echo data (no fit)')#, {} pi pulses'.format(exp_settings['pulse_count']))
         plt.xlabel('Tau (us)')
         plt.ylabel('Amplitude')
         plt.subplot(122)
         plt.plot(taus*1e6, ang_int)
-        plt.xlabel('Tau (us)')
-        plt.ylabel('Phase')
+        plt.ylabel('Angle')
         fig.canvas.draw()
         fig.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
 
        
         userfuncs.SaveFull(saveDir, filename, ['taus', 'amp_int', 'ang_int'], locals(), expsettings=settings, instruments=instruments)
+    
     if exp_settings['debug']:
 
         config['readout_length'] = 3
@@ -397,23 +403,22 @@ def meas_T2(soc,soccfg,instruments,settings):
     T2_guess     = exp_settings['T2_guess']
     amp_guess    = max(amp_int)-min(amp_int)
     offset_guess = np.mean(amp_int[-10:])
-    freq_guess   = exp_settings['detuning'] # No detuning mode, always does this
-    phi_guess    = 0
+   
     
-    fit_guess = [T2_guess, amp_guess, offset_guess, freq_guess, phi_guess]
-    T2, amp, offset, freq, phi, fit_xvals, fit_yvals = fit_T2(taus, amp_int, fit_guess)
+    fit_guess = [T2_guess, amp_guess, offset_guess]
+    T2, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
     fig3 = plt.figure(3)
     plt.clf()
     plt.plot(taus*1e6, amp_int)
     plt.plot(fit_xvals*1e6, fit_yvals)
-    plt.title('T2:{}us freq:{}MHz. \n {}'.format(np.round(T2*1e6,3), np.round(freq/1e6, 3),  filename)) # {} pi pulses, exp_settings['pulse_count'],
+    plt.title('T2:{}us \n {}'.format(np.round(T2*1e6,3),  filename)) # {} pi pulses, exp_settings['pulse_count'],
     plt.xlabel('Time (us)')
     plt.ylabel('Amplitude')
     fig3.canvas.draw()
     fig3.canvas.flush_events()
     plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
 
-    userfuncs.SaveFull(saveDir, filename, ['taus','ang_int', 'amp_int', 'amp', 'offset', 'freq', 'phi', 'fit_guess'],
+    userfuncs.SaveFull(saveDir, filename, ['taus','ang_int', 'amp_int', 'amp', 'offset', 'fit_guess'],
                          locals(), expsettings=settings, instruments=instruments)
     
     
@@ -421,7 +426,7 @@ def meas_T2(soc,soccfg,instruments,settings):
         pass
         #logen.output = 0
 
-    return T2, freq, taus, amp_int
+    return T2, taus, amp_int
     
 
 

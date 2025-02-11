@@ -126,9 +126,10 @@ def quasi_cw(soc,soccfg,instruments,settings):
     
     soc.reset_gens()
     
-    lo_freq = 0
+    lo_freq = exp_globals["LO_freq"]
     
-    if exp_globals['LO']:
+    #if exp_globals['LO']:
+    if False:
         logen = instruments['LO']
         lo_freq = exp_globals['LO_freq']
         logen.freq   = lo_freq
@@ -230,7 +231,8 @@ def quasi_cw(soc,soccfg,instruments,settings):
     locals(), expsettings=settings, instruments={})
     
     if exp_globals['LO']:
-        logen.output = 0
+        pass
+        #logen.output = 0
 
     t_f    = time.time()
     t_single = t_f - t_i

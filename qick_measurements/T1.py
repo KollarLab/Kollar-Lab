@@ -80,6 +80,7 @@ class T1_sequence(AveragerProgram):
         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
         meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
         ex_time = meas_time - self.us2cycles(self.cfg['qub_delay'],gen_ch=self.cfg["qub_channel"]) - int(num_sigma*sigma)
+        
         #Sets off the ADC
         self.trigger(adcs=self.ro_chs,
                     pins=[0],
@@ -133,6 +134,7 @@ class CavitySweep(AveragerProgram):
         
         #Sends measurement pulse
         self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
+
         self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
         self.sync_all(self.us2cycles(self.cfg["relax_delay"]))
 
@@ -181,14 +183,15 @@ def meas_T1(soc,soccfg,instruments,settings):
     m_pulse      = exp_globals['measurement_pulse']
     q_pulse      = exp_globals['qubit_pulse']
     
-    if exp_globals['LO']:
+    #if exp_globals['LO']:
+    if False:
         logen = instruments['LO']
         
         logen.freq   = exp_globals['LO_freq']
         logen.power  = exp_globals['LO_power']
         logen.output = 1
-    else:
-        print("Warning: No LO has been initialized.")
+    #else:
+        #print("Warning: No LO has been initialized.")
 
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
@@ -214,8 +217,8 @@ def meas_T1(soc,soccfg,instruments,settings):
         'qub_delay'        : 0, #Placeholder
         'num_sigma'       : q_pulse['num_sigma'],
         
-        'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'] + m_pulse['post_buffer'],
-        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'] - m_pulse['init_buffer'],
+        'readout_length'  : m_pulse['meas_window'],
+        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
 
 
         'relax_delay'     : exp_globals['relax_delay'],
@@ -243,7 +246,7 @@ def meas_T1(soc,soccfg,instruments,settings):
     amps    = np.zeros((len(taus),total_samples))
     angles  = np.zeros((len(taus),total_samples))
     
-    tstart = time.time()
+    
     first_it = True
     
     if exp_settings['subtract_background']:
@@ -252,16 +255,16 @@ def meas_T1(soc,soccfg,instruments,settings):
 #            time.sleep(0.1)
         print('Starting Background Trace')
         bprog = CavitySweep(soccfg,config)
-        holder = bprog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+        holder = bprog.acquire(soc, load_pulses=True, progress=False, debug=False)
+        
+        I_back = holder[0][0][0]
+        Q_back = holder[1][0][0]
         print('Background Trace Complete')
         I_full_b = holder[0][0]
-        Q_full_b = holder[0][1]
-        I_window_b = I_full_b[meas_start:meas_end]
-        Q_window_b = Q_full_b[meas_start:meas_end]     
     else:
-        I_window_b, Q_window_b, I_full_b, Q_full_b = 0,0,0,0
+        I_back, Q_back = 0,0
 
-    I_back, Q_back = [np.mean(I_window_b), np.mean(Q_window_b)] #<I>, <Q> for background trace
+    tstart = time.time()
     
     for tind in indices:
         
@@ -270,14 +273,10 @@ def meas_T1(soc,soccfg,instruments,settings):
         
         config['qub_delay'] = tau*1e6
         prog = T1_sequence(soccfg,config)
-        holder = prog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
-        I_full = holder[0][0]
-        Q_full = holder[0][1]
-        I_window = I_full[meas_start:meas_end]
-        Q_window = Q_full[meas_start:meas_end]
+        holder = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
         
         ##No background subtraction here!!!!
-        I_sig, Q_sig   = [np.mean(I_window), np.mean(Q_window)] #<I>, <Q> for signal trace
+        I_sig, Q_sig   = [holder[0][0][0], holder[1][0][0]] #<I>, <Q> for signal trace
         
 
         
@@ -291,10 +290,7 @@ def meas_T1(soc,soccfg,instruments,settings):
 #        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
 #        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         
-        
-        amps[tind] = np.sqrt((I_full-I_full_b)**2+(Q_full-Q_full_b)**2)
-        angles[tind] = np.arctan2((Q_full-Q_full_b), (I_full-I_full_b))*180/np.pi
-        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
+        amp_int[tind] = np.sqrt(I_final**2 + Q_final**2)
         ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         
 
@@ -303,10 +299,6 @@ def meas_T1(soc,soccfg,instruments,settings):
             tstop = time.time()
             estimate_time(tstart, tstop, len(taus))
             
-            xaxis = np.linspace(0,len(I_full)-1,len(I_full))
-
-            for x in range(0,len(xaxis)):
-                xaxis[x] = prog.cycles2us(xaxis[x],ro_ch=0)
                 
             first_it = False  
             
@@ -327,15 +319,125 @@ def meas_T1(soc,soccfg,instruments,settings):
         fig.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
     
-        fig2 = plt.figure(2,figsize=(13,8))
-        plt.clf()
+        # fig2 = plt.figure(2,figsize=(13,8))
+        # plt.clf()
     
-        ax = plt.subplot(1,1,1)
-        general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
+        # ax = plt.subplot(1,1,1)
+        # general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
     
-        plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-        userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
+        # plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
+        userfuncs.SaveFull(saveDir, filename, ['taus', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
+        
+        
+        
+    if exp_settings['debug']:
+        
+        
+        
 
+        
+        config['readout_length'] = 3 # don't mess with this
+        config['adc_trig_offset'] = m_pulse['emp_delay'] + m_pulse['meas_pos'] + exp_settings['debug_time']
+        
+        total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
+
+        amp_intd = np.zeros(len(taus))
+        ang_intd = np.zeros(len(taus))
+        ampsd    = np.zeros((len(taus),total_samples))
+        anglesd  = np.zeros((len(taus),total_samples))        
+
+        if exp_settings['subtract_background']:
+            #Acquire background trace
+    #            qubitgen.freq=3.8e9
+    #            time.sleep(0.1)
+            print('Starting Background Trace')
+            bprog = CavitySweep(soccfg,config)
+            holder = bprog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+            print('Background Trace Complete')
+            I_full_bd = holder[0][0]
+            Q_full_bd = holder[0][1]
+            I_window_bd = I_full_bd[meas_start:meas_end]
+            Q_window_bd = Q_full_bd[meas_start:meas_end]     
+        else:
+            I_window_bd, Q_window_bd, I_full_bd, Q_full_bd = 0,0,0,0
+            
+        I_backd, Q_backd = [np.mean(I_window_bd), np.mean(Q_window_bd)]
+        
+        first_it = True
+        
+        for tind in indices:
+            
+            tau = taus[tind]
+            print('Tau: {}'.format(tau))
+            
+            config['qub_delay'] = tau*1e6
+            prog = T1_sequence(soccfg,config)
+            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+            I_fulld = holder[0][0]
+            Q_fulld = holder[0][1]
+            I_windowd = I_fulld[meas_start:meas_end]
+            Q_windowd = Q_fulld[meas_start:meas_end]
+            
+            ##No background subtraction here!!!!
+            I_sigd, Q_sigd   = [np.mean(I_windowd), np.mean(Q_windowd)] #<I>, <Q> for signal trace
+            
+
+            
+    #        I_final, Q_final   = [np.mean(I_window), np.mean(Q_window)] #<I>, <Q> for signal trace
+            
+            I_finald = I_sigd-I_backd #compute <I_net> in the data window
+            Q_finald = Q_sigd-Q_backd
+            
+    #        amps[tind] = np.sqrt(I_full**2+Q_full**2)
+    #        angles[tind] = np.arctan2(Q_full,I_full)*180/np.pi
+    #        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
+    #        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
+            
+            
+            ampsd[tind] = np.sqrt((I_fulld-I_full_bd)**2+(Q_fulld-Q_full_bd)**2)
+            anglesd[tind] = np.arctan2((Q_fulld-Q_full_bd), (I_fulld-I_full_bd))*180/np.pi
+            amp_intd[tind] = np.sqrt(I_finald**2+Q_finald**2)
+            ang_intd[tind] = np.arctan2(Q_finald, I_finald)*180/np.pi
+            
+
+            
+            if first_it:
+                tstop = time.time()
+                estimate_time(tstart, tstop, len(taus))
+                
+                xaxis = np.linspace(0,len(I_fulld)-1,len(I_fulld))
+
+                for x in range(0,len(xaxis)):
+                    xaxis[x] = prog.cycles2us(xaxis[x],ro_ch=0)
+                    
+                first_it = False  
+                
+                
+            fig = plt.figure(3, figsize=(13,8))
+            plt.clf()
+            plt.subplot(121)
+            plt.plot(taus*1e6, amp_intd, 'x')
+            plt.xlabel('Tau (us)')
+            plt.ylabel('Amplitude')  
+            plt.subplot(122)
+            plt.plot(taus*1e6, ang_intd, 'x')
+            plt.xlabel('Tau (us)')
+            plt.ylabel('Phase')  
+            plt.title('Live T1 data debug (no fit)\n'+filename)
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+            plt.savefig(os.path.join(saveDir, filename+'_debug_no_fit.png'), dpi = 150)
+        
+            fig2 = plt.figure(4,figsize=(13,8))
+            plt.clf()
+        
+            ax = plt.subplot(121)
+            general_colormap_subplot(ax, xaxis*1e6, taus*1e6, ampsd, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
+            ax = plt.subplot(122)
+            general_colormap_subplot(ax, xaxis*1e6, taus*1e6, anglesd, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
+            plt.savefig(os.path.join(saveDir, filename+'_debug_fulldata.png'), dpi = 150)
+        
+    
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
 
@@ -345,7 +447,7 @@ def meas_T1(soc,soccfg,instruments,settings):
 
     fit_guess = [T1_guess, amp_guess, offset_guess]
     T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
-    fig3 = plt.figure(3)
+    fig3 = plt.figure(2)
     plt.clf()
     plt.plot(taus*1e6, amp_int)
     plt.plot(fit_xvals*1e6, fit_yvals)
@@ -356,11 +458,12 @@ def meas_T1(soc,soccfg,instruments,settings):
     fig3.canvas.flush_events()
     plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
 
-    userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int', 'tau', 'amp', 'offset', 'fit_guess'],
+    userfuncs.SaveFull(saveDir, filename, ['taus','amp_int','ang_int', 'T1', 'amp', 'offset', 'fit_guess'],
                          locals(), expsettings=settings, instruments=instruments)
     
     if exp_globals['LO']:
-        logen.output = 0
+        pass
+        #logen.output = 0
 
     return T1, taus, amp_int
    

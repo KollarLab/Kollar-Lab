@@ -78,7 +78,8 @@ def pulsed_trans(soc,soccfg,instruments,settings):
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
     
-    if exp_globals['LO']:
+    #if exp_globals['LO']:
+    if False:
         logen = instruments['LO']
         
         logen.freq   = exp_globals['LO_freq']
@@ -209,7 +210,8 @@ def pulsed_trans(soc,soccfg,instruments,settings):
                              locals(), expsettings=settings, instruments={})
     
     if exp_globals['LO']:
-        logen.output = 0
+        pass
+        #logen.output = 0
         
     return full_data
 
