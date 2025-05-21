@@ -106,6 +106,8 @@ def lorenztian_model(f_ax, amp, offset, center, sigma):
     '''    
     return offset+amp/np.pi*(sigma/((f_ax-center)**2+sigma**2))
 
+
+
 def T1_guess(t_ax, amps, plot=False, verbose=False):
     '''
     T1_guess _summary_
@@ -362,6 +364,8 @@ def lorenztian_guess(f_ax, amps, verbose=False):
     [amp, offset, center, sigma] = peak_guess(f_ax, amps, verbose)
     amp_scale = amp*np.pi*sigma
     return [amp_scale, offset, center, sigma]
+
+
 
 def create_param_dict(names, vals):
     '''
