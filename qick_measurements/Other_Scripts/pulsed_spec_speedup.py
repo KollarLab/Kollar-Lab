@@ -69,6 +69,9 @@ class PulsedSpecSweep(NDAveragerProgram):
         self.synci(200)   
     
     def body(self):
+
+        #self.reset_phase(gen_ch = [self.cfg['cav_channel'], self.cfg['qub_channel']], t=0)
+
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
         sigma = self.us2cycles(self.cfg["qub_sigma"])
@@ -95,20 +98,20 @@ def get_spec_settings():
     settings['scanname'] = 'initial_power_scan_q4'
     settings['meas_type'] = 'PulsedSpec'
     
-    settings['cav_freq'] = 1e9
-    settings['cav_gain'] = 1000
+#    settings['cav_freq'] = 1e9
+#    settings['cav_gain'] = 1000
     
     #Sweep parameters
-    settings['freq_start']   = 4e9  
-    settings['freq_stop']    = 4.5e9
-    settings['freq_points']  = 6
+#    settings['freq_start']   = 4e9  
+#    settings['freq_stop']    = 4.5e9
+#    settings['freq_points']  = 6
 
-    settings['gain_start']  = 500
-    settings['gain_stop']   = 1000
-    settings['gain_points'] = 11
+#    settings['gain_start']  = 500
+#    settings['gain_stop']   = 1000
+#    settings['gain_points'] = 11
     #Card settings
-    settings['reps'] = 1
-    settings['soft_avgs'] = 5e3
+#    settings['reps'] = 1
+#    settings['soft_avgs'] = 5e3
     
     return settings
 
@@ -144,7 +147,7 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
         'cav_phase'       : m_pulse['cav_phase'],
         'meas_window'     : m_pulse['meas_window'],
         'meas_time'       : m_pulse['meas_pos'],
-        'meas_gain'       : exp_settings['cav_gain'],
+        'meas_gain'       : exp_settings['meas_gain'],
         'cav_freq'        : (exp_settings['cav_freq']-lo_freq)/1e6,
         
         'nqz_q'           : 2,
@@ -203,7 +206,7 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
     
     
     
-    exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
+    exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False)
     
     
     Is = avg_di[0][0]

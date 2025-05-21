@@ -5,6 +5,7 @@ import os
 import matplotlib.pyplot as plt
 import userfuncs
 from utility.plotting_tools import simplescan_plot
+from utility.measurement_helpers import estimate_time
 import time
 
 class CavitySweep(AveragerProgram):
@@ -38,6 +39,8 @@ class CavitySweep(AveragerProgram):
         self.synci(200)   
     
     def body(self):
+        #self.reset_phase(gen_ch=self.cfg['cav_channel'],t=0)
+        
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
@@ -124,7 +127,8 @@ def pulsed_trans(soc,soccfg,instruments,settings):
 
     #drive_powers_lin = 10**(powers/10) ?
     #drive_amps_lin = np.sqrt(drive_powers_lin)
-
+    
+    tstart = time.time()
 
     for g in range(0,len(gpts)):
         print("Current Gain: " + str(gpts[g]) + ", Max Gain: " + str(gpts[-1]))
@@ -141,7 +145,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
             config["cav_freq"] = board_freq
             prog = CavitySweep(soccfg,config)
             #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
-            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False)
             I_full = holder[0][0]
             Q_full = holder[0][1]
             I_window = I_full[meas_start:meas_end]
@@ -152,11 +156,14 @@ def pulsed_trans(soc,soccfg,instruments,settings):
 
             Is[f,:]   = I_full
             Qs[f,:] = Q_full
-            powerdat[g, f] = np.sqrt(I_final**2 + Q_final**2)/gpts[g] # Made this normalized since amplification washed everything out.
+            powerdat[g, f] = np.sqrt(I_final**2 + Q_final**2)#/gpts[g] # Made this normalized since amplification washed everything out.
             phasedat[g, f] = np.arctan2(Q_final, I_final)*180/np.pi
             
         
         if g == 0:
+            tstop = time.time()
+            estimate_time(tstart, tstop, len(gpts))
+
             xaxis = np.linspace(0,len(I_full)-1,len(I_full))
 
             for x in range(0,len(xaxis)):
@@ -181,7 +188,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         yaxis  = gpts[0:g+1] #- CAV_Attenuation
         labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
 
-
+        
         simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False) #normalized to drive level
         plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 

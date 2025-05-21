@@ -7,6 +7,76 @@ import json
 import base64
 from collections import OrderedDict
 
+def to_int(val, scale, quantize=1, parname=None, trunc=False):
+    """Convert a parameter value from user units to ASM units.
+    Normally this means converting from float to int.
+    For the v2 tProcessor this can also convert QickParam to QickRawParam.
+    To avoid overflow, values are rounded towards zero using np.trunc().
+
+    Parameters
+    ----------
+    val : float or QickParam
+        parameter value or sweep range
+    scale : float
+        conversion factor
+    quantize : int
+        rounding step for ASM value
+    parname : str
+        parameter type - only for sweeps
+    trunc : bool
+        round towards zero using np.trunc(), instead of to closest integer using np.round()
+
+    Returns
+    -------
+    int or QickRawParam
+        ASM value
+    """
+    if hasattr(val, 'to_int'):
+        return val.to_int(scale, quantize=quantize, parname=parname, trunc=trunc)
+    else:
+        if trunc:
+            return int(quantize * np.trunc(val*scale/quantize))
+        else:
+            return int(quantize * np.round(val*scale/quantize))
+
+def check_bytes(val, length, signed=True):
+    """Test if an int will fit in the specified number of bytes.
+
+    Parameters
+    ----------
+    val : int
+        value to test
+    length : int
+        number of bytes
+    signed : bool
+        use signed int
+
+    Returns
+    -------
+    bool
+        True if value will fit, False otherwise
+    """
+    try:
+        int(val).to_bytes(length=length, byteorder='little', signed=signed)
+        return True
+    except OverflowError:
+        return False
+
+def cosine(length=100, maxv=30000):
+    """
+    Create a numpy array containing a cosine shaped envelope function
+    
+    :param length: Length of array
+    :type length: int
+    :param maxv: Maximum amplitude of cosine flattop function
+    :type maxv: float
+    :return: Numpy array containing a cosine flattop function
+    :rtype: numpy.ndarray
+    """
+    x = np.linspace(0,2*np.pi,length)
+    y = maxv*(1-np.cos(x))/2
+    return y
+
 
 def gauss(mu=0, si=25, length=100, maxv=30000):
     """
@@ -21,10 +91,10 @@ def gauss(mu=0, si=25, length=100, maxv=30000):
     :param maxv: Maximum amplitude of Gaussian
     :type maxv: float
     :return: Numpy array containing a Gaussian function
-    :rtype: array
+    :rtype: numpy.ndarray
     """
     x = np.arange(0, length)
-    y = maxv * np.exp(-(x-mu)**2/si**2)
+    y = maxv * np.exp(-(x-mu)**2/(2*si**2))
     return y
 
 
@@ -46,12 +116,12 @@ def DRAG(mu, si, length, maxv, delta, alpha):
     :param alpha: alpha parameter of DRAG (order-1 scale factor)
     :type alpha: float
     :return: Numpy array with I and Q components of the DRAG pulse
-    :rtype: array, array
+    :rtype: numpy.ndarray, numpy.ndarray
     """
     x = np.arange(0, length)
-    gaus = maxv * np.exp(-(x-mu)**2/si**2)
+    gaus = maxv * np.exp(-(x-mu)**2/(2*si**2))
     # derivative of the gaussian
-    dgaus = -(x-mu)/(si**2)*gaus
+    dgaus = -(x-mu)/(2*si**2)*gaus
     idata = gaus
     qdata = -1 * alpha * dgaus / delta
     return idata, qdata
@@ -66,7 +136,7 @@ def triang(length=100, maxv=30000):
     :param maxv: Maximum amplitude of triangle function
     :type maxv: float
     :return: Numpy array containing a triangle function
-    :rtype: array
+    :rtype: numpy.ndarray
     """
     y = np.zeros(length)
 
@@ -81,7 +151,7 @@ def triang(length=100, maxv=30000):
 
 class NpEncoder(json.JSONEncoder):
     """
-    JSON encoder with support for numpy objects.
+    JSON encoder with support for numpy objects and custom classes with to_dict methods.
     Taken from https://stackoverflow.com/questions/50916422/python-typeerror-object-of-type-int64-is-not-json-serializable
     """
     def default(self, obj):
@@ -93,12 +163,45 @@ class NpEncoder(json.JSONEncoder):
             # base64 is considerably more compact and faster to pack/unpack
             # return obj.tolist()
             return (base64.b64encode(obj.tobytes()).decode(), obj.shape, obj.dtype.str)
+        if hasattr(obj, "to_dict"):
+            return obj.to_dict()
         return super().default(obj)
 
+def decode_array(json_array):
+    """
+    Convert a base64-encoded array back into numpy.
+    """
+    data, shape, dtype = json_array
+    return np.frombuffer(base64.b64decode(data), dtype=np.dtype(dtype)).reshape(shape)
+
 def progs2json(proglist):
+    """Dump QICK programs to a JSON string.
+
+    Parameters
+    ----------
+    proglist : list of dict
+        A list of program dictionaries to dump.
+
+    Returns
+    -------
+    str
+        A JSON string.
+    """
     return json.dumps(proglist, cls=NpEncoder)
 
 def json2progs(s):
+    """Read QICK programs from JSON.
+
+    Parameters
+    ----------
+    s : file-like object or str
+        A JSON file or JSON string.
+
+    Returns
+    -------
+    list of dict
+        A list of program dictionaries.
+    """
     if hasattr(s, 'read'):
         # input is file-like, we should use json.load()
         # be sure to read dicts back in order (only matters for Python <3.7)
@@ -108,149 +211,7 @@ def json2progs(s):
         # be sure to read dicts back in order (only matters for Python <3.7)
         proglist = json.loads(s, object_pairs_hook=OrderedDict)
 
-    for progdict in proglist:
-        # tweak data structures that got screwed up by JSON:
-        # in JSON, dict keys are always strings, so we must cast back to int
-        progdict['gen_chs'] = OrderedDict([(int(k),v) for k,v in progdict['gen_chs'].items()])
-        progdict['ro_chs'] = OrderedDict([(int(k),v) for k,v in progdict['ro_chs'].items()])
-        # the envelope arrays need to be restored as numpy arrays with the proper type
-        for iCh, pulsedict in enumerate(progdict['pulses']):
-            for name, pulse in pulsedict.items():
-                #pulse['data'] = np.array(pulse['data'], dtype=self._gen_mgrs[iCh].env_dtype)
-                data, shape, dtype = pulse['data']
-                pulse['data'] = np.frombuffer(base64.b64decode(data), dtype=np.dtype(dtype)).reshape(shape)
     return proglist
-
-class QickMetadata:
-    """
-    Provides information about the connections between IP blocks, extracted from the HWH file.
-    The HWH parser is very different between PYNQ 2.6/2.7 and 3.0+, so this class serves as a common interface.
-    """
-    def __init__(self, soc):
-        # We will use the HWH parser to extract information about signal connections between blocks.
-        self.sigparser = None
-        self.busparser = None
-        self.systemgraph = None
-        self.xml = None
-
-        if hasattr(soc, 'systemgraph'):
-            # PYNQ 3.0 and higher have a "system graph"
-            self.systemgraph = soc.systemgraph
-            # TODO: We shouldn't need to use BusParser, but we think there's a bug in how pynqmetadata handles axis_switch.
-            self.busparser = BusParser(self.systemgraph._root)
-            self.xml = soc.systemgraph._element_tree
-        else:
-            self.sigparser = soc.parser
-            # Since the HWH parser doesn't parse buses, we also make our own BusParser.
-            self.busparser = BusParser(self.sigparser.root)
-            self.xml = soc.parser.root
-
-    def trace_sig(self, blockname, portname):
-        if self.systemgraph is not None:
-            dests = self.systemgraph.blocks[blockname].ports[portname].destinations()
-            result = []
-            for port, block in dests.items():
-                blockname = block.parent().name
-                if blockname==self.systemgraph.name:
-                    result.append([port])
-                else:
-                    result.append([blockname, port])
-            return result
-
-        return self._trace_net(self.sigparser, blockname, portname)
-
-    def trace_bus(self, blockname, portname):
-        return self._trace_net(self.busparser, blockname, portname)
-
-    def _trace_net(self, parser, blockname, portname):
-        """
-        Find the block and port that connect to this block and port.
-        If you expect to only get one block+port as a result, you can assign the result to ((block, port),)
-
-        :param parser: HWH parser object (from Overlay.parser, or BusParser)
-        :param blockname: the IP block of interest
-        :type blockname: string
-        :param portname: the port we want to trace
-        :type portname: string
-
-        :return: a list of [block, port] pairs, or just [port] for ports of the top-level design
-        :rtype: list
-        """
-        fullport = blockname+"/"+portname
-        # the net connected to this port
-        netname = parser.pins[fullport]
-        if netname == '__NOC__':
-            return []
-        # get the list of other ports on this net, discard the port we started at and ILA ports
-        return [x.split('/') for x in parser.nets[netname] if x != fullport and 'system_ila_' not in x]
-
-    def get_fclk(self, blockname, portname):
-        """
-        Find the frequency of a clock port.
-
-        :param parser: HWH parser object (from Overlay.parser, or BusParser)
-        :param blockname: the IP block of interest
-        :type blockname: string
-        :param portname: the port we want to trace
-        :type portname: string
-
-        :return: frequency in MHz
-        :rtype: float
-        """
-        xmlpath = "./MODULES/MODULE[@FULLNAME='/{0}']/PORTS/PORT[@NAME='{1}']".format(
-            blockname, portname)
-        port = self.xml.find(xmlpath)
-        return float(port.get('CLKFREQUENCY'))/1e6
-
-    def get_param(self, blockname, parname):
-        """
-        Find the value of an IP parameter. This works for all IPs, including those that do not show up in ip_dict because they're not addressable.
-
-        :param parser: HWH parser object (from Overlay.parser, or BusParser)
-        :param blockname: the IP block of interest
-        :type blockname: string
-        :param parname: the parameter of interest
-        :type parname: string
-
-        :return: parameter value
-        :rtype: string
-        """
-        xmlpath = "./MODULES/MODULE[@FULLNAME='/{0}']/PARAMETERS/PARAMETER[@NAME='{1}']".format(
-            blockname, parname)
-        param = self.xml.find(xmlpath)
-        return param.get('VALUE')
-
-    def mod2type(self, blockname):
-        if self.systemgraph is not None:
-            return self.systemgraph.blocks[blockname].vlnv.name
-        return self.busparser.mod2type[blockname]
-
-class BusParser:
-    def __init__(self, root):
-        """
-        Matching all the buses in the modules from the HWH file.
-        This is essentially a copy of the HWH parser's match_nets() and match_pins(),
-        but working on buses instead of signals.
-
-        In addition, there's a map from module names to module types.
-
-        :param root: HWH XML tree (from Overlay.parser.root)
-        """
-        self.nets = {}
-        self.pins = {}
-        self.mod2type = {}
-        for module in root.findall('./MODULES/MODULE'):
-            fullpath = module.get('FULLNAME').lstrip('/')
-            self.mod2type[fullpath] = module.get('MODTYPE')
-            for bus in module.findall('./BUSINTERFACES/BUSINTERFACE'):
-                port = fullpath + '/' + bus.get('NAME')
-                busname = bus.get('BUSNAME')
-                self.pins[port] = busname
-                if busname in self.nets:
-                    self.nets[busname] |= set([port])
-                else:
-                    self.nets[busname] = set([port])
-
 
 def ch2list(ch: Union[List[int], int]) -> List[int]:
     """
@@ -266,3 +227,46 @@ def ch2list(ch: Union[List[int], int]) -> List[int]:
     except TypeError:
         ch_list = ch
     return ch_list
+
+def check_keys(keys, required, optional):
+    """Check whether the keys defined for a pulse are supported and sufficient for this generator and pulse type.
+    Raise an exception if there is a problem.
+
+    Parameters
+    ----------
+    params : set-like
+        Parameter keys defined for this pulse
+    required : list
+        Required keys (these must be present)
+    optional : list
+        Optional keys (these are not required, but may be present)
+    """
+    required = set(required)
+    allowed = required | set(optional)
+    defined = set(keys)
+    if required - defined:
+        raise RuntimeError("missing required pulse parameter(s)", required - defined)
+    if defined - allowed:
+        raise RuntimeError("unsupported pulse parameter(s)", defined - allowed)
+
+def nqz(f, fs):
+    """Compute the Nyquist zone of a given frequency.
+    """
+    return int(f/(fs/2) + 1)
+
+def folded_freq(f, fs):
+    """Compute the zone-1 Nyquist image of a given frequency.
+    """
+    f_nqz = nqz(f, fs)
+    if f_nqz%2 == 0:
+        f_folded = -f
+    else:
+        f_folded = f
+    f_folded %= (fs/2)
+    return f_folded
+
+def nyquist_image(f, fs, nqz):
+    """Compute the Nyquist image of a given frequency in the specified zone.
+    """
+    f_folded = folded_freq(f, fs)
+    return -f_folded*((-1)**nqz) + fs*(nqz//2)

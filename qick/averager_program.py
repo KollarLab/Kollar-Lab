@@ -3,18 +3,20 @@ Several helper classes for writing qubit experiments.
 """
 from typing import List, Union
 import numpy as np
-from .qick_asm import QickProgram, obtain, QickRegister, QickRegisterManagerMixin
+from qick import obtain
+from .asm_v1 import QickProgram, AcquireProgram, QickRegister, QickRegisterManagerMixin
 
-class AveragerProgram(QickProgram):
+class AveragerProgram(AcquireProgram):
     """
     AveragerProgram class is an abstract base class for programs which do loops over experiments in hardware.
     It consists of a template program which takes care of the loop and acquire methods that talk to the processor to stream single shot data in real-time and then reshape and average it appropriately.
 
-    :param soccfg: This can be either a QickSOc object (if the program is running on the QICK) or a QickCOnfig (if running remotely).
+    :param soccfg: This can be either a QickSoc object (if the program is running on the QICK) or a QickCOnfig (if running remotely).
     :type soccfg: QickConfig
     :param cfg: Configuration dictionary
     :type cfg: dict
     """
+    COUNTER_ADDR = 1
 
     def __init__(self, soccfg, cfg):
         """
@@ -25,11 +27,15 @@ class AveragerProgram(QickProgram):
         super().__init__(soccfg)
         self.cfg = cfg
         self.make_program()
+        self.soft_avgs = 1
         if "soft_avgs" in cfg:
-            self.rounds = cfg['soft_avgs']
+            self.soft_avgs = cfg['soft_avgs']
         if "rounds" in cfg:
-            self.rounds = cfg['rounds']
-        self.reps = cfg['reps']
+            self.soft_avgs = cfg['rounds']
+        # this is a 1-D loop
+        loop_dims = [self.cfg['reps']]
+        # average over the reps axis
+        self.setup_acquire(counter_addr=self.COUNTER_ADDR, loop_dims=loop_dims, avg_level=0)
 
     def initialize(self):
         """
@@ -60,21 +66,21 @@ class AveragerProgram(QickProgram):
 
         p.mathi(0, rcount, rcount, "+", 1)
 
-        p.memwi(0, rcount, self.counter_addr)
+        p.memwi(0, rcount, self.COUNTER_ADDR)
 
         p.loopnz(0, rjj, 'LOOP_J')
 
         p.end()
 
 
-    def acquire(self, soc, threshold=None, angle=None, readouts_per_experiment=1, save_experiments=None, load_pulses=True, start_src="internal", progress=False, debug=False):
+    def acquire(self, soc, readouts_per_experiment=None, save_experiments=None, **kwargs):
         """
         This method optionally loads pulses on to the SoC, configures the ADC readouts, loads the machine code representation of the AveragerProgram onto the SoC, starts the program and streams the data into the Python, returning it as a set of numpy arrays.
         config requirements:
         "reps" = number of repetitions;
 
         :param soc: Qick object
-        :type soc: Qick object
+        :type soc: QickSoc
         :param threshold: threshold
         :type threshold: int
         :param angle: rotation angle
@@ -86,46 +92,41 @@ class AveragerProgram(QickProgram):
         :param load_pulses: If true, loads pulses into the tProc
         :type load_pulses: bool
         :param start_src: "internal" (tProc starts immediately) or "external" (each round waits for an external trigger)
-        :type start_src: string
+        :type start_src: str
         :param progress: If true, displays progress bar
         :type progress: bool
-        :param debug: If true, displays assembly code for tProc program
-        :type debug: bool
         :returns:
             - expt_pts (:py:class:`list`) - list of experiment points
             - avg_di (:py:class:`list`) - list of lists of averaged accumulated I data for ADCs 0 and 1
             - avg_dq (:py:class:`list`) - list of lists of averaged accumulated Q data for ADCs 0 and 1
         """
+        if readouts_per_experiment is not None:
+            self.set_reads_per_shot(readouts_per_experiment)
 
-        self.shot_angle = angle
-        self.shot_threshold = threshold
-
-        if save_experiments is None:
-            save_experiments = range(readouts_per_experiment)
-
-        d_buf, avg_d, shots = super().acquire(soc, reads_per_rep=readouts_per_experiment, load_pulses=load_pulses, start_src=start_src, progress=progress, debug=debug)
+        avg_d = super().acquire(soc, soft_avgs=self.soft_avgs, **kwargs)
 
         # reformat the data into separate I and Q arrays
         # save results to class in case you want to look at it later or for analysis
-        self.di_buf = d_buf[:,:,0]
-        self.dq_buf = d_buf[:,:,1]
-
-        if threshold is not None:
-            self.shots = shots
+        raw = [d.reshape((-1,2)) for d in self.get_raw()]
+        self.di_buf = [d[:,0] for d in raw]
+        self.dq_buf = [d[:,1] for d in raw]
 
         n_ro = len(self.ro_chs)
-        avg_di = np.zeros((n_ro, len(save_experiments)))
-        avg_dq = np.zeros((n_ro, len(save_experiments)))
-
-        for nn, ii in enumerate(save_experiments):
-            for i_ch, (ch, ro) in enumerate(self.ro_chs.items()):
-                avg_di[i_ch][nn] = avg_d[i_ch, ii, 0]
-                avg_dq[i_ch][nn] = avg_d[i_ch, ii, 1]
+        if save_experiments is None:
+            avg_di = [d[:, 0] for d in avg_d]
+            avg_dq = [d[:, 1] for d in avg_d]
+        else:
+            avg_di = [np.zeros(len(save_experiments)) for ro in self.ro_chs]
+            avg_dq = [np.zeros(len(save_experiments)) for ro in self.ro_chs]
+            for i_ch in range(n_ro):
+                for nn, ii in enumerate(save_experiments):
+                    avg_di[i_ch][nn] = avg_d[i_ch][ii, 0]
+                    avg_dq[i_ch][nn] = avg_d[i_ch][ii, 1]
 
         return avg_di, avg_dq
 
 
-    def acquire_decimated(self, soc, load_pulses=True, readouts_per_experiment=1, start_src="internal", progress=True, debug=False):
+    def acquire_decimated(self, soc, readouts_per_experiment=None, **kwargs):
         """
         This method acquires the raw (downconverted and decimated) data sampled by the ADC. This method is slow and mostly useful for lining up pulses or doing loopback tests.
 
@@ -143,26 +144,26 @@ class AveragerProgram(QickProgram):
         3D array with dimensions (reps, expts, 2, length), indices (rep, expt, I/Q, sample)
 
         :param soc: Qick object
-        :type soc: Qick object
+        :type soc: QickSoc
         :param load_pulses: If true, loads pulses into the tProc
         :type load_pulses: bool
         :param readouts_per_experiment: readouts per experiment (all will be saved)
         :type readouts_per_experiment: int
         :param start_src: "internal" (tProc starts immediately) or "external" (each soft_avg waits for an external trigger)
-        :type start_src: string
+        :type start_src: str
         :param progress: If true, displays progress bar
         :type progress: bool
-        :param debug: If true, displays assembly code for tProc program
-        :type debug: bool
         :returns:
             - iq_list (:py:class:`list`) - list of lists of averaged decimated I and Q data
         """
 
-        buf = super().acquire_decimated(soc, reads_per_rep=readouts_per_experiment, load_pulses=load_pulses, start_src=start_src, progress=progress, debug=debug)
+        if readouts_per_experiment is not None:
+            self.set_reads_per_shot(readouts_per_experiment)
+        buf = super().acquire_decimated(soc, soft_avgs=self.soft_avgs, **kwargs)
         # move the I/Q axis from last to second-last
         return np.moveaxis(buf, -1, -2)
 
-class RAveragerProgram(QickProgram):
+class RAveragerProgram(AcquireProgram):
     """
     RAveragerProgram class, for qubit experiments that sweep over a variable (whose value is stored in expt_pts).
     It is an abstract base class similar to the AveragerProgram, except has an outer loop which allows one to sweep a parameter in the real-time program rather than looping over it in software.  This can be more efficient for short duty cycles.
@@ -171,6 +172,7 @@ class RAveragerProgram(QickProgram):
     :param cfg: Configuration dictionary
     :type cfg: dict
     """
+    COUNTER_ADDR = 1
 
     def __init__(self, soccfg, cfg):
         """
@@ -179,10 +181,13 @@ class RAveragerProgram(QickProgram):
         super().__init__(soccfg)
         self.cfg = cfg
         self.make_program()
-        self.reps = cfg['reps']
-        self.expts = cfg['expts']
+        self.soft_avgs = 1
         if "rounds" in cfg:
-            self.rounds = cfg['rounds']
+            self.soft_avgs = cfg['rounds']
+        # expts loop is the outer loop, reps loop is the inner loop
+        loop_dims = [self.cfg['expts'], self.cfg['reps']]
+        # average over the reps axis
+        self.setup_acquire(counter_addr=self.COUNTER_ADDR, loop_dims=loop_dims, avg_level=1)
 
     def initialize(self):
         """
@@ -226,7 +231,7 @@ class RAveragerProgram(QickProgram):
 
         p.mathi(0, rcount, rcount, "+", 1)
 
-        p.memwi(0, rcount, self.counter_addr)
+        p.memwi(0, rcount, self.COUNTER_ADDR)
 
         p.loopnz(0, rjj, 'LOOP_J')
 
@@ -241,18 +246,18 @@ class RAveragerProgram(QickProgram):
         Method for calculating experiment points (for x-axis of plots) based on the config.
 
         :return: Numpy array of experiment points
-        :rtype: array
+        :rtype: numpy.ndarray
         """
-        return self.cfg["start"]+np.arange(self.expts)*self.cfg["step"]
+        return self.cfg["start"]+np.arange(self.cfg["expts"])*self.cfg["step"]
 
-    def acquire(self, soc, threshold=None, angle=None, load_pulses=True, readouts_per_experiment=1, save_experiments=None, start_src="internal", progress=False, debug=False):
+    def acquire(self, soc, readouts_per_experiment=None, save_experiments=None, **kwargs):
         """
         This method optionally loads pulses on to the SoC, configures the ADC readouts, loads the machine code representation of the AveragerProgram onto the SoC, starts the program and streams the data into the Python, returning it as a set of numpy arrays.
         config requirements:
         "reps" = number of repetitions;
 
         :param soc: Qick object
-        :type soc: Qick object
+        :type soc: QickSoc
         :param threshold: threshold
         :type threshold: int
         :param angle: rotation angle
@@ -264,42 +269,38 @@ class RAveragerProgram(QickProgram):
         :param load_pulses: If true, loads pulses into the tProc
         :type load_pulses: bool
         :param start_src: "internal" (tProc starts immediately) or "external" (each round waits for an external trigger)
-        :type start_src: string
+        :type start_src: str
         :param progress: If true, displays progress bar
         :type progress: bool
-        :param debug: If true, displays assembly code for tProc program
-        :type debug: bool
         :returns:
             - expt_pts (:py:class:`list`) - list of experiment points
             - avg_di (:py:class:`list`) - list of lists of averaged accumulated I data for ADCs 0 and 1
             - avg_dq (:py:class:`list`) - list of lists of averaged accumulated Q data for ADCs 0 and 1
         """
-        self.shot_angle = angle
-        self.shot_threshold = threshold
+        if readouts_per_experiment is not None:
+            self.set_reads_per_shot(readouts_per_experiment)
 
-        if save_experiments is None:
-            save_experiments = range(readouts_per_experiment)
-
-        d_buf, avg_d, shots = super().acquire(soc, reads_per_rep=readouts_per_experiment, load_pulses=load_pulses, start_src=start_src, progress=progress, debug=debug)
+        avg_d = super().acquire(soc, soft_avgs=self.soft_avgs, **kwargs)
 
         # reformat the data into separate I and Q arrays
         # save results to class in case you want to look at it later or for analysis
-        self.di_buf = d_buf[:,:,0]
-        self.dq_buf = d_buf[:,:,1]
-
-        if threshold is not None:
-            self.shots = shots
+        raw = [d.reshape((-1,2)) for d in self.get_raw()]
+        self.di_buf = [d[:,0] for d in raw]
+        self.dq_buf = [d[:,1] for d in raw]
 
         expt_pts = self.get_expt_pts()
 
         n_ro = len(self.ro_chs)
-        avg_di = np.zeros((n_ro, len(save_experiments), self.expts))
-        avg_dq = np.zeros((n_ro, len(save_experiments), self.expts))
-
-        for nn, ii in enumerate(save_experiments):
-            for i_ch, (ch, ro) in enumerate(self.ro_chs.items()):
-                avg_di[i_ch][nn] = avg_d[i_ch, ii, :, 0]
-                avg_dq[i_ch][nn] = avg_d[i_ch, ii, :, 1]
+        if save_experiments is None:
+            avg_di = [d[..., 0] for d in avg_d]
+            avg_dq = [d[..., 1] for d in avg_d]
+        else:
+            avg_di = [np.zeros((len(save_experiments), *d.shape[1:])) for d in avg_d]
+            avg_dq = [np.zeros((len(save_experiments), *d.shape[1:])) for d in avg_d]
+            for i_ch in range(n_ro):
+                for nn, ii in enumerate(save_experiments):
+                    avg_di[i_ch][nn] = avg_d[i_ch][ii, ..., 0]
+                    avg_dq[i_ch][nn] = avg_d[i_ch][ii, ..., 1]
 
         return expt_pts, avg_di, avg_dq
 
@@ -318,7 +319,7 @@ class AbsQickSweep:
         self.label = label
         self.expts: int = None
 
-    def get_sweep_pts(self) -> Union[List, np.array]:
+    def get_sweep_pts(self) -> Union[List, np.ndarray]:
         """
         abstract method for getting the sweep values
         """
@@ -424,7 +425,7 @@ def merge_sweeps(sweeps: List[QickSweep]) -> AbsQickSweep:
     return merged
 
 
-class NDAveragerProgram(QickRegisterManagerMixin, QickProgram):
+class NDAveragerProgram(QickRegisterManagerMixin, AcquireProgram):
     """
     NDAveragerProgram class, for experiments that sweep over multiple variables in qick. The order of experiment runs
     follow outer->inner: reps, sweep_n,... sweep_0.
@@ -432,6 +433,7 @@ class NDAveragerProgram(QickRegisterManagerMixin, QickProgram):
     :param cfg: Configuration dictionary
     :type cfg: dict
     """
+    COUNTER_ADDR = 1
 
     def __init__(self, soccfg, cfg):
         """
@@ -440,14 +442,17 @@ class NDAveragerProgram(QickRegisterManagerMixin, QickProgram):
         super().__init__(soccfg)
         self.cfg = cfg
         self.qick_sweeps: List[AbsQickSweep] = []
-        self.expts = 1
         self.sweep_axes = []
         self.make_program()
-        self.reps = cfg['reps']
+        self.soft_avgs = 1
         if "soft_avgs" in cfg:
-            self.rounds = cfg['soft_avgs']
+            self.soft_avgs = cfg['soft_avgs']
         if "rounds" in cfg:
-            self.rounds = cfg['rounds']
+            self.soft_avgs = cfg['rounds']
+        # reps loop is the outer loop, first-added sweep is innermost loop
+        loop_dims = [cfg['reps'], *self.sweep_axes[::-1]]
+        # average over the reps axis
+        self.setup_acquire(counter_addr=self.COUNTER_ADDR, loop_dims=loop_dims, avg_level=0)
 
     def initialize(self):
         """
@@ -469,7 +474,6 @@ class NDAveragerProgram(QickRegisterManagerMixin, QickProgram):
         :return:
         """
         self.qick_sweeps.append(sweep)
-        self.expts *= sweep.expts
         self.sweep_axes.append(sweep.expts)
 
     def make_program(self):
@@ -485,9 +489,9 @@ class NDAveragerProgram(QickRegisterManagerMixin, QickProgram):
         rep_count = 14  # repetition counter
 
         n_sweeps = len(self.qick_sweeps)
-        if n_sweeps > 7:  # to be safe, only register 15-21 in page 0 can be used as sweep counters
+        if n_sweeps > 5:  # to be safe, only register 17-21 in page 0 can be used as sweep counters
             raise OverflowError(f"too many qick inner loops ({n_sweeps}), run out of counter registers")
-        counter_regs = (np.arange(n_sweeps) + 15).tolist()  # not sure why this has to be a list (np.array doesn't work)
+        counter_regs = (np.arange(n_sweeps) + 17).tolist()  # not sure why this has to be a list (np.array doesn't work)
 
         p.regwi(0, rcount, 0)  # reset total run count
 
@@ -504,7 +508,7 @@ class NDAveragerProgram(QickRegisterManagerMixin, QickProgram):
         # run body and total_run_counter++
         p.body()
         p.mathi(0, rcount, rcount, "+", 1)
-        p.memwi(0, rcount, 1)
+        p.memwi(0, rcount, self.COUNTER_ADDR)
 
         # add update and stop condition for each sweep
         for creg, swp in zip(counter_regs, self.qick_sweeps):
@@ -525,8 +529,7 @@ class NDAveragerProgram(QickRegisterManagerMixin, QickProgram):
             sweep_pts.append(swp.get_sweep_pts())
         return sweep_pts
 
-    def acquire(self, soc, threshold: int = None, angle: List = None, load_pulses=True, readouts_per_experiment=1,
-                save_experiments: List = None, start_src: str = "internal", progress=False, debug=False):
+    def acquire(self, soc, readouts_per_experiment=None, save_experiments: List = None, **kwargs):
         """
         This method optionally loads pulses on to the SoC, configures the ADC readouts, loads the machine code
         representation of the AveragerProgram onto the SoC, starts the program and streams the data into the Python,
@@ -545,56 +548,36 @@ class NDAveragerProgram(QickRegisterManagerMixin, QickProgram):
         :param load_pulses: If true, loads pulses into the tProc
         :param start_src: "internal" (tProc starts immediately) or "external" (each round waits for an external trigger)
         :param progress: If true, displays progress bar
-        :param debug: If true, displays assembly code for tProc program
         :returns:
             - expt_pts (:py:class:`list`) - list of experiment points
             - avg_di (:py:class:`list`) - list of lists of averaged accumulated I data for ADCs 0 and 1
             - avg_dq (:py:class:`list`) - list of lists of averaged accumulated Q data for ADCs 0 and 1
         """
 
-        self.shot_angle = angle
-        self.shot_threshold = threshold
+        if readouts_per_experiment is not None:
+            self.set_reads_per_shot(readouts_per_experiment)
 
-        if save_experiments is None:
-            save_experiments = range(readouts_per_experiment)
-
-        # avg_d calculated in QickProgram.acquire() assumes a different data shape, here we will recalculate based on
-        # the d_buf returned.
-        d_buf, avg_d, shots = super().acquire(soc, reads_per_rep=readouts_per_experiment, load_pulses=load_pulses,
-                                              start_src=start_src, progress=progress, debug=debug)
+        avg_d = super().acquire(soc, soft_avgs=self.soft_avgs, **kwargs)
 
         # reformat the data into separate I and Q arrays
         # save results to class in case you want to look at it later or for analysis
-        self.di_buf = d_buf[:, :, 0]
-        self.dq_buf = d_buf[:, :, 1]
-
-        if threshold is not None:
-            self.shots = shots
+        raw = [d.reshape((-1,2)) for d in self.get_raw()]
+        self.di_buf = [d[:,0] for d in raw]
+        self.dq_buf = [d[:,1] for d in raw]
 
         expt_pts = self.get_expt_pts()
 
         n_ro = len(self.ro_chs)
-        avg_di = np.zeros((n_ro, len(save_experiments), *self.sweep_axes[::-1]))
-        avg_dq = np.zeros((n_ro, len(save_experiments), *self.sweep_axes[::-1]))
-
-        for nn, ii in enumerate(save_experiments):
-            for i_ch, (ch, ro) in enumerate(self.ro_chs.items()):
-                avg_di[i_ch][nn] = avg_d[i_ch, ii, ..., 0]
-                avg_dq[i_ch][nn] = avg_d[i_ch, ii, ..., 1]
+        if save_experiments is None:
+            avg_di = [d[..., 0] for d in avg_d]
+            avg_dq = [d[..., 1] for d in avg_d]
+        else:
+            avg_di = [np.zeros((len(save_experiments), *d.shape[1:])) for d in avg_d]
+            avg_dq = [np.zeros((len(save_experiments), *d.shape[1:])) for d in avg_d]
+            for i_ch in range(n_ro):
+                for nn, ii in enumerate(save_experiments):
+                    avg_di[i_ch][nn] = avg_d[i_ch][ii, ..., 0]
+                    avg_dq[i_ch][nn] = avg_d[i_ch][ii, ..., 1]
 
         return expt_pts, avg_di, avg_dq
 
-    def _average_buf(self, d_reps, reads_per_rep: int):
-        """
-        overwrites the default _average_buf method in QickProgram. Here "reps" is the outermost axis, and we reshape
-        avg_d to the shape of the sweep axes.
-        :param d_reps:
-        :param reads_per_rep:
-        :return:
-        """
-        avg_d = np.zeros((len(self.ro_chs), reads_per_rep, *self.sweep_axes[::-1], 2))
-        for ii in range(reads_per_rep):
-            for i_ch, (ch, ro) in enumerate(self.ro_chs.items()):
-                avg_d[i_ch][ii] = np.sum(d_reps[i_ch][ii::reads_per_rep, :].reshape((self.reps, *self.sweep_axes[::-1], 2)),
-                                         axis=0) / (self.reps * ro['length'])
-        return avg_d

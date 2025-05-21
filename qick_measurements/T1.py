@@ -66,7 +66,6 @@ class T1_sequence(AveragerProgram):
         self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma))        
         self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex")
 
-        
         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
         # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
         self.synci(200)   
@@ -74,6 +73,11 @@ class T1_sequence(AveragerProgram):
     def body(self):
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
+        if self.cfg["phase_reset"]:
+            self.reset_phase(gen_ch = [self.cfg['cav_channel'], self.cfg['qub_channel']], t=0)
+        else:
+            pass
+        
         sigma = self.us2cycles(self.cfg["qub_sigma"])
         num_sigma = self.cfg["num_sigma"]
         
@@ -125,6 +129,10 @@ class CavitySweep(AveragerProgram):
     def body(self):
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
+
+        #self.reset_phase(gen_ch = self.cfg['cav_channel'], t=0)
+        #self.reset_phase(gen_ch = self.cfg['qub_channel'], t=0)
+
         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
         meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
         #Sets off the ADC
@@ -144,6 +152,7 @@ def get_T1_settings():
     
     settings['scanname'] = 'initial_power_scan_q4'
     settings['meas_type'] = 'Tmeas'
+    settings['phase_reset'] = True
     
     settings['cav_freq'] = 1e9
     settings['meas_gain'] = 1000
@@ -223,7 +232,9 @@ def meas_T1(soc,soccfg,instruments,settings):
 
         'relax_delay'     : exp_globals['relax_delay'],
         'reps'            : exp_settings['reps'],
-        'soft_avgs'       : exp_settings['soft_avgs']
+        'soft_avgs'       : exp_settings['soft_avgs'],
+
+        'phase_reset'     : exp_settings['phase_reset']
         }
 
 
@@ -243,8 +254,11 @@ def meas_T1(soc,soccfg,instruments,settings):
     
     amp_int = np.zeros(len(taus))
     ang_int = np.zeros(len(taus))
-    amps    = np.zeros((len(taus),total_samples))
-    angles  = np.zeros((len(taus),total_samples))
+
+    amp_orig = np.zeros(len(taus))
+    ang_orig = np.zeros(len(taus))
+
+
     
     
     first_it = True
@@ -255,7 +269,7 @@ def meas_T1(soc,soccfg,instruments,settings):
 #            time.sleep(0.1)
         print('Starting Background Trace')
         bprog = CavitySweep(soccfg,config)
-        holder = bprog.acquire(soc, load_pulses=True, progress=False, debug=False)
+        holder = bprog.acquire(soc, load_pulses=True, progress=False)
         
         I_back = holder[0][0][0]
         Q_back = holder[1][0][0]
@@ -273,7 +287,7 @@ def meas_T1(soc,soccfg,instruments,settings):
         
         config['qub_delay'] = tau*1e6
         prog = T1_sequence(soccfg,config)
-        holder = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
+        holder = prog.acquire(soc, load_pulses=True, progress=False)
         
         ##No background subtraction here!!!!
         I_sig, Q_sig   = [holder[0][0][0], holder[1][0][0]] #<I>, <Q> for signal trace
@@ -293,6 +307,8 @@ def meas_T1(soc,soccfg,instruments,settings):
         amp_int[tind] = np.sqrt(I_final**2 + Q_final**2)
         ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         
+        amp_orig[tind] = np.sqrt(I_sig**2+Q_sig**2)
+        ang_orig[tind] = np.arctan2(Q_sig, I_sig)*180/np.pi
 
         
         if first_it:
@@ -352,7 +368,7 @@ def meas_T1(soc,soccfg,instruments,settings):
     #            time.sleep(0.1)
             print('Starting Background Trace')
             bprog = CavitySweep(soccfg,config)
-            holder = bprog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+            holder = bprog.acquire_decimated(soc, load_pulses=True, progress=False)
             print('Background Trace Complete')
             I_full_bd = holder[0][0]
             Q_full_bd = holder[0][1]
@@ -372,7 +388,7 @@ def meas_T1(soc,soccfg,instruments,settings):
             
             config['qub_delay'] = tau*1e6
             prog = T1_sequence(soccfg,config)
-            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False)
             I_fulld = holder[0][0]
             Q_fulld = holder[0][1]
             I_windowd = I_fulld[meas_start:meas_end]
@@ -458,7 +474,21 @@ def meas_T1(soc,soccfg,instruments,settings):
     fig3.canvas.flush_events()
     plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
 
-    userfuncs.SaveFull(saveDir, filename, ['taus','amp_int','ang_int', 'T1', 'amp', 'offset', 'fit_guess'],
+    ang_guess = max(ang_int) - min(ang_int)
+    fit_guess_phase = [T1_guess, ang_guess, offset_guess]
+    T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, ang_int, fit_guess)
+    fig4 = plt.figure(3)
+    plt.clf()
+    plt.plot(taus*1e6, ang_int)
+    plt.plot(fit_xvals*1e6, fit_yvals)
+    plt.title('Phase T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
+    plt.xlabel('Time (us)')
+    plt.ylabel('Phase')
+    fig4.canvas.draw()
+    fig4.canvas.flush_events()
+    plt.savefig(os.path.join(saveDir, filename+'_fit_p.png'), dpi=150)
+
+    userfuncs.SaveFull(saveDir, filename, ['taus','amp_int','ang_int','amp_orig','ang_orig', 'T1', 'amp', 'offset', 'fit_guess'],
                          locals(), expsettings=settings, instruments=instruments)
     
     if exp_globals['LO']:

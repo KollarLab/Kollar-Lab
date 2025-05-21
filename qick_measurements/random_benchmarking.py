@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import userfuncs
 import cmath
 import random
+import time
 
 
 class IQProgram_RB(AveragerProgram):
@@ -446,7 +447,7 @@ def get_RB_settings():
     settings['pulse_plot']     = []
     settings['full_seq_dict']  = {}
     settings['buffer']         = .1 #[us]
-    settings['gen_new']        = True
+    settings['gen_new']        = False
     settings['run_full']       = False # only True for initial scans 
     settings['gen_num']        = 2
 
@@ -468,12 +469,15 @@ def random_bench(soc,soccfg,instruments,settings):
     
     soc.reset_gens()
     
-    if exp_globals['LO']:
+    #if exp_globals['LO']:
+    if False:
         logen = instruments['LO']
         
         logen.freq   = exp_globals['LO_freq']
         logen.power  = exp_globals['LO_power']
         logen.output = 1
+    else:
+        pass
 
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
@@ -558,9 +562,11 @@ def random_bench(soc,soccfg,instruments,settings):
 
     # This next section sets the sequences of pulses and iterates through them
 
-    full_seq_dict = random_seq_gen(config)
+    #full_seq_dict = random_seq_gen(config) TODO: Reinstate after debugging
 
-    config['full_seq_dict'] = full_seq_dict
+    #config['full_seq_dict'] = full_seq_dict TODO: Reinstate after debugging
+
+    full_seq_dict = config['full_seq_dict']
 
     power_data = np.zeros((len(full_seq_dict), len(config['used_gates'])))
     phase_data = np.zeros((len(full_seq_dict), len(config['used_gates'])))
@@ -568,43 +574,77 @@ def random_bench(soc,soccfg,instruments,settings):
     Q_finals   = np.zeros((len(full_seq_dict), len(config['used_gates'])))
     # TODO: figure out if I want to save all of the IQ data from each run, that might be too much
     # If I wanted to make it possible I'd have to use dictionaries
-    if config['run_full'] == True:
-        full_IQ_data = {}
 
     for seq in full_seq_dict:
         run_seq = full_seq_dict[seq]
-        print('Running Sequence {}'.format(seq))
-
-        if config['run_full'] == True:
-                # This creates a 3D array for each sequence, with IQ x number of truncate points x the length of a measurement array
-                IQ_per_seq = np.zeros((2, len(config['used_gates'], 829)))
-                full_IQ_data['sequence{}'.format(seq)] = IQ_per_seq
+        print('Running Sequence {}'.format(seq))                
 
         for i in range(len(config['used_gates'])):
+            if i == 0:
+                tstart = time.time()
+            else:
+                pass
+
             trunc_point = config['used_gates'][i]
             config['pulse_schedule'] = run_seq[: trunc_point]
 
             # Append the measurement pulse
-            config = meas_pulse(config)
+            #config = meas_pulse(config)
 
             prog_RB = IQProgram_RB(soccfg, config)
 
             meas_start = prog_RB.us2cycles(m_pulse["init_buffer"],ro_ch=0)
             meas_end = meas_start+prog_RB.us2cycles(m_pulse["meas_window"],ro_ch=0)
 
-            iq_list_RB = prog_RB.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+            avg_di, avg_dq = prog_RB.acquire(soc, load_pulses=True, progress=False)
 
             # I and Q full are the entire data for the output traces of the cavity
-            I_full = iq_list_RB[0][0]
-            Q_full = iq_list_RB[0][1]
+            I_full = avg_di[0][0]
+            Q_full = avg_dq[0][0]
+
+            '''
+            This section was taken out when the script switched to acquire from acquire_decimated
+
+            # I and Q final are the average I and Q measurements for each point
+            # because RB is largely immune to SPAM errors, it doesn't matter how we average
+            I_final = np.mean(I_window)
+            Q_final = np.mean(Q_window)
+            '''
+            # Save the mean IQ data for every sequence and truncate point to an array to look at later
+            I_finals[seq, i] = I_full
+            Q_finals[seq, i] = Q_full
+            
+            power_data[seq, i] = np.sqrt(I_full**2 + Q_full**2)
+            phase_data[seq, i] = np.arctan2(Q_full, I_full)*180/np.pi
+        
+        if exp_settings['debug']:
+            full_IQ_data = {}
+
+            # This creates a 3D array for each sequence, with IQ x number of truncate points x the length of a measurement array
+            IQ_per_seq = np.zeros((2, len(config['used_gates'], 829)))
+            full_IQ_data['sequence{}'.format(seq)] = IQ_per_seq
+
+            config['readout_length'] = 2.2
+            config['adc_trig_offset'] = m_pulse['emp_delay'] + m_pulse['meas_pos'] + exp_settings['debug_time']
+
+            I_finals_debug   = np.zeros((len(full_seq_dict), len(config['used_gates'])))
+            Q_finals_debug   = np.zeros((len(full_seq_dict), len(config['used_gates'])))
+            power_debug = np.zeros((len(full_seq_dict), len(config['used_gates'])))
+            phase_debug = np.zeros((len(full_seq_dict), len(config['used_gates'])))
+
+            iq_RB_debug = prog_RB.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+
+            # I and Q full are the entire data for the output traces of the cavity
+            I_full_debug = iq_RB_debug[0][0]
+            Q_full_debug = iq_RB_debug[0][1]
 
             # I and Q window select for only the time when the cavity pulse was happening
-            I_window = I_full[meas_start:meas_end]
-            Q_window = Q_full[meas_start:meas_end]
+            I_window = I_full_debug[meas_start:meas_end]
+            Q_window = Q_full_debug[meas_start:meas_end]
 
-            if config['run_full'] == True:
-                IQ_per_seq[0][i] = I_full
-                IQ_per_seq[1][i] = Q_full
+
+            IQ_per_seq[0][i] = I_full_debug
+            IQ_per_seq[1][i] = Q_full_debug
             
             # I and Q final are the average I and Q measurements for each point
             # because RB is largely immune to SPAM errors, it doesn't matter how we average
@@ -612,56 +652,55 @@ def random_bench(soc,soccfg,instruments,settings):
             Q_final = np.mean(Q_window)
 
             # Save the mean IQ data for every sequence and truncate point to an array to look at later
-            I_finals[seq, i] = I_final
-            Q_finals[seq, i] = Q_final
+            I_finals_debug[seq, i] = I_final
+            Q_finals_debug[seq, i] = Q_final
 
-            power_data[seq, i] = np.sqrt(I_final**2 + Q_final**2)
-            phase_data[seq, i] = np.arctan2(Q_final, I_final)*180/np.pi
+            power_debug[seq, i] = np.sqrt(I_final**2 + Q_final**2)
+            phase_debug[seq, i] = np.arctan2(Q_final, I_final)*180/np.pi
 
-        
-        # Define an x axis the length of our IQ data and convert it to us instead of clock ticks    
-        if seq == 0: 
-            xaxis = np.linspace( 0, len( iq_list_RB[0][0] ) -1, len( iq_list_RB[0][0] ) )
-            for x in range(0,len(xaxis)):
-                xaxis[x] = prog_RB.cycles2us(xaxis[x],ro_ch=1)
-            
-            x_axis_pulses = np.linspace(0, len(config['pulse_plot'][0])-1, len(config['pulse_plot'][0]))
-            for x in range(0,len(x_axis_pulses)):
-                x_axis_pulses[x] = prog_RB.cycles2us(x_axis_pulses[x],gen_ch=6)
-            x_axis_pulses = x_axis_pulses/16
+            # Define an x axis the length of our IQ data and convert it to us instead of clock ticks    
+            if seq == 0: 
+                xaxis = np.linspace( 0, len( iq_RB_debug[0][0] ) -1, len( iq_RB_debug[0][0] ) )
+                for x in range(0,len(xaxis)):
+                    xaxis[x] = prog_RB.cycles2us(xaxis[x],ro_ch=1)
+                
+                x_axis_pulses = np.linspace(0, len(config['pulse_plot'][0])-1, len(config['pulse_plot'][0]))
+                for x in range(0,len(x_axis_pulses)):
+                    x_axis_pulses[x] = prog_RB.cycles2us(x_axis_pulses[x],gen_ch=6)
+                x_axis_pulses = x_axis_pulses/16
+
+            # Figure 1 plots single shot I and Q output cavity traces and Input traces
+            fig3 = plt.figure(3, figsize=(13, 8))
+            plt.clf()
+            plt.subplot(121)
+            plt.plot(xaxis, I_full_debug, label = 'I Data')
+            plt.plot(xaxis, Q_full_debug, label = 'Q Data')
+            plt.xlabel('us')
+            plt.ylabel('a.u.')
+            plt.legend()
+            plt.subplot(122)
+            plt.plot(x_axis_pulses, config['pulse_plot'][0], label = 'I Data')
+            plt.plot(x_axis_pulses, config['pulse_plot'][1], label = 'Q Data')
+            plt.xlabel('us')
+            plt.ylabel('amplitude')
+            plt.legend()
+            plt.title('Single Shot Cavity Output/Input Traces')
+            fig3.canvas.draw()
+            fig3.canvas.flush_events()
+            plt.savefig(os.path.join(saveDir, filename+'_Input_Output_Traces.png'), dpi = 150)
 
         '''
         Woo the plotting section!
         
-        Plot 1 displays the output and input traces (cavity pulse data)
+        The debug plot (above) displays the output and input traces (cavity pulse data)
         Plot 2 displays the power v number of gates (will hopefully be updated from power)
         Plot 3 shows I/Q data for each one of the points
         '''
 
         # TODO: Find some way to determine fidelity and switch to using that instead of power
 
-        # Figure 1 plots single shot I and Q output cavity traces and Input traces
-        fig1 = plt.figure(1, figsize=(13, 8))
-        plt.clf()
-        plt.subplot(121)
-        plt.plot(xaxis, I_full, label = 'I Data')
-        plt.plot(xaxis, Q_full, label = 'Q Data')
-        plt.xlabel('us')
-        plt.ylabel('a.u.')
-        plt.legend()
-        plt.subplot(122)
-        plt.plot(x_axis_pulses, config['pulse_plot'][0], label = 'I Data')
-        plt.plot(x_axis_pulses, config['pulse_plot'][1], label = 'Q Data')
-        plt.xlabel('us')
-        plt.ylabel('amplitude')
-        plt.legend()
-        plt.title('Single Shot Cavity Output/Input Traces')
-        fig1.canvas.draw()
-        fig1.canvas.flush_events()
-        plt.savefig(os.path.join(saveDir, filename+'_Input_Output_Traces.png'), dpi = 150)
-
         # Figure 2 plots the average power v number of gates for each sequence
-        fig2 = plt.figure(2, figsize=(13, 8))
+        fig1 = plt.figure(1, figsize=(13, 8))
         plt.clf()
         for i in range(0, seq +1):
             plt.scatter(config['used_gates'], power_data[i], label = 'Sequence {}'.format(i))
@@ -669,12 +708,12 @@ def random_bench(soc,soccfg,instruments,settings):
         plt.xlabel('Num Gates')
         plt.ylabel('Power (DAC a.u.)')
         #plt.legend()
-        fig2.canvas.draw()
-        fig2.canvas.flush_events()
+        fig1.canvas.draw()
+        fig1.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename + '_fidelity_plot.png'))
 
         # Figure 3 plots IQ data for each of the runs on an IQ plane to help with fidelity measurements
-        fig3 = plt.figure(3, figsize = (13, 8))
+        fig2 = plt.figure(2, figsize = (13, 8))
         plt.clf()
         plt.axhline(0)
         plt.axvline(0)
@@ -683,24 +722,26 @@ def random_bench(soc,soccfg,instruments,settings):
         plt.title('I/Q distribution of measurements')
         for i in range(0, seq+1):
             plt.scatter(I_finals[i], Q_finals[i], label = 'Sequence {}'.format(i))
-        fig1.canvas.draw()
-        fig1.canvas.flush_events()
+        plt.legend()
+        fig2.canvas.draw()
+        fig2.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_IQ_distribution.png'), dpi = 150)
 
 
-    if config['run_full'] == True:
-        userfuncs.SaveFull(saveDir, filename, ['power_data', 'phase_data', 'I_finals', 'Q_finals' 
+    if exp_settings['debug']:
+        userfuncs.SaveFull(saveDir, filename, ['power_data', 'phase_data', 'I_finals', 'Q_finals',
                             'I_full', 'Q_full','xaxis', 'full_IQ_data'],
                             locals(), expsettings=settings, instruments={})
         
-        data = {'saveDir': saveDir, 'filename': filename, 'I_full': I_full, 
-                'Q_full': Q_full, 'I_finals': I_final, 'Q_finals': Q_final, 'xaxis':xaxis, 
-                'power_data':power_data, 'full_IQ_data':full_IQ_data}
+        data = {'saveDir': saveDir, 'filename': filename, 'I_full': I_full, 'Q_full': Q_full, 
+                'I_finals':I_finals_debug, 'Q_finals':Q_finals_debug, 'xaxis':xaxis, 'power_data':power_debug, 
+                'phase_data': phase_debug, 'full_IQ_data':full_IQ_data}
     
     else:
-        userfuncs.SaveFull(saveDir, filename, ['power_data', 'phase_data', 'I_finals', 'Q_finals' 'I_full', 'Q_full','xaxis'],
+        userfuncs.SaveFull(saveDir, filename, ['power_data', 'phase_data', 'I_finals', 'Q_finals'],
                                 locals(), expsettings=settings, instruments={})
         
-        data = {'saveDir': saveDir, 'filename': filename, 'I_full': I_full, 'Q_full': Q_full, 'I_finals': I_final, 'Q_finals': Q_final, 'xaxis':xaxis, 'power_data':power_data}
+        data = {'saveDir': saveDir, 'filename': filename, 'I_full': I_full, 'Q_full': Q_full,
+                'I_finals':I_finals, 'Q_finals':Q_finals, 'power_data':power_data, 'phase_data':phase_data }
     
     return data, power_data, phase_data, prog_RB

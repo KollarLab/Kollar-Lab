@@ -36,7 +36,7 @@ class PulsedSpec(AveragerProgram):
         phase_c = self.deg2reg(cfg["cav_phase"], gen_ch=gen_ch)
         gain_c  = cfg["meas_gain"]
         
-        self.default_pulse_registers(ch=gen_ch, freq=freq_c, phase=phase_c, gain=gain_c, mode = "oneshot")
+        self.default_pulse_registers(ch=gen_ch, freq=freq_c, phase=phase_c, gain=gain_c)
         self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
         
         freq_q  = self.freq2reg(cfg["qub_freq"],gen_ch=qub_ch)
@@ -83,20 +83,20 @@ def get_spec_settings():
     settings['scanname'] = 'initial_power_scan_q4'
     settings['meas_type'] = 'PulsedSpec'
     
-    settings['cav_freq'] = 1e9
-    settings['cav_gain'] = 1000
+#    settings['cav_freq'] = 1e9
+#    settings['cav_gain'] = 1000
     
     #Sweep parameters
-    settings['freq_start']   = 4e9  
-    settings['freq_step']    = 100e6
-    settings['freq_points']  = 6
+#    settings['freq_start']   = 4e9  
+#    settings['freq_step']    = 100e6
+#    settings['freq_points']  = 6
 
-    settings['gain_start']  = 500
-    settings['gain_step']   = 100
-    settings['gain_points'] = 11
+#    settings['gain_start']  = 500
+#    settings['gain_step']   = 100
+#    settings['gain_points'] = 11
     #Card settings
-    settings['reps'] = 1
-    settings['soft_avgs'] = 5e3
+#    settings['reps'] = 1
+#    settings['soft_avgs'] = 5e3
     
     return settings
 
@@ -108,12 +108,12 @@ def pulsed_spec(soc,soccfg,instruments,settings):
     
     soc.reset_gens()
     
-    if exp_globals['LO']:
-        logen = instruments['LO']
-        
-        logen.freq   = exp_globals['LO_freq']
-        logen.power  = exp_globals['LO_power']
-        logen.output = 1
+    #if exp_globals['LO']:
+    #    logen = instruments['LO']
+    #    
+    #    logen.freq   = exp_globals['LO_freq']
+    #    logen.power  = exp_globals['LO_power']
+    #    logen.output = 1
 
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
@@ -128,7 +128,7 @@ def pulsed_spec(soc,soccfg,instruments,settings):
         'cav_phase'       : m_pulse['cav_phase'],
         'meas_window'     : m_pulse['meas_window'],
         'meas_time'       : m_pulse['meas_pos'],
-        'meas_gain'       : exp_settings['cav_gain'],
+        'meas_gain'       : exp_settings['meas_gain'],
         'cav_freq'        : (exp_settings['cav_freq']-exp_globals['LO_freq'])/1e6,
         
         'nqz_q'           : 2,
@@ -177,7 +177,7 @@ def pulsed_spec(soc,soccfg,instruments,settings):
             config["qub_freq"] = board_freq
             prog = PulsedSpec(soccfg,config)
             #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
-            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False)
             I_full = holder[0][0]
             Q_full = holder[0][1]
             I_window = I_full[meas_start:meas_end]

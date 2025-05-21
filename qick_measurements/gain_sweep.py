@@ -12,6 +12,9 @@ import os
 import time
 import matplotlib.pyplot as plt
 import userfuncs
+import os
+os.environ['OMP_NUM_THREADS'] = '4'
+from sklearn.cluster import KMeans
 
       
 #Heavily considering getting rid of the initial and post buffers for the speedup classes...
@@ -104,13 +107,12 @@ def get_gain_settings():
     settings['gain_start']  = 1000
     settings['gain_stop']   = 2000
     settings['gain_points'] = 3
-    
-
-
 
     #Card settings
     settings['reps'] = 1
     settings['soft_avgs'] = 5e3
+
+    settings['single_shot_mode'] = False
     
     return settings
 
@@ -169,7 +171,9 @@ def gain_sweep(soc,soccfg,instruments,settings):
 
         'relax_delay'     : exp_globals['relax_delay'],
         'reps'            : exp_settings['reps'],
-        'soft_avgs'       : exp_settings['soft_avgs']
+        'soft_avgs'       : exp_settings['soft_avgs'],
+
+        'single_shot_mode': exp_settings['single_shot_mode']
         }
 
 
@@ -184,9 +188,8 @@ def gain_sweep(soc,soccfg,instruments,settings):
     t_i = time.time()
     
     
-    
-    exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
-    
+    exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False)
+
     
     Is = avg_di[0][0]
     Qs = avg_dq[0][0]
@@ -194,7 +197,7 @@ def gain_sweep(soc,soccfg,instruments,settings):
     gains = exp_pts[0]
     
     powerdat = np.sqrt(Is**2 + Qs**2)
-    phasedat = np.arctan(Qs,Is)*180/np.pi
+    phasedat = np.arctan2(Qs,Is)*180/np.pi
 
     full_data = {}
 
@@ -216,6 +219,27 @@ def gain_sweep(soc,soccfg,instruments,settings):
 
     userfuncs.SaveFull(saveDir, filename, ['gains','full_data','filename'],
     locals(), expsettings=settings, instruments={})
+
+    if exp_settings['single_shot_mode']:
+
+        IQ_array = np.column_stack((Is, Qs))
+
+        kmeans = KMeans(n_clusters = 2, n_init = 10)
+        labels = kmeans.fit_predict(IQ_array)
+        centriods = kmeans.cluster_centers_
+
+        fig2 = plt.figure(2)
+        plt.clf()
+        plt.scatter(IQ_array[:, 0], IQ_array[:, 1], c = labels, cmap = 'coolwarm', alpha = 0.5, s = 10)
+        plt.scatter(centriods[:, 0], centriods[:, 1], c = 'black', marker = '*', s = 100, label = 'Centriods')
+        plt.xlabel('I (arbitrary units)')
+        plt.ylabel('Q (arbitrary units)')
+        plt.title('KMeans Clustering for single-shot readout \n {}'.format(filename))
+        plt.legend()
+        plt.axis('equal')
+        plt.show()
+
+
     
     if exp_globals['LO']:
         pass
@@ -227,5 +251,7 @@ def gain_sweep(soc,soccfg,instruments,settings):
     print("Elapsed Time: " + str(t_single))
 
     data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data}
-
+    
+    #print(full_data['Is'])
+    #print(Is)
     return data

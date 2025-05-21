@@ -19,7 +19,17 @@ from utility.measurement_helpers import estimate_time
 
       
 class T2_echo_sequence(AveragerProgram):
+    '''
+    T2_echo_sequence _summary_
+
+    :param AveragerProgram: _description_
+    :type AveragerProgram: _type_
+    '''    
     def initialize(self):
+        '''
+        initialize _summary_
+        '''        
+
         cfg=self.cfg   
         gen_ch = cfg["cav_channel"]
         qub_ch = cfg["qub_channel"]
@@ -53,9 +63,12 @@ class T2_echo_sequence(AveragerProgram):
         sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch)
         num_sigma = cfg["num_sigma"]
         
-        self.add_gauss(ch=qub_ch, name="pi_2", sigma=sigma,length=int(sigma*num_sigma),maxv=int(self.soccfg['gens'][qub_ch]['maxv']/2))        
-        self.add_gauss(ch=qub_ch, name="pi", sigma=sigma,length=int(sigma*num_sigma))
+        self.add_gauss(ch = qub_ch, name = "pi_2", sigma = sigma, 
+                       length = int(sigma*num_sigma), maxv = int(self.soccfg['gens'][qub_ch]['maxv']/2))        
+        self.add_gauss(ch = qub_ch, name = "pi", sigma = sigma, length = int(sigma*num_sigma))
         
+        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="pi_2")
+        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="pi")
         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
         # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
         self.synci(200)   
@@ -63,6 +76,12 @@ class T2_echo_sequence(AveragerProgram):
     def body(self):
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
+        
+        if self.cfg['phase_reset']:
+            self.reset_phase(gen_ch = [self.cfg['cav_channel'], self.cfg['qub_channel']], t=0)
+        else:
+            pass
+        
         qub_ch = self.cfg["qub_channel"]
         sigma = self.us2cycles(self.cfg["qub_sigma"])
         num_sigma = self.cfg["num_sigma"]
@@ -139,26 +158,30 @@ class CavitySweep(AveragerProgram):
 def get_T2_echo_settings():
     settings = {}
     
-    settings['scanname'] = 'T2_meas'
-    settings['meas_type'] = 'T2_echo'
+    settings['scanname']    = 'T2_meas'
+    settings['meas_type']   = 'T2_echo'
+    settings['phase_reset'] = True
     
-    settings['cav_freq'] = 1e9
-    settings['meas_gain'] = 1000
+    settings['cav_freq']    = 1e9
+    settings['meas_gain']   = 1000
     
-    settings['qub_freq'] = 4e9
-    settings['qub_gain'] = 1000
+    settings['qub_freq']    = 4e9
+    settings['qub_gain']    = 1000
     
     #Sweep parameters    
-    settings['Tau_min']    = 200e-9
-    settings['Tau_max']    = 30e-6
-    settings['Tau_points'] = 5
-    settings['spacing']    = 'Linear'
+    settings['Tau_min']     = 200e-9
+    settings['Tau_max']     = 30e-6
+    settings['Tau_points']  = 5
+    settings['spacing']     = 'Linear'
     
-    settings['T2_guess'] = 10e-6
-    #Card settings
-    settings['reps'] = 1
-    settings['soft_avgs'] = 5e3
+    settings['T2_guess']    = 10e-6
     
+    #Averaging settings
+    settings['reps']        = 1
+    settings['soft_avgs']   = 5e3
+    
+    settings["phase_reset"] = True
+
     return settings
 
 def meas_T2_echo(soc,soccfg,instruments,settings):
@@ -208,7 +231,9 @@ def meas_T2_echo(soc,soccfg,instruments,settings):
 
         'relax_delay'     : exp_globals['relax_delay'],
         'reps'            : exp_settings['reps'],
-        'soft_avgs'       : exp_settings['soft_avgs']
+        'soft_avgs'       : exp_settings['soft_avgs'],
+
+        'phase_reset'     : exp_settings['phase_reset']
         }
 
 
@@ -244,7 +269,7 @@ def meas_T2_echo(soc,soccfg,instruments,settings):
 #            time.sleep(0.1)
         print('Starting Background Trace')
         bprog = CavitySweep(soccfg,config)
-        holder = bprog.acquire(soc, load_pulses=True, progress=False, debug=False)
+        holder = bprog.acquire(soc, load_pulses=True, progress=False)
         print('Background Trace Complete')
         I_back = holder[0][0][0]
         Q_back = holder[1][0][0]
@@ -259,7 +284,7 @@ def meas_T2_echo(soc,soccfg,instruments,settings):
         
         config['qub_delay_t2'] = tau*1e6
         prog = T2_echo_sequence(soccfg,config)
-        holder = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
+        holder = prog.acquire(soc, load_pulses=True, progress=False)
         I_sig = holder[0][0][0]
         Q_sig = holder[1][0][0]
         
@@ -323,7 +348,7 @@ def meas_T2_echo(soc,soccfg,instruments,settings):
     #            time.sleep(0.1)
             print('Starting Background Trace')
             bprog = CavitySweep(soccfg,config)
-            holder = bprog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+            holder = bprog.acquire_decimated(soc, load_pulses=True, progress=False)
             print('Background Trace Complete')
             I_full_bd = holder[0][0]
             Q_full_bd = holder[0][1]
@@ -342,8 +367,8 @@ def meas_T2_echo(soc,soccfg,instruments,settings):
             print('Tau: {}'.format(tau))
             
             config['qub_delay_t2'] = tau*1e6
-            prog = T2_sequence(soccfg,config)
-            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+            prog = T2_echo_sequence(soccfg,config)
+            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False)
             I_fulld = holder[0][0]
             Q_fulld = holder[0][1]
             I_windowd = I_fulld[meas_start:meas_end]

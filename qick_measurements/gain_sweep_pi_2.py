@@ -189,7 +189,7 @@ def gain_sweep_pi2(soc,soccfg,instruments,settings):
     
     
     
-    exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False, debug=False)
+    exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False)
     
     
     Is = avg_di[0][0]
@@ -198,7 +198,7 @@ def gain_sweep_pi2(soc,soccfg,instruments,settings):
     gains = exp_pts[0]
     
     powerdat = np.sqrt(Is**2 + Qs**2)
-    phasedat = np.arctan(Qs,Is)*180/np.pi
+    phasedat = np.arctan2(Qs,Is)*180/np.pi
 
     full_data = {}
 
