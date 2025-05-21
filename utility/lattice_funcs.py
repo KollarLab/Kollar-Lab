@@ -9,6 +9,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import userfuncs
+from numpy.polynomial import Polynomial
 from utility.userfits_v2 import fit_model, lorenztian_model
 from utility.plotting_tools import general_colormap_subplot
 import os
@@ -226,6 +227,10 @@ def lin_fun(x,m,b):
     #You get it
     return m*x + b
 
+def arctan_model(f_ax,f_c,sigma, offset):
+    y = -(180/np.pi) * np.arctan((f_ax-f_c)/sigma) + offset
+    return y
+
 def kerr_fit(data_trans, data_transoe, data_spec, RF_atten, index=False):
     '''
     kerr_fit _summary_
@@ -284,7 +289,8 @@ def kerr_fit(data_trans, data_transoe, data_spec, RF_atten, index=False):
                    'freq_shift' : monitor_tone,'slope_GHz_mW' : popt[0], 'full_fit':popt}
     return output_dict
 
-def kerr_fit_lorenz(data_trans, data_transoe, data_spec, RF_atten, index=False):
+
+def kerr_fit_poly(data_trans, data_transoe, data_spec, RF_atten, index=False, plot=True):
     '''
     kerr_fit _summary_
 
@@ -319,10 +325,27 @@ def kerr_fit_lorenz(data_trans, data_transoe, data_spec, RF_atten, index=False):
     
     sk_freqs = np.zeros(len(data_spec_phase))
     
+    if plot == True:
+        plt.figure()
+        plt.xlabel('Freq (GHz)')
+        plt.ylabel('Phase')
+        plt.title('Fit Check')
+    
     for i in range(len(data_spec_phase)):
-        model = fit_model(data_spec_freqs,data_spec_phase[i], 'lorenz')
-        data_spec_phase_min[i] = lorenztian_model(model['center'], model['amp'], model['offset'], model['center'], model['sigma'])
-        sk_freqs[i] = model['center']
+        poly = Polynomial.fit(data_spec_freqs,data_spec_phase[i],8)
+
+        
+        test_arr = np.linspace(data_spec_freqs[0],data_spec_freqs[-1],(len(data_spec_freqs-1))*4+1)
+        test_out = poly(test_arr)
+        
+        sk_freqs[i] = test_arr[np.argmin(test_out)]
+        data_spec_phase_min[i] = np.min(test_out)
+        
+        if plot==True:
+            plt.plot(data_spec_freqs, data_spec_phase[i])
+            plt.plot(data_spec_freqs,poly(data_spec_freqs))
+            plt.plot(sk_freqs[i],data_spec_phase_min[i],'x',markersize=15)
+        
 
     lin_ax = 10**((data_spec['powers']-RF_atten)/10)
     
@@ -347,8 +370,190 @@ def kerr_fit_lorenz(data_trans, data_transoe, data_spec, RF_atten, index=False):
     
     output_dict = {'power_mW': lin_ax, 'phase_shift' : data_spec_phase_min, 
                    'freq_shift' : monitor_tone,'slope_GHz_mW' : popt[0], 'full_fit':popt,
-                   'self_Kerr_GHz_mW' : popt_sk[0], 'full_sk_fit' : popt_sk}
+                   'sk_freqs' : sk_freqs, 'self_Kerr_GHz_mW' : popt_sk[0], 'full_sk_fit' : popt_sk}
     return output_dict
+
+def kerr_fit_temp(data_trans, data_transoe, data_spec, RF_atten, index=False, plot=True):
+    '''
+    kerr_fit _summary_
+
+    :param data_trans: transmission data set
+    :type data_trans: dictionary
+    :param data_transoe: transmission data set with offset embed correction
+    :type data_transoe: dictionary
+    :param data_spec: dictionary
+    :type data_spec: kerr spec data
+    :param RF_atten: attenuation on the drive line
+    :type RF_atten: int
+    :param index: if extracting from data sets with multiple flux points, index picks out which flux point we are working with, defaults to False
+    :type index: bool
+    :return: dictionary with key values (various fit parameters)
+    :rtype: dict
+    '''    
+    if index:
+        data_trans_mags = data_trans['full_data']['mags'][index]
+        data_trans_phases = data_trans['full_data']['phases'][index]
+        data_transoe_phases = data_transoe['full_data']['phases'][index]
+    else:
+        data_trans_mags = data_trans['full_data']['mags'][0]
+        data_trans_phases = data_trans['full_data']['phases'][0]
+        data_transoe_phases = data_transoe['full_data']['phases'][0]
+    
+    data_trans_freqs = data_trans['full_data']['xaxis']
+    
+    #Consider implementing Lorentzian fit here.
+    
+    zero_point_ind = np.argmax(data_trans_mags)
+    
+    data_spec_freqs = data_spec['full_data']['xaxis']
+    data_spec_phase = data_spec['full_data']['phases']
+    data_spec_phase_min = np.zeros(len(data_spec_phase))
+    
+    sk_freqs = np.zeros(len(data_spec_phase))
+    
+    if plot == True:
+        plt.figure()
+        plt.xlabel('Freq (GHz)')
+        plt.ylabel('Phase')
+        plt.title('Fit Check')
+
+    
+    for i in range(len(data_spec_phase)):
+        poly = Polynomial.fit(data_spec_freqs,data_spec_phase[i],8)
+
+        
+        test_arr = np.linspace(data_spec_freqs[0],data_spec_freqs[-1],(len(data_spec_freqs))*4+1)
+        test_out = poly(test_arr)
+        
+        sk_freqs[i] = test_arr[np.argmin(test_out)]
+        data_spec_phase_min[i] = np.min(test_out)
+        
+        if plot==True:
+            plt.plot(data_spec_freqs, data_spec_phase[i])
+            plt.plot(data_spec_freqs,poly(data_spec_freqs))
+            plt.plot(sk_freqs[i],data_spec_phase_min[i],'x',markersize=15)
+            
+    if plot==True:
+        path = os.path.join(data_spec['saveDir'],data_spec['filename'])
+        plt.savefig(path+'_Polynomial_Fits.png')
+
+    lin_ax = 10**((data_spec['powers']-RF_atten)/10)
+    
+    normalize = data_transoe_phases[zero_point_ind] - data_trans_phases[zero_point_ind]
+    normalized_phases = data_transoe_phases - normalize
+    normalized_phases = np.unwrap(normalized_phases,period=360)
+    
+    if normalized_phases[zero_point_ind]>180:
+        normalized_phases = normalized_phases - 360
+    elif normalized_phases[zero_point_ind]<-180:
+        normalized_phases = normalized_phases + 360
+    
+    #insert arctan fitting
+
+    
+    p0 = [data_trans_freqs[0], 0.0001, normalized_phases[zero_point_ind]]
+    
+    xaxis_sub = data_trans_freqs[180:300]
+    phase_sub = normalized_phases[180:300]
+    
+    
+    arc_co, blank = curve_fit(arctan_model, xaxis_sub, phase_sub, method='lm', maxfev=10000, p0= p0)
+    
+    plt.figure()
+    plt.plot(data_trans_freqs,normalized_phases)
+    plt.plot(data_trans_freqs,arctan_model(data_trans_freqs,arc_co[0],arc_co[1],arc_co[2]))
+    plt.title('arctan Fit Check')
+    path = os.path.join(data_spec['saveDir'],data_spec['filename'])
+    plt.savefig(path+'_Arctan_Fits.png')
+    
+    fine_freqs = np.linspace(data_trans_freqs[0],data_trans_freqs[-1],(len(data_trans_freqs)-1)*20)
+    
+    normalized_phases = arctan_model(fine_freqs,arc_co[0],arc_co[1],arc_co[2])
+    
+    monitor_tone = np.zeros(len(data_spec_phase))
+    for i in range(len(data_spec_phase_min)):
+        a = np.argmin(np.abs(normalized_phases - data_spec_phase_min[i]))
+        monitor_tone[i] = data_transoe['full_data']['xaxis'][zero_point_ind] - fine_freqs[a] 
+    
+    popt, pcov = curve_fit(lin_fun, lin_ax, monitor_tone, method='lm', maxfev=10000)
+    # txtstr = 'fit : ' + str(int(popt[0])) + '[KHz/mW]'
+    
+    popt_sk, pcov_sk = curve_fit(lin_fun, lin_ax, sk_freqs, method='lm', maxfev=10000)
+    
+    output_dict = {'power_mW': lin_ax, 'phase_shift' : data_spec_phase_min, 
+                   'freq_shift' : monitor_tone,'slope_GHz_mW' : popt[0], 'full_fit':popt,
+                   'sk_freqs' : sk_freqs, 'self_Kerr_GHz_mW' : popt_sk[0], 'full_sk_fit' : popt_sk}
+    return output_dict
+
+
+
+def SK_Trans(trans_path,stark_path,CAV_atten=10,plot=True,alpha=0.116):
+
+
+    trans = userfuncs.LoadFull(trans_path)
+    stark = stark_path
+
+    stark_slope, qubit_freq = stark_fit(stark,save_fig=False)
+    
+
+    trans_data = trans[0]['full_data']
+
+    trans_freqs = trans_data['xaxis']
+    trans_mags = trans_data['mags']
+
+    sk_freqs = np.zeros(len(trans_mags))
+    
+    if plot == True:
+        plt.figure()
+        plt.clf()
+        plt.xlabel('Freq (GHz)')
+        plt.ylabel('Mags + Offset')
+        plt.title('Fit Check')
+
+
+    for i in range(len(trans_mags)):
+        poly = Polynomial.fit(trans_freqs,trans_mags[i],8)
+    
+        
+        test_arr = np.linspace(trans_freqs[0],trans_freqs[-1],(len(trans_freqs-1))*4+1)
+        test_out = poly(test_arr)
+        
+        sk_freqs[i] = test_arr[np.argmax(test_out)]
+        
+        if plot==True:
+            plt.plot(trans_freqs, trans_mags[i]+i)
+            plt.plot(trans_freqs,poly(trans_freqs)+i)
+            plt.plot(sk_freqs[i],np.max(test_out)+i,'x',markersize=15)
+            
+    # if plot==True:
+    #     path = os.path.join(data_spec['saveDir'],data_spec['filename'])
+    #     plt.savefig(path+'_Polynomial_Fits.png')
+    
+    
+    lin_ax = 10**((trans[0]['powers']-CAV_atten)/10)
+    
+    
+    popt_sk, pcov_sk = curve_fit(lin_fun, lin_ax, sk_freqs, method='lm', maxfev=10000)
+    
+    sk_slope = popt_sk[0]
+    
+    if plot == True:
+        plt.figure()
+        plt.clf()
+        plt.plot(lin_ax,sk_freqs)
+        plt.plot(lin_ax, lin_fun(lin_ax,popt_sk[0],popt_sk[1]))
+    
+    drive_freq = sk_freqs[0]
+    
+    g_2_gamma = g_square_gamma(alpha,qubit_freq,drive_freq,stark_slope)
+    g = np.sqrt(g_square_sk(g_2_gamma, alpha, qubit_freq, drive_freq, sk_slope))
+        
+    sk_dict = {'qubit_freq' : qubit_freq, 'Stark' : stark_slope,
+               'Self_Kerr' : sk_slope, 'g' : g}
+    
+    return sk_dict
+
+
 
 def full_flux_vector(flux_start,flux_stop,flux_pts):
     '''
@@ -579,3 +784,30 @@ def calibration_plot(transdata, specdata, yaxis, scanname, trans_labels, spec_la
     fig.canvas.draw()
     fig.canvas.flush_events()
     return
+
+
+def g_square_gamma(alpha,qfreq,modefreq,stark_slope):
+    y = stark_slope*(qfreq - modefreq)*(alpha - qfreq + modefreq)/(2*alpha)
+    return y
+
+def g_square_kerr(gg_gamma,alpha,qfreq,mode1,mode2,mkerr):
+    d1 = qfreq - mode1
+    d2 = qfreq - mode2
+    y = mkerr*((d1**2) * (d2**2) *  (alpha - (d1+d2)))/(2*(alpha*(d1+d2)*gg_gamma))
+    return y
+
+def g_square_sk(gg_gamma,alpha,qfreq,mode,skerr):
+    d = qfreq - mode
+    y = (skerr * d**3 * (alpha - 2*d))/(2*alpha*gg_gamma)
+    return y
+
+
+
+
+
+
+
+
+
+
+
