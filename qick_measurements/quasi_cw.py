@@ -184,7 +184,7 @@ def quasi_cw(soc,soccfg,instruments,settings):
     
     
     
-    projected_time = config['soft_avgs']*config['freq_points']*rep_period/1e6
+    projected_time = config['reps']*config['soft_avgs']*config['freq_points']*rep_period/1e6
     print("Projected Time: " + str(projected_time))
     
     t_i = time.time()
@@ -201,7 +201,7 @@ def quasi_cw(soc,soccfg,instruments,settings):
     freqs = exp_pts[0]*1e6
     
     powerdat = np.sqrt(Is**2 + Qs**2)
-    phasedat = np.arctan(Qs,Is)*180/np.pi
+    phasedat = np.arctan2(Qs,Is)*180/np.pi
 
     full_data = {}
 

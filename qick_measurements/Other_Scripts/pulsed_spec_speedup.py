@@ -23,20 +23,28 @@ class PulsedSpecSweep(NDAveragerProgram):
         gen_ch = cfg["cav_channel"]
         qub_ch = cfg["qub_channel"]
 
+
+
         # set the nyquist zone
         # Implement an if statement here to catch? 
         self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"])
         self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"])
         
+
+        #TEMp test of rounding in DAC versus ADC
+        reg_rounded_val = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
+        reg_back_to_freq = self.reg2freq(reg_rounded_val)
+
         # configure the readout lengths and downconversion frequencies (ensuring it is an available DAC frequency)
         
         readout = self.us2cycles(cfg["readout_length"],ro_ch=cfg["ro_channels"][0])
         for ch in cfg["ro_channels"]:
             self.declare_readout(ch=ch, length=readout,
-                                 freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
+                                 freq=reg_back_to_freq, gen_ch=cfg["cav_channel"])
 
         # Configure cavity DAC
-        freq_c  = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
+        #freq_c  = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
+        freq_c  = self.freq2reg(reg_back_to_freq,gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
         phase_c = self.deg2reg(cfg["cav_phase"], gen_ch=gen_ch)
         gain_c  = cfg["meas_gain"]
         
@@ -199,7 +207,7 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
     
     
     
-    projected_time = config['soft_avgs']*config['gain_points']*config['freq_points']*rep_period/1e6
+    projected_time = config['reps']*config['soft_avgs']*config['gain_points']*config['freq_points']*rep_period/1e6
     print("Projected Time: " + str(projected_time))
     
     t_i = time.time()
@@ -216,13 +224,15 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
     gpts = exp_pts[1]
     
     powerdat = np.sqrt(Is**2 + Qs**2)
-    phasedat = np.arctan(Qs,Is)*180/np.pi
+    phasedat = np.arctan2(Qs,Is)*180/np.pi
 
     full_data = {}
 
     full_data['xaxis']  = fpts/1e9
     full_data['mags']   = powerdat
     full_data['phases'] = phasedat
+    full_data['Is']     = Is
+    full_data['Qs']     = Qs
 
     plot_data = {}
     plot_data['xaxis']  = fpts/1e9

@@ -210,7 +210,7 @@ def pulsed_spec_sweep(soc,soccfg,instruments,settings):
     gpts = exp_pts[1]
     
     powerdat = np.sqrt(Is**2 + Qs**2)
-    phasedat = np.arctan(Qs,Is)*180/np.pi
+    phasedat = np.arctan2(Qs,Is)*180/np.pi
 
     full_data = {}
 
