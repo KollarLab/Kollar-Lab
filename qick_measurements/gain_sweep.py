@@ -182,7 +182,7 @@ def gain_sweep(soc,soccfg,instruments,settings):
     
     
     
-    projected_time = config['soft_avgs']*config['gain_points']*rep_period/1e6
+    projected_time = config['reps']*config['soft_avgs']*config['gain_points']*rep_period/1e6
     print("Projected Time: " + str(projected_time))
     
     t_i = time.time()
@@ -215,7 +215,17 @@ def gain_sweep(soc,soccfg,instruments,settings):
     plt.ylabel('Amplitude')
     fig1.canvas.draw()
     fig1.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi=150)
+    plt.savefig(os.path.join(saveDir, filename+'_Mag.png'), dpi=150)
+
+    fig2 = plt.figure(2)
+    plt.clf()
+    plt.plot(gains, phasedat)
+    plt.title('Phase {}'.format(filename))
+    plt.xlabel('Gain')
+    plt.ylabel('Phase')
+    fig2.canvas.draw()
+    fig2.canvas.flush_events()
+    plt.savefig(os.path.join(saveDir, filename+'_Phase.png'), dpi=150)
 
     userfuncs.SaveFull(saveDir, filename, ['gains','full_data','filename'],
     locals(), expsettings=settings, instruments={})
@@ -228,7 +238,7 @@ def gain_sweep(soc,soccfg,instruments,settings):
         labels = kmeans.fit_predict(IQ_array)
         centriods = kmeans.cluster_centers_
 
-        fig2 = plt.figure(2)
+        fig3 = plt.figure(3)
         plt.clf()
         plt.scatter(IQ_array[:, 0], IQ_array[:, 1], c = labels, cmap = 'coolwarm', alpha = 0.5, s = 10)
         plt.scatter(centriods[:, 0], centriods[:, 1], c = 'black', marker = '*', s = 100, label = 'Centriods')

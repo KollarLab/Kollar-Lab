@@ -182,7 +182,7 @@ def gain_sweep_pi2(soc,soccfg,instruments,settings):
     
     
     
-    projected_time = config['soft_avgs']*config['gain_points']*rep_period/1e6
+    projected_time = config['reps']*config['soft_avgs']*config['gain_points']*rep_period/1e6
     print("Projected Time: " + str(projected_time))
     
     t_i = time.time()
