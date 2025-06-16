@@ -233,14 +233,14 @@ def spec_flux_scan(soc,soccfg,instruments,settings):
         }
 
 
-    #rep_period = config['adc_trig_offset'] + config['readout_length'] + config['relax_delay']
+    rep_period = config['adc_trig_offset'] + config['readout_length'] + config['relax_delay']
     
     
     
-    #projected_time = config['reps']*config['soft_avgs']*config['freq_points']*rep_period/1e6
-    #print("Projected Time: " + str(projected_time))
+    projected_time = config['reps']*config['soft_avgs']*config['freq_points']*rep_period/1e6 + autoscan_set['reps']*autoscan_set['soft_avgs']*autoscan_set['freq_points']*rep_period/1e6
+    print("Projected Time: " + str(projected_time))
     
-    t_i = time.time() # Come back and add a time estimation thing
+
     
     #set voltage sweep
     start_voltage = exp_settings['start_voltage']
@@ -302,8 +302,7 @@ def spec_flux_scan(soc,soccfg,instruments,settings):
             trans_prog = CavitySweep(soccfg,config) #Make transmission pulse sequence object
 
             trans_I, trans_Q = trans_prog.acquire(soc,load_pulses=True,progress=False) #Transmission data acquisition occurs here
-            #Note to Max: The most likely bug is me screwing up the indexing here on trans_I and trans_Q.
-            # trans_I and trans_Q should only have one value but the default is to store it as a list of list, and it's very possible I'm misreading the documentation right now.
+
             mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
             phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
 
@@ -354,7 +353,7 @@ def spec_flux_scan(soc,soccfg,instruments,settings):
         spec_fpts = exp_pts[0]*1e6
         
         powerdat = np.sqrt(Is**2 + Qs**2)
-        phasedat = np.arctan(Qs,Is)*180/np.pi
+        phasedat = np.arctan2(Qs,Is)*180/np.pi
 
         mags[vind] = powerdat
         phases[vind] = phasedat

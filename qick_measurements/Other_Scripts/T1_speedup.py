@@ -287,7 +287,7 @@ def meas_T1(soc,soccfg,instruments,settings):
     Q_final = Qs-Q_back
 
     powerdat = np.sqrt(I_final**2 + Q_final**2)
-    phasedat = np.arctan(Q_final,I_final)*180/np.pi
+    phasedat = np.arctan2(Q_final,I_final)*180/np.pi
 
 
 
