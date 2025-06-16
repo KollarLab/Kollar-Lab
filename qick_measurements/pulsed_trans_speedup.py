@@ -55,7 +55,7 @@ class CavitySweep(AveragerProgram):
         self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
         self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
-def get_trans_settings():
+def get_trans_settings(): #Default settings dictionary
     settings = {}
     
     settings['scanname'] = 'initial_power_scan_q4'
@@ -76,12 +76,12 @@ def get_trans_settings():
     
     return settings
 
-def pulsed_trans(soc,soccfg,instruments,settings):
+def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
     
-    #if exp_globals['LO']:
+    #if exp_globals['LO']: # Ignore for now, we no longer use an external LO
     if False:
         logen = instruments['LO']
         
@@ -97,34 +97,29 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         'cav_channel'     : exp_globals['cav_channel'],
         'ro_channels'     : exp_globals['ro_channels'],
 
-        'nqz_c'           : 1,
-        'cav_phase'       : m_pulse['cav_phase'],
-        'meas_window'     : m_pulse['meas_window'],
-        'meas_time'       : m_pulse['meas_pos'],
+        'nqz_c'           : 1, #irrelevant setting
+        'cav_phase'       : m_pulse['cav_phase'], #degrees
+        'meas_window'     : m_pulse['meas_window'], #us
+        'meas_time'       : m_pulse['meas_pos'], #us
         'meas_gain'       : 500, #Placeholder, gets overwritten in sweep
         'cav_freq'        : 100, #Placeholder
         
-        'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'],
-        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
+        'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'], #us
+        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'], #us
 
 
-        'relax_delay'     : exp_globals['relax_delay'],
+        'relax_delay'     : exp_globals['relax_delay'], #us
         'reps'            : exp_settings['reps'],
         'soft_avgs'       : exp_settings['soft_avgs']
         }
 
-    fpts = exp_settings["freq_start"]+exp_settings["freq_step"]*np.arange(exp_settings["freq_points"])
-    gpts = exp_settings["gain_start"]+exp_settings["gain_step"]*np.arange(exp_settings["gain_points"])
-    #phases = exp_settings['phases'] # HACK
-    phases = (fpts-fpts[0])/1e3 * exp_settings['dphi_df']
+    fpts = exp_settings["freq_start"]+exp_settings["freq_step"]*np.arange(exp_settings["freq_points"]) # Defines frequency sweep
+    gpts = exp_settings["gain_start"]+exp_settings["gain_step"]*np.arange(exp_settings["gain_points"]) # Defines gain sweep
 
-    prog = CavitySweep(soccfg,config)
-    meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
-    meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
+    phases = (fpts-fpts[0])/1e3 * exp_settings['dphi_df'] # Current solution for the phase wrapping, still need function to extract dphi/df out of a calibration measurement instead of manual
    
 
-    powerdat = np.zeros((len(gpts), len(fpts)))
-    normdat  = np.zeros((len(gpts), len(fpts)))
+    powerdat = np.zeros((len(gpts), len(fpts))) #Initializing empty matrices for data
     phasedat = np.zeros((len(gpts), len(fpts)))
     Is = np.zeros((len(gpts), len(fpts)))
     Qs = np.zeros((len(gpts), len(fpts)))
@@ -134,23 +129,23 @@ def pulsed_trans(soc,soccfg,instruments,settings):
     
     tstart = time.time()
 
-    for g in range(0,len(gpts)):
+    for g in range(0,len(gpts)): # Loop through gain values
         print("Current Gain: " + str(gpts[g]) + ", Max Gain: " + str(gpts[-1]))
         
-        config["meas_gain"] = gpts[g]
+        config["meas_gain"] = gpts[g] 
         
-        for f in range(0,len(fpts)):
+        for f in range(0,len(fpts)): # Loop through freq values
             board_freq = (fpts[f] - exp_globals['LO_freq'])/1e6
             config["cav_freq"] = board_freq
-            config['cav_phase'] = phases[f] # HACK
+            config['cav_phase'] = phases[f] # Current solution for the phase wrapping
             prog = CavitySweep(soccfg,config)
-            #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
+
             trans_I, trans_Q = prog.acquire(soc,load_pulses=True,progress=False) #Transmission data acquisition occurs here
 
             mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
             phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
 
-            powerdat[g,f] = mag/gpts[g]
+            powerdat[g,f] = mag#/gpts[g] #Taken out normalization for now
             phasedat[g,f] = phase
             Is[g,f] = trans_I[0][0]
             Qs[g,f] = trans_Q[0][0]
@@ -161,7 +156,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
 
 
         full_data = {}
-        full_data['xaxis']  = fpts/1e9
+        full_data['xaxis']  = fpts/1e9 # Changing xaxis from Hz to GHz
         full_data['mags']   = powerdat[0:g+1]
         full_data['phases'] = phasedat[0:g+1]
         full_data['Is']     = Is[0:g+1]
@@ -182,7 +177,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
 
         
-        simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False) #normalized to drive level
+        simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False) 
         plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
 
