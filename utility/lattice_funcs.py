@@ -160,7 +160,7 @@ def trans_data_fit(spec_file,hanger = False):
     return xaxis, cfreqs
 
 ################################################################################
-def stark_fit(data_file,save_fig = True,show_fig = False):
+def stark_fit(data_file,save_fig = True,show_fig = False,plot=True):
     '''
     Parameters
     ----------
@@ -184,29 +184,32 @@ def stark_fit(data_file,save_fig = True,show_fig = False):
     lin_mags = 10**(spec_dat['mags']/20) #Martin says fit function works better if voltages are used instead of pows
 
     centers = np.zeros(len(stark_pows))
+    full_results = []
     
 
     for pind in range(len(stark_pows)):
         results = fit_model(1e9*spec_freqs,lin_mags[pind],'gauss',plot=show_fig)
         centers[pind] = results['center']/1e9
+        full_results.append(results)
 
     m_guess = (centers[-1] - centers[0])/(lin_pows[-1]-lin_pows[0])
     fit_out1, pcov = curve_fit(lin_fun,lin_pows,centers,p0 = [m_guess,centers[0]])
 
-    plt.figure(5)
-    plt.clf()
-    plt.plot(lin_pows,centers,'x',label='Data')
-    plt.plot(lin_pows,lin_fun(lin_pows,fit_out1[0],fit_out1[1]))
-    plt.xlabel('VNA Power (mW)')
-    plt.ylabel('Qubit Frequency (GHz)')
-    plt.title('Stark Shift Fitting, m=' + str(np.round(fit_out1[0],3))+ ' GHz/mW: ' + data_file[-4])
+    if plot:
+        plt.figure(5)
+        plt.clf()
+        plt.plot(lin_pows,centers,'x',label='Data')
+        plt.plot(lin_pows,lin_fun(lin_pows,fit_out1[0],fit_out1[1]))
+        plt.xlabel('VNA Power (mW)')
+        plt.ylabel('Qubit Frequency (GHz)')
+        plt.title('Stark Shift Fitting, m=' + str(np.round(fit_out1[0],3))+ ' GHz/mW: ' + data_file[-4])
     
     if save_fig:
         plt.savefig(os.path.join(data_file[:-4] + '_Fitting.png'),dpi=150)
         
     qfreq = centers[0]
     
-    return fit_out1[0], qfreq
+    return fit_out1[0], qfreq, full_results
 
 
 
@@ -401,7 +404,7 @@ def kerr_fit_temp(data_trans, data_transoe, data_spec, RF_atten, index=False, pl
     
     data_trans_freqs = data_trans['full_data']['xaxis']
     
-    #Consider implementing Lorentzian fit here.
+
     
     zero_point_ind = np.argmax(data_trans_mags)
     
@@ -453,7 +456,7 @@ def kerr_fit_temp(data_trans, data_transoe, data_spec, RF_atten, index=False, pl
     
     p0 = [data_trans_freqs[0], 0.0001, normalized_phases[zero_point_ind]]
     
-    xaxis_sub = data_trans_freqs[180:300]
+    xaxis_sub = data_trans_freqs[180:300] #This is hard coded and bad
     phase_sub = normalized_phases[180:300]
     
     
