@@ -5,9 +5,10 @@ Created on Wed Jun 18 16:28:05 2025
 @author: jhyang
 """
 # exp_globals are acquired by running exp_globals_FPGA in shared namespace
-from CW_trans import get_CW_trans_settings
+from CW_trans import get_CW_trans_settings, CW_trans
 
 settings = get_CW_trans_settings()
+instruments = {}
 settings['scanname']  = 'Test'
  
 cav_center = 2e9 #7.08979e9 #7.1995e9 #7.19962e9 #q2 7.11736e9 #q3 7.1409e9
