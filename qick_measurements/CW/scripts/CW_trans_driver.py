@@ -15,7 +15,7 @@ cav_center = 2e9 #7.08979e9 #7.1995e9 #7.19962e9 #q2 7.11736e9 #q3 7.1409e9
 span = 2e9 
 freq_points = 201
 
-# what are these used for? necessary in CW?
+
 settings['gain_start']     = 4000#8000 #7000
 settings['gain_step']      = 2000
 settings['gain_points']    = 1
@@ -23,9 +23,9 @@ settings['gain_points']    = 1
 
 #ADC settings
 settings['reps']      = 1
-settings['soft_avgs']  = 80
-# change to 0.2
-settings['dphi_df']   = 5.96965198e7
+settings['soft_avgs']  = 1
+settings['meas_window'] = 900
+settings['initial_phase']   = 0.2 # 0.13 # rad
 
 
 settings['freq_start']      = cav_center-span/2
