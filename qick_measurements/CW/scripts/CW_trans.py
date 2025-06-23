@@ -5,10 +5,11 @@ Created on Wed Jun 18 16:20:11 2025
 
 @author: jhyang
 """
-
-# Import the QICK drivers and auxiliary libraries
+'''
+Currently has a minor issue where sum buffer overflow warnings will crowd
+the screen and temporarily block useful stdout.
+'''
 from qick.averager_program import AveragerProgram
-#from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import linregress
@@ -17,10 +18,6 @@ import os
 import time
 from utility.measurement_helpers import estimate_time
 from utility.plotting_tools import simplescan_plot
-
-# run initialize_hardware_FPGA for these two
-# soc = QickSoc()
-# soccfg = soc
 
 class LoopbackProgram(AveragerProgram):
     def initialize(self):
@@ -50,8 +47,7 @@ class LoopbackProgram(AveragerProgram):
              wait=True,
              syncdelay=self.us2cycles(self.cfg["relax_delay"],gen_ch=self.cfg["cav_channel"]))
 
-# refactor this to include all settings
-# study how settings and global settings are written
+
 def get_CW_trans_settings(): #Default settings dictionary
     settings = {}
     
@@ -77,8 +73,8 @@ def get_CW_trans_settings(): #Default settings dictionary
     
     return settings
 
+
 def CW_trans(soc, soccfg, instruments, settings):
-    # is gain step necessary (like in pulsed_trans)?
     
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
@@ -89,8 +85,7 @@ def CW_trans(soc, soccfg, instruments, settings):
     expts = exp_settings['freq_points']
     
     fpts = np.arange(0,expts)*f0_step+f0_start
-    #soccfg.adcfreq(fpts, gen_ch=exp_globals['cav_channel'], 
-    #                      ro_channel=exp_globals['ro_channels'])
+    end_freq = exp_settings["freq_start"] + exp_settings["freq_step"]*exp_settings["freq_points"]
     
     gpts = exp_settings["gain_start"] + (exp_settings["gain_step"] * np.arange(exp_settings["gain_points"]))
     print(type(gpts[0]))
@@ -108,23 +103,16 @@ def CW_trans(soc, soccfg, instruments, settings):
             "soft_avgs":1,
            }
     
-    end_freq = exp_settings["freq_start"] + exp_settings["freq_step"]*exp_settings["freq_points"]
-    
-    
     #slope = exp_settings['initial_phase'] # rad
     phase_slope = (exp_settings['initial_phase']) * (180/np.pi) # degrees
     
     # %%
-    ##########################################################
-    # run this cell again to obtain the phase-corrected output
-    ##########################################################
     def freq2phase(fpts):
         return (exp_settings["freq_start"] - fpts) * phase_slope # note the negative sign!
-        #return (fpts - exp_settings["freq_start"]) * phase_slope # note the negative sign!
     
+    # slope calculation may be an efficiency drag, for future reference
     results=[]
     phase_fpts=freq2phase(fpts)
-    #phase = iter(phase_fpts)
     
     powerdat = np.zeros((len(gpts), len(fpts)))
     phasedat = np.zeros((len(gpts), len(fpts)))
@@ -145,15 +133,16 @@ def CW_trans(soc, soccfg, instruments, settings):
             mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
             phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
 
-            powerdat[g,f] = mag#/gpts[g] #Taken out normalization for now
+            powerdat[g,f] = mag
             phasedat[g,f] = phase
             Is[g,f] = trans_I[0][0]
             Qs[g,f] = trans_Q[0][0]
-            results.append(prog.acquire(soc))
+            results.append([trans_I,trans_Q])
             
         if g == 0:
             tstop = time.time()
             estimate_time(tstart, tstop, len(gpts))
+            
     results=np.transpose(results)
     
     #%%
