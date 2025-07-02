@@ -1,4 +1,4 @@
-import numpy as np
+#import numpy as np
 
 exp_globals = {}
 
@@ -9,17 +9,17 @@ exp_globals['LO_power'] = 22
 
 #Channel config
 exp_globals['cav_channel']   = 6 #4 is correct
-exp_globals['qub_channel'] = 6 #6 #6 is correct
+exp_globals['qub_channel'] = 5 #6 #6 is correct
 exp_globals['ro_channels']   = [0]
 
 #Project naming
-# exp_globals['root_folder'] =  r'Z:\Users\Kellen'  
-# exp_globals['project_name'] = 'FPGA_Control\TestsWithNDAvg_2023_05'
-# exp_globals['device_name'] = 'Loopback'
+# exp_globals['root_folder'] =  r'K:\Data'  
+# exp_globals['project_name'] = 'FPGA_Loopback'
+# exp_globals['device_name'] = 'CW_Testing'
 
 exp_globals['root_folder'] = r'K:\Data'
 exp_globals['project_name'] = 'FPGA_Loopback'
-exp_globals['device_name'] = 'CW_Testing'
+exp_globals['device_name'] = 'CW_QUb_Testing'
 
 exp_globals['hanger'] = True #This now does something for spec_flux_scan
 
@@ -37,8 +37,8 @@ exp_globals['relax_delay'] = 60
 measurement_pulse = {} #ALL IN MICROSECONDS 
 measurement_pulse['meas_pos']    = 45
 measurement_pulse['init_buffer'] = 0.2
-measurement_pulse['emp_delay']   = 0.48 + 0.046 #0.8
-measurement_pulse['meas_window'] = 6 #20 #60#20#20#60
+measurement_pulse['emp_delay']   = 0.48 + 0.046 #0.48+0.046
+measurement_pulse['meas_window'] = 6 ##900 #20 #60#20#20#60 #6
 measurement_pulse['post_buffer'] = 0.4
 measurement_pulse['cav_phase']   = 0
 measurement_pulse['side_buff']   = 0

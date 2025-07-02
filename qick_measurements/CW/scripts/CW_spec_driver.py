@@ -12,15 +12,16 @@ from CW_spec import CW_spec, get_cw_spec_settings
 settings = get_cw_spec_settings()
 settings['scanname'] = 'Jon_qubit_hi_pow'
 
-settings['cav_freq']  = 7.8392e9 
-settings['cav_gain'] = 6000
+settings['cav_freq']  = 100 #4.389545e9 + 1e6 #7.08979e9 #7.1995e9 #7.8392e9 original
+settings['cav_gain'] = 600
+settings['meas_window'] = 900
 
 qub_center = 5.33866e9
 span = 50e6 
 freq_points = 26
 
-settings['qub_gain']     = 1000
-settings['quasi_CW_len'] = 10 #us
+settings['qub_gain']     = 1
+settings['qub_len'] = 10 #us
 
 #Sweep Parameters
 settings['freq_start']      = qub_center-span/2
