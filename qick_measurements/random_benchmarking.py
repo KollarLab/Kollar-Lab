@@ -562,11 +562,9 @@ def random_bench(soc,soccfg,instruments,settings):
 
     # This next section sets the sequences of pulses and iterates through them
 
-    #full_seq_dict = random_seq_gen(config) TODO: Reinstate after debugging
+    full_seq_dict = random_seq_gen(config) 
 
-    #config['full_seq_dict'] = full_seq_dict TODO: Reinstate after debugging
-
-    full_seq_dict = config['full_seq_dict']
+    config['full_seq_dict'] = full_seq_dict 
 
     power_data = np.zeros((len(full_seq_dict), len(config['used_gates'])))
     phase_data = np.zeros((len(full_seq_dict), len(config['used_gates'])))
