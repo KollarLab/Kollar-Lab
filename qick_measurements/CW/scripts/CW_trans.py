@@ -16,6 +16,7 @@ from scipy.stats import linregress
 import userfuncs
 import os
 import time
+import logging
 from utility.measurement_helpers import estimate_time
 from utility.plotting_tools import simplescan_plot
 
@@ -75,6 +76,8 @@ def get_CW_trans_settings(): #Default settings dictionary
 
 
 def CW_trans(soc, soccfg, instruments, settings):
+    
+    logging.getLogger("qick").setLevel(logging.ERROR)
     
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 

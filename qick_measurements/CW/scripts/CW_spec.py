@@ -7,7 +7,8 @@ Created on Tue Dec 13 11:52:24 2022
 Modified by: jhyang
 """
 
-from qick.averager_program import QickSweep, AveragerProgram
+from qick.averager_program import AveragerProgram
+
 
 import numpy as np
 import os
@@ -15,6 +16,7 @@ import time
 import matplotlib.pyplot as plt
 import userfuncs
 from utility.measurement_helpers import estimate_time
+import logging
 #from utility.plotting_tools import simplescan_plot
       
 #Heavily considering getting rid of the initial and post buffers for the speedup classes...
@@ -36,6 +38,7 @@ class CW_spec(AveragerProgram):
         for ch in cfg["ro_channels"]:
             self.declare_readout(ch=ch, length=readout,
                                  freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
+        #self.set_readout_registers(ch=cfg["ro_channels"][0], mode='periodic')
 
         # Configure cavity DAC
         freq_c  = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
@@ -136,6 +139,8 @@ def get_cw_spec_settings():
     return settings
 
 def cw_spec(soc,soccfg,instruments,settings):
+    
+    logging.getLogger("qick").setLevel(logging.ERROR)
 
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
@@ -210,6 +215,7 @@ def cw_spec(soc,soccfg,instruments,settings):
     
     t_start = time.time()
     
+    # add in gain later
     for f in range(0,len(fpts)):
         config["qub_freq"]=fpts[f]/1e6 # convert to MHz
         prog = CW_spec(soccfg, config)
