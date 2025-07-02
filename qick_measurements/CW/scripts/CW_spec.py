@@ -41,11 +41,11 @@ class CW_spec(AveragerProgram):
         freq_c  = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
         # does cav_phase matter here since it does not change?
         phase_c = self.deg2reg(cfg["cav_phase"], gen_ch=gen_ch)
-        gain_c  = cfg["meas_gain"]
+        gain_c  = cfg["cav_gain"]
         self.default_pulse_registers(ch=gen_ch, freq=freq_c, phase=phase_c, gain=gain_c)
         self.set_pulse_registers(ch=gen_ch, style="const", 
                                  length=self.us2cycles(self.cfg["cav_pulse_len"],
-                                 gen_ch=gen_ch, mode='periodic'))
+                                 gen_ch=gen_ch), mode='periodic')
         
         # Configure qubit DAC
         freq_q  = self.freq2reg(cfg["qub_freq"],gen_ch=qub_ch)
@@ -53,9 +53,10 @@ class CW_spec(AveragerProgram):
         # possibly add a qubit gain
         gain_q  = cfg["qub_gain"]
         
-        self.set_pulse_registers(ch=qub_ch, style="const", freq=freq_q,
+        self.default_pulse_registers(ch=qub_ch, freq=freq_q, phase=phase_q, gain=gain_q)
+        self.set_pulse_registers(ch=qub_ch, style="const",
                                  length=self.us2cycles(cfg['qub_len'],
-                                 gen_ch=qub_ch, mode= 'periodic'))
+                                 gen_ch=qub_ch), mode= 'periodic')
         
         #self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
         #sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch) 
@@ -113,19 +114,19 @@ def get_cw_spec_settings():
     settings = {}
     
     settings['scanname'] = 'continuous_power_scan'
-    settings['meas_type'] = 'CW'
+    settings['meas_type'] = 'CW_Qubit_Testing'
     
     settings['cav_freq'] = 1e9
     settings['cav_gain'] = 1000
-    #settings['cav_pulse_len'] = 10
+    settings['cav_pulse_len'] = 10
     settings['meas_window'] = 900
 
     settings['qub_gain'] = 1000
-    settings['qub_len'] = 10
+    settings['qub_len'] = 20
     
     #Sweep parameters
     settings['freq_start']   = 4e9  
-    settings['freq_stop']    = 4.5e9
+    settings['freq_step']    = 0.5e9
     settings['freq_points']  = 6
 
     #Card settings
@@ -158,14 +159,15 @@ def cw_spec(soc,soccfg,instruments,settings):
         #'meas_window'     : exp_settings['meas_window'],
         # set meas_pos to 0?
         'meas_time'       : m_pulse['meas_pos'],
-        'meas_gain'       : exp_settings['meas_gain'],
+        #'meas_gain'       : exp_settings['meas_gain'],
+        'cav_gain'        : exp_settings['cav_gain'],
         'cav_freq'        : exp_settings['cav_freq']/1e6,
         
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
 
         'freq_start'      : exp_settings['freq_start']/1e6,
-        'freq_stop'       : exp_settings['freq_stop']/1e6,
+        'freq_step'       : exp_settings['freq_step']/1e6,
         'freq_points'     : exp_settings['freq_points'],
         'qub_gain'        : exp_settings['qub_gain'],
 
@@ -251,7 +253,7 @@ def cw_spec(soc,soccfg,instruments,settings):
     fig1.canvas.flush_events()
     plt.savefig(os.path.join(saveDir, filename+'_phase.png'), dpi=150)
     
-    userfuncs.SaveFull(saveDir, filename, ['freqs','full_data','filename'],
+    userfuncs.SaveFull(saveDir, filename, ['fpts','full_data','filename'],
     locals(), expsettings=settings, instruments={})
 
     #t_final    = time.time()
