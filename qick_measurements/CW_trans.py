@@ -135,8 +135,11 @@ def CW_trans(soc, soccfg, instruments, settings):
             trans_I, trans_Q = prog.acquire(soc,progress=False)
             mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
             phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
-
-            powerdat[g,f] = mag
+            
+            if exp_settings['normalized']:
+                powerdat[g,f] = mag/gpts[g]
+            else:
+                powerdat[g,f] = mag
             phasedat[g,f] = phase
             Is[g,f] = trans_I[0][0]
             Qs[g,f] = trans_Q[0][0]
@@ -148,13 +151,38 @@ def CW_trans(soc, soccfg, instruments, settings):
         if g == 0:
             tstop = time.time()
             estimate_time(tstart, tstop, len(gpts))
+            
+        stamp    = userfuncs.timestamp()
+        saveDir  = userfuncs.saveDir(settings)
+        filename = exp_settings['scanname'] + '_' + stamp
+        full_data = {}
+        full_data['xaxis']  = fpts/1e9 # Changing xaxis from Hz to GHz
+        full_data['mags']   = powerdat[0:g+1]
+        full_data['phases'] = phasedat[0:g+1]
+        full_data['Is']     = Is[0:g+1]
+        full_data['Qs']     = Qs[0:g+1]
+
+
+        plot_data = {}
+        plot_data['xaxis']  = fpts/1e9
+        plot_data['mags']   = powerdat[0:g+1]
+        plot_data['phases'] = phasedat[0:g+1]
+
+        single_data = {}
+        single_data['xaxis'] = fpts/1e9
+        single_data['mag']   = powerdat[g]
+        single_data['phase'] = phasedat[g]
+
+        yaxis  = gpts[0:g+1] #- CAV_Attenuation
+        labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
+        simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False)
     phase_results = np.transpose(phase_results)
     #avg_results=np.transpose(np.mean(phase_results,axis=0))
     
     #%%
-    stamp    = userfuncs.timestamp()
-    saveDir  = userfuncs.saveDir(settings)
-    filename = exp_settings['scanname'] + '_' + stamp
+    # stamp    = userfuncs.timestamp()
+    # saveDir  = userfuncs.saveDir(settings)
+    # filename = exp_settings['scanname'] + '_' + stamp
     
     '''
     #######
@@ -185,29 +213,29 @@ def CW_trans(soc, soccfg, instruments, settings):
                     (np.arctan2((phase_results[0][0][0]),(phase_results[0][0][1]))))[0])
     
     
-    full_data = {}
-    full_data['xaxis']  = fpts/1e9 # Changing xaxis from Hz to GHz
-    full_data['mags']   = powerdat[0:g+1]
-    full_data['phases'] = phasedat[0:g+1]
-    full_data['Is']     = Is[0:g+1]
-    full_data['Qs']     = Qs[0:g+1]
+    # full_data = {}
+    # full_data['xaxis']  = fpts/1e9 # Changing xaxis from Hz to GHz
+    # full_data['mags']   = powerdat[0:g+1]
+    # full_data['phases'] = phasedat[0:g+1]
+    # full_data['Is']     = Is[0:g+1]
+    # full_data['Qs']     = Qs[0:g+1]
 
 
-    plot_data = {}
-    plot_data['xaxis']  = fpts/1e9
-    plot_data['mags']   = powerdat[0:g+1]
-    plot_data['phases'] = phasedat[0:g+1]
+    # plot_data = {}
+    # plot_data['xaxis']  = fpts/1e9
+    # plot_data['mags']   = powerdat[0:g+1]
+    # plot_data['phases'] = phasedat[0:g+1]
 
-    single_data = {}
-    single_data['xaxis'] = fpts/1e9
-    single_data['mag']   = powerdat[g]
-    single_data['phase'] = phasedat[g]
+    # single_data = {}
+    # single_data['xaxis'] = fpts/1e9
+    # single_data['mag']   = powerdat[g]
+    # single_data['phase'] = phasedat[g]
 
-    yaxis  = gpts[0:g+1] #- CAV_Attenuation
-    labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
+    # yaxis  = gpts[0:g+1] #- CAV_Attenuation
+    # labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
 
     
-    simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False) 
+    #simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False) 
     plt.savefig(os.path.join(saveDir, filename+'_fullColorPlot.png'), dpi = 150)
 
 

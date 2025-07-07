@@ -9,18 +9,24 @@ Modified by: jhyang
 
 from CW_spec import cw_spec, get_cw_spec_settings
 
+# gain_vals = [1000, 2500, 5000] #cav only, qubit fixed at 500
+# windows = [10,100]
+# for g_vals in gain_vals:
+#     for w_vals in windows:
+    
 settings = get_cw_spec_settings()
-settings['scanname'] = 'Jon_qubit_hi_pow'
+settings['scanname'] = 'Two_tone_w_amp_no_sidebands'
 
-settings['cav_freq']  = 100e6 #4.389545e9 + 1e6 #7.08979e9 #7.1995e9 #7.8392e9 original
-settings['cav_gain'] = 600
-settings['meas_window'] = 900
+settings['cav_freq']  = 7.230796e9  #4.389545e9 + 1e6 #7.08979e9 #7.1995e9 #7.8392e9 original
+settings['cav_gain'] = 300
+settings['meas_window'] = 1000000
+settings['cav_pulse_len'] = 10
 
-qub_center = 5.33866e9
+qub_center = 3.6117e9 #5.33866e9
 span = 50e6 
-freq_points = 26
+freq_points = 51
 
-settings['qub_gain']     = 1
+settings['qub_gain']     = 0 #500
 settings['qub_len'] = 10 #us
 
 #Sweep Parameters
@@ -30,7 +36,7 @@ settings['freq_points']     = freq_points
 
 #ADC settings
 settings['reps']      = 1
-settings['soft_avgs']  = 500
+settings['soft_avgs']  = 1
 
 
 fullsettings = {}

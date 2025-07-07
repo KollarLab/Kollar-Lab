@@ -93,31 +93,31 @@ class CW_spec(AveragerProgram):
         #sigma = self.us2cycles(self.cfg["qub_sigma"])
         #num_sigma = self.cfg["num_sigma"]
         #pulse_len = self.us2cycles(self.cfg['qub_len'],gen_ch=self.cfg['qub_channel']) + int(num_sigma*sigma)
-        #offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
+        offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"]) + self.us2cycles(20,gen_ch = self.cfg["cav_channel"])
         #meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
         #ex_time = meas_time - self.us2cycles(self.cfg['qub_delay'], gen_ch=self.cfg["qub_channel"]) - pulse_len
         #Sets off the ADC
-        #self.trigger(adcs=self.ro_chs,
-        #            pins=[0],
-        #            adc_trig_offset=offset)
+        self.trigger(adcs=self.ro_chs,
+                    pins=[0],
+                    adc_trig_offset=offset)
         
         #Sends measurement pulse
-        self.measure(pulse_ch=[self.cfg["cav_channel"], self.cfg['qub_channel']], 
-             adcs=[self.cfg["ro_channels"][0]],
-             adc_trig_offset=self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"]),
-             wait=True,
-             syncdelay=self.us2cycles(self.cfg["relax_delay"],gen_ch=self.cfg["cav_channel"]))
-        #self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
-        #self.pulse(ch=self.cfg["qub_channel"],t=ex_time)
-        #self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
-        #self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
+        #self.measure(pulse_ch=[self.cfg["cav_channel"], self.cfg['qub_channel']], 
+             # adcs=[self.cfg["ro_channels"][0]],
+             # adc_trig_offset=self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"]),
+             # wait=True,
+             # syncdelay=self.us2cycles(self.cfg["relax_delay"],gen_ch=self.cfg["cav_channel"]))
+        self.pulse(ch=self.cfg["cav_channel"],t=0)
+        self.pulse(ch=self.cfg["qub_channel"],t=0)
+        self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
+        self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
 
 def get_cw_spec_settings():
     settings = {}
     
     settings['scanname'] = 'continuous_power_scan'
-    settings['meas_type'] = 'CW_Qubit_Testing'
+    settings['meas_type'] = 'CW_Spec_Testing'
     
     settings['cav_freq'] = 1e9
     settings['cav_gain'] = 1000
@@ -182,14 +182,13 @@ def cw_spec(soc,soccfg,instruments,settings):
         'qub_len'         : exp_settings['qub_len'],
 
         'readout_length'  : exp_settings['meas_window'],
-        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
+        'adc_trig_offset' : m_pulse['emp_delay'],  #+ m_pulse['meas_pos'],
 
 
         'relax_delay'     : exp_globals['relax_delay'],
         'reps'            : exp_settings['reps'],
         'soft_avgs'       : exp_settings['soft_avgs']
         }
-
 
     #prog = CW_spec(soccfg,config)
     #rep_period = config['adc_trig_offset'] + config['readout_length'] + config['relax_delay']
@@ -220,6 +219,7 @@ def cw_spec(soc,soccfg,instruments,settings):
         config["qub_freq"]=fpts[f]/1e6 # convert to MHz
         prog = CW_spec(soccfg, config)
         trans_I, trans_Q = prog.acquire(soc,progress=False)
+        soc.reset_gens()
         mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
         phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
         powerdat[f] = mag
