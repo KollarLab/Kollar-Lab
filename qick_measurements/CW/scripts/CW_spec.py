@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import userfuncs
 from utility.measurement_helpers import estimate_time
 import logging
+from utility.plotting_tools import simplescan_plot
 
 
 class CW_spec(AveragerProgram):
@@ -174,6 +175,10 @@ def cw_spec(soc,soccfg,instruments,settings):
         }
 
     
+    stamp    = userfuncs.timestamp()
+    saveDir  = userfuncs.saveDir(settings)
+    filename = exp_settings['scanname'] + '_' + stamp
+    
     f0_start = exp_settings['freq_start']
     f0_step = exp_settings['freq_step']
     expts = exp_settings['freq_points']
@@ -225,10 +230,23 @@ def cw_spec(soc,soccfg,instruments,settings):
     full_data['phases'] = phasedat
     full_data['Is']     = Is
     full_data['Qs']     = Qs
+    
+    plot_data = {}
+    plot_data['xaxis']  = fpts/1e9
+    plot_data['mags']   = powerdat[0:g+1]
+    plot_data['phases'] = phasedat[0:g+1]
+
+    single_data = {}
+    single_data['xaxis'] = fpts/1e9
+    single_data['mag']   = powerdat[g]
+    single_data['phase'] = phasedat[g]
+    
+    yaxis  = gpts[0:g+1] #- CAV_Attenuation
+    labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
 
     fig1 = plt.figure(1)
     plt.clf()
-    plt.plot(fpts/1e9, powerdat)
+    plt.plot(fpts/1e9, powerdat) # or transpose
     plt.title('Mag {}'.format(filename))
     plt.xlabel('Frequency (GHz)')
     plt.ylabel('Amplitude')
@@ -238,13 +256,15 @@ def cw_spec(soc,soccfg,instruments,settings):
     
     fig2 = plt.figure(2)
     plt.clf()
-    plt.plot(fpts/1e9, phasedat)
+    plt.plot(fpts/1e9, phasedat) # or transpose
     plt.title('Phase {}'.format(filename))
     plt.xlabel('Frequency (GHz)')
     plt.ylabel('Phase (Degrees)')
     fig1.canvas.draw()
     fig1.canvas.flush_events()
     plt.savefig(os.path.join(saveDir, filename+'_phase.png'), dpi=150)
+    
+    # simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False)
     
     userfuncs.SaveFull(saveDir, filename, ['fpts','full_data','filename'],
     locals(), expsettings=settings, instruments={})
