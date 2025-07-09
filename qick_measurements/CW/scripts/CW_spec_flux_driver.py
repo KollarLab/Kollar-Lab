@@ -35,9 +35,7 @@ qub_center = 3.6117e9 #5.33866e9
 span = 50e6 
 freq_points = 51
 
-settings['qub_gain_start']     = 5000#8000 #7000
-settings['qub_gain_step']      = 2000
-settings['qub_gain_points']    = 10
+settings['qub_gain'] = 500
 
 settings['qub_len'] = 10 #us
 
@@ -55,4 +53,4 @@ fullsettings = {}
 fullsettings['exp_globals'] = exp_globals
 fullsettings['exp_settings'] = settings
 
-full_data = cw_spec(soc,soccfg,instruments,fullsettings)
+full_data = cw_spec_flux(soc,soccfg,instruments,fullsettings)

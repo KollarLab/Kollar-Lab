@@ -12,9 +12,13 @@ from qick.averager_program import AveragerProgram
 import numpy as np
 import time
 import userfuncs
+import os
 from utility.measurement_helpers import estimate_time
 import logging
 from utility.plotting_tools import simplescan_plot
+import matplotlib.pyplot as plt
+import utility.plotting_tools as plots
+from utility.userfits_v2 import fit_model
 
 #######################################
 # Taken from CW_trans LoopBackProgram #
@@ -150,9 +154,7 @@ def get_cw_spec_flux_settings():
     settings['cav_pulse_len'] = 10
     settings['meas_window'] = 900
 
-    settings['qub_gain_start']     = 4000
-    settings['qub_gain_step']      = 2000
-    settings['qub_gain_points']    = 1
+    settings['qub_gain'] = 0
     settings['qub_len'] = 20
     
     #Sweep parameters
@@ -167,6 +169,8 @@ def get_cw_spec_flux_settings():
     return settings
 
 def cw_spec_flux(soc,soccfg,instruments,settings):
+    
+    print("Initializing...")
     
     # suppresses sum buffer overflow warning
     logging.getLogger("qick").setLevel(logging.ERROR)
@@ -202,12 +206,10 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
         
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
-
         'freq_start'      : exp_settings['freq_start']/1e6,
         'freq_step'       : exp_settings['freq_step']/1e6,
         'freq_points'     : exp_settings['freq_points'],
-        'qub_gain'        : 0, # PLACEHOLDER, gain loop
-
+        'qub_gain'        : exp_settings['qub_gain'],
         #'qub_sigma'       : q_pulse['sigma'],
         #'qub_delay'       : q_pulse['delay'],
         #'num_sigma'       : q_pulse['num_sigma'],
@@ -253,37 +255,107 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     mags   = np.zeros((voltage_points, exp_settings['freq_points']))
     phases = np.zeros((voltage_points, exp_settings['freq_points']))
 
-    first_it = True
-    
-    
-    
+    #Defining file variables
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
     filename = exp_settings['scanname'] + '_' + stamp
     
+    #Defining data files
     f0_start = exp_settings['freq_start']
     f0_step = exp_settings['freq_step']
     expts = exp_settings['freq_points']
-    
-    g_start = exp_settings['qub_gain_start']
-    g_step = exp_settings['qub_gain_step']
-    g_expts = exp_settings['qub_gain_points']
-    
     fpts = np.arange(0,expts)*f0_step+f0_start
-    end_freq = exp_settings["freq_start"] + exp_settings["freq_step"]*exp_settings["freq_points"]
-    gpts = exp_settings["qub_gain_start"] + (exp_settings["qub_gain_step"] * np.arange(exp_settings["qub_gain_points"]))
+    powerdat = np.zeros((len(voltages), len(fpts)))
+    phasedat = np.zeros((len(voltages), len(fpts)))
+    Is = np.zeros((len(voltages), len(fpts)))
+    Qs = np.zeros((len(voltages), len(fpts)))
     
-    powerdat = np.zeros((len(gpts), len(fpts)))
-    phasedat = np.zeros((len(gpts), len(fpts)))
-    Is = np.zeros((len(gpts), len(fpts)))
-    Qs = np.zeros((len(gpts), len(fpts)))
     
-    t_start = time.time()
     
-    # qubit gain sweep
-    for g in range(0,len(gpts)):
-        print("Current Qubit Gain: " + str(gpts[g]) + ", Max Gain: " + str(gpts[-1]))
-        config["qub_gain"] = gpts[g]
+    first_it = True
+    for vind in range(len(voltages)):
+        
+        if exp_settings['stability'] == True: # If running a stability scan, will ramp to starting voltage on the first iteration but then never ramp again.
+            if first_it == True:
+                print('Stability scan enabled.')
+                voltage = voltages[vind]
+                print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
+                
+                SRS.voltage_ramp(voltage)
+                time.sleep(0.1)
+
+                voltages = np.linspace(0,len(voltages)-1,len(voltages))
+            voltage = voltages[vind]
+        else: # If not, will ramp to appropriate voltage every loop in standard fashion.
+            voltage = voltages[vind]
+            print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
+            
+            SRS.voltage_ramp(voltage)
+            time.sleep(0.1)
+
+
+        
+        print('Sweeping transmission.')
+        for find in range(len(trans_fpts)):
+            tstart = time.time()
+            config['cav_freq'] = trans_fpts[find]/1e6 #Update the frequency, board wants it in MHz so converting now
+            config['reps']     = autoscan_set['reps']
+            config['soft_avgs'] = autoscan_set['soft_avgs']
+
+            trans_prog = CavitySweepFlux(soccfg,config) #Make transmission pulse sequence object
+
+            trans_I, trans_Q = trans_prog.acquire(soc,load_pulses=True,progress=False) #Transmission data acquisition occurs here
+
+            mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
+            phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
+
+            trans_mags[vind][find] = mag
+            trans_phases[vind][find] = phase
+            
+            projected_time = (time.time() - tstart) * len(trans_fpts)
+            
+            if find == 0:
+                print("Projected time for transmission sweep: {projected_time:.1f} seconds. ")
+        print("Transmission sweep complete. ")
+
+        hanger = exp_globals['hanger'] #"Fitting" cav freq
+
+        if first_it and exp_settings['stability'] == True: # If running a stability scan, will fix the cavity frequency after first loop.
+            first_it = False
+            try:
+                print("Fitting Lorenzian to Cavity")
+                freq_holder = fit_model(trans_fpts, trans_mags[vind], 'lorenz')['center']/1e6
+
+            except:
+                print("Fitting Lorenzian Failed, taking extrema...")
+                if hanger:
+                    freq_holder = trans_fpts[np.argmin(trans_mags[vind])]/1e6
+
+                else:
+                    freq_holder = trans_fpts[np.argmax(trans_mags[vind])]/1e6
+            config['cav_freq'] = freq_holder
+        elif exp_settings['stability'] == False:
+            try:
+                print("Fitting Lorenzian to Cavity")
+                config['cav_freq'] = fit_model(trans_fpts, trans_mags[vind], 'lorenz')['center']/1e6
+            except:
+                print("Fitting Lorenzian Failed, taking extrema...")
+                if hanger:
+                    config['cav_freq'] = trans_fpts[np.argmin(trans_mags[vind])]/1e6
+                else:
+                    config['cav_freq'] = trans_fpts[np.argmax(trans_mags[vind])]/1e6
+        else:
+            config['cav_freq'] = freq_holder
+
+        print('spec, cav freq: {}'.format(config['cav_freq']/1e3))
+
+        config['reps'] = exp_settings['reps']
+        config['soft_avgs'] = exp_settings['soft_avgs']
+        
+        ######################
+        # Taken from CW_spec #
+        ######################
+        t_start = time.time()
         
         # qubit frequency sweep
         for f in range(0,len(fpts)):
@@ -296,14 +368,16 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
             mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
             phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
             
-            powerdat[g,f] = mag
-            phasedat[g,f] = phase
-            Is[g,f] = trans_I[0][0]
-            Qs[g,f] = trans_Q[0][0]
+            powerdat[vind,f] = mag
+            phasedat[vind,f] = phase
+            Is[vind,f] = trans_I[0][0]
+            Qs[vind,f] = trans_Q[0][0]
             
-            if f == 0 and g == 0:
+            if f == 0:
                 t_stop = time.time()
-                estimate_time(t_start, t_stop, len(fpts)*len(gpts))
+                estimate_time(t_start, t_stop, len(fpts))
+                
+                
 
     full_data = {}
 
@@ -315,22 +389,86 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     
     plot_data = {}
     plot_data['xaxis']  = fpts/1e9
-    plot_data['mags']   = powerdat[0:g+1]
-    plot_data['phases'] = phasedat[0:g+1]
+    plot_data['mags']   = powerdat[0:vind+1]
+    plot_data['phases'] = phasedat[0:vind+1]
 
     single_data = {}
     single_data['xaxis'] = fpts/1e9
-    single_data['mag']   = powerdat[g]
-    single_data['phase'] = phasedat[g]
+    single_data['mag']   = powerdat[vind]
+    single_data['phase'] = phasedat[vind]
     
-    yaxis  = gpts[0:g+1]
-    labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
+    yaxis  = voltages[0:vind+1]
+    labels = ['Freq (GHz)', 'Voltages (V)']
     
     simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False)
     
-    userfuncs.SaveFull(saveDir, filename, ['gpts','fpts','full_data','filename'],
+    userfuncs.SaveFull(saveDir, filename, ['voltages','fpts','full_data','filename'],
     locals(), expsettings=settings, instruments={})
 
-    data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data}
+    '''
+    prog = CW_spec_flux(soccfg,config) #Make spec pulse sequence object
+    
+    exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False) #Spec data acquisition
 
-    return data,prog
+    Is = avg_di[0][0] # These ones I copied directly from another script, so I'm more certain of the indexing.
+    Qs = avg_dq[0][0]
+    
+    spec_fpts = exp_pts[0]*1e6
+    
+    powerdat = np.sqrt(Is**2 + Qs**2)
+    phasedat = np.arctan2(Qs,Is)*180/np.pi
+
+    mags[vind] = powerdat
+    phases[vind] = phasedat
+
+
+    #Plots (updates each for loop)
+    transdata = {}
+    transdata['xaxis'] = trans_fpts/1e9
+    transdata['mags'] = trans_mags[0:vind+1,:]
+    transdata['phases'] = trans_phases[0:vind+1,:]
+    
+    specdata = {}
+    specdata['xaxis'] = spec_fpts/1e9
+    specdata['mags'] = mags[0:vind+1,:]
+    specdata['phases'] = phases[0:vind+1,:]
+    
+    singledata = {}
+    singledata['xaxis'] = spec_fpts/1e9
+    singledata['mag'] = powerdat
+    singledata['phase'] = phasedat
+    
+    trans_labels = ['Freq (GHz)','Voltage (V)']
+    spec_labels  = ['Freq (GHz)','Voltage (V)']
+    
+    #modify the spec data to subtract the offset in amp and phase
+    #and then plot the modified version
+    specplotdata = {}
+    specplotdata['xaxis']  = specdata['xaxis']
+    specplotdata['mags']   = specdata['mags']
+    specplotdata['phases'] = specdata['phases']
+    
+    mat = np.copy(specplotdata['mags'])
+    for ind in range(0, mat.shape[0]):
+        mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
+    specplotdata['mags'] = mat
+    
+    mat = np.copy(specplotdata['phases'])
+    for ind in range(0, mat.shape[0]):
+        mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
+    specplotdata['phases'] = mat
+    
+    identifier = 'Cav Gain : ' + str(config['meas_gain'])  + ' au'
+
+    plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
+
+    #Saving data
+    userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'voltages', 
+                                   'filename', 'trans_labels', 'spec_labels'], 
+                                   locals(), expsettings=settings, instruments=instruments)
+    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
+
+
+
+return transdata,specdata,prog
+'''
