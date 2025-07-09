@@ -5,10 +5,7 @@ Created on Wed Jun 18 16:20:11 2025
 
 @author: jhyang
 """
-'''
-Currently has a minor issue where sum buffer overflow warnings will crowd
-the screen and temporarily block useful stdout.
-'''
+
 from qick.averager_program import AveragerProgram
 import matplotlib.pyplot as plt
 import numpy as np
@@ -77,6 +74,7 @@ def get_CW_trans_settings(): #Default settings dictionary
 
 def CW_trans(soc, soccfg, instruments, settings):
     
+    # suppresses the sum buffer overflow warning
     logging.getLogger("qick").setLevel(logging.ERROR)
     
     exp_globals  = settings['exp_globals']
@@ -91,7 +89,6 @@ def CW_trans(soc, soccfg, instruments, settings):
     end_freq = exp_settings["freq_start"] + exp_settings["freq_step"]*exp_settings["freq_points"]
     
     gpts = exp_settings["gain_start"] + (exp_settings["gain_step"] * np.arange(exp_settings["gain_points"]))
-    print(type(gpts[0]))
     config={"cav_channel":exp_globals['cav_channel'], # --Fixed
             "ro_channels":exp_globals['ro_channels'], # --Fixed
             "relax_delay":exp_globals['relax_delay'], # --Fixed /was 1
@@ -106,27 +103,30 @@ def CW_trans(soc, soccfg, instruments, settings):
             "soft_avgs":exp_settings['soft_avgs']
            }
     
-    #slope = exp_settings['initial_phase'] # rad
     phase_slope = (exp_settings['initial_phase']) * (180/np.pi) # degrees
     
     # %%
     def freq2phase(fpts):
         return (exp_settings["freq_start"] - fpts) * phase_slope # note the negative sign!
     
-    # slope calculation may be an efficiency drag, for future reference
+    # i and q accumulator for phase correction calculation
     phase_results=[]
+    # phase correcting array
     phase_fpts=freq2phase(fpts)
     
     powerdat = np.zeros((len(gpts), len(fpts)))
     phasedat = np.zeros((len(gpts), len(fpts)))
     Is = np.zeros((len(gpts), len(fpts)))
     Qs = np.zeros((len(gpts), len(fpts)))
+    
     tstart = time.time()
     
+    # gain loop
     for g in range(0,len(gpts)):
         print("Current Gain: " + str(gpts[g]) + ", Max Gain: " + str(gpts[-1]))
         config["pulse_gain"] = gpts[g]
         
+        # frequency sweep
         for f in range(0,len(fpts)):
             config["pulse_freq"]=fpts[f]/1e6 # convert to MHz
             config["cav_phase"] = phase_fpts[f]
@@ -140,14 +140,19 @@ def CW_trans(soc, soccfg, instruments, settings):
             phasedat[g,f] = phase
             Is[g,f] = trans_I[0][0]
             Qs[g,f] = trans_Q[0][0]
+            
             if g == 0:
                 phase_results.append([trans_I,trans_Q])
+            # currently uses one frequency point for phase calculation,
+            # which seems adequate
             #else:
                 #old_trans_I, old_trans_Q = phase_results
                 #phase_results = [old_trans_I + trans_I / 2, old_trans_Q + trans_Q / 2]
+                
         if g == 0:
             tstop = time.time()
             estimate_time(tstart, tstop, len(gpts))
+            
     phase_results = np.transpose(phase_results)
     #avg_results=np.transpose(np.mean(phase_results,axis=0))
     
@@ -156,27 +161,6 @@ def CW_trans(soc, soccfg, instruments, settings):
     saveDir  = userfuncs.saveDir(settings)
     filename = exp_settings['scanname'] + '_' + stamp
     
-    '''
-    #######
-    DEMO VERSION
-    #######
-    
-    sig = results[0][0][0] + 1j*results[0][0][1]
-    avgamp0 = np.abs(sig)
-    plt.figure(2)
-    plt.plot(fpts, results[0][0][0],label="I value")
-    plt.plot(fpts, results[0][0][1],label="Q value")
-    plt.plot(fpts, avgamp0,label="Amplitude")
-    plt.ylabel("a.u.")
-    plt.xlabel("Pulse Freq")
-    plt.title("%d-%d MHz Frequency Sweep"%(settings["freq_start"], end_freq))
-    plt.legend()
-    plt.savefig("images/Freq_sweep_python.pdf", dpi=350)
-    
-    plt.figure(3)
-    plt.plot(fpts, np.arctan2((results[0][0][0]),(results[0][0][1])))
-    # about 6 phi / 30 MHz
-    '''
     # if slope is set to 0.2 rad and actual is 0.13 acquired result will be -0.07
     #exp_settings['initial_phase'] += linregress(fpts, np.unwrap
                     #(np.arctan2((results[0][0][0]),(results[0][0][1]))))[0]
