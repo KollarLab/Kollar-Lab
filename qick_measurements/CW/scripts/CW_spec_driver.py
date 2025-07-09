@@ -19,7 +19,7 @@ settings['scanname'] = 'Two_tone_w_amp_no_sidebands'
 
 settings['cav_freq']  = 7.230796e9  #4.389545e9 + 1e6 #7.08979e9 #7.1995e9 #7.8392e9 original
 settings['cav_gain'] = 300
-settings['meas_window'] = 1000000
+settings['meas_window'] = 10000
 settings['cav_pulse_len'] = 10
 
 qub_center = 3.6117e9 #5.33866e9
@@ -28,7 +28,7 @@ freq_points = 51
 
 settings['qub_gain_start']     = 5000#8000 #7000
 settings['qub_gain_step']      = 2000
-settings['qub_gain_points']    = 1
+settings['qub_gain_points']    = 10
 
 settings['qub_len'] = 10 #us
 

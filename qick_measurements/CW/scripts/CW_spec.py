@@ -219,7 +219,7 @@ def cw_spec(soc,soccfg,instruments,settings):
             Is[g,f] = trans_I[0][0]
             Qs[g,f] = trans_Q[0][0]
             
-            if f == 0:
+            if f == 0 and g == 0:
                 t_stop = time.time()
                 estimate_time(t_start, t_stop, len(fpts)*len(gpts))
 
@@ -241,32 +241,12 @@ def cw_spec(soc,soccfg,instruments,settings):
     single_data['mag']   = powerdat[g]
     single_data['phase'] = phasedat[g]
     
-    yaxis  = gpts[0:g+1] #- CAV_Attenuation
+    yaxis  = gpts[0:g+1]
     labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
-
-    fig1 = plt.figure(1)
-    plt.clf()
-    plt.plot(fpts/1e9, powerdat) # or transpose
-    plt.title('Mag {}'.format(filename))
-    plt.xlabel('Frequency (GHz)')
-    plt.ylabel('Amplitude')
-    fig1.canvas.draw()
-    fig1.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'_mag.png'), dpi=150)
     
-    fig2 = plt.figure(2)
-    plt.clf()
-    plt.plot(fpts/1e9, phasedat) # or transpose
-    plt.title('Phase {}'.format(filename))
-    plt.xlabel('Frequency (GHz)')
-    plt.ylabel('Phase (Degrees)')
-    fig1.canvas.draw()
-    fig1.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'_phase.png'), dpi=150)
+    simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False)
     
-    # simplescan_plot(plot_data, single_data, yaxis, filename, labels, identifier='', fig_num=1, IQdata = False)
-    
-    userfuncs.SaveFull(saveDir, filename, ['fpts','full_data','filename'],
+    userfuncs.SaveFull(saveDir, filename, ['gpts','fpts','full_data','filename'],
     locals(), expsettings=settings, instruments={})
 
     data = {'saveDir': saveDir, 'filename': filename, 'full_data': full_data}
