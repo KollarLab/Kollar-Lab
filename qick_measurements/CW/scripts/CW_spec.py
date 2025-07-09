@@ -105,7 +105,9 @@ def get_cw_spec_settings():
     settings['cav_pulse_len'] = 10
     settings['meas_window'] = 900
 
-    settings['qub_gain'] = 1000
+    settings['qub_gain_start']     = 4000
+    settings['qub_gain_step']      = 2000
+    settings['qub_gain_points']    = 1
     settings['qub_len'] = 20
     
     #Sweep parameters
@@ -155,7 +157,7 @@ def cw_spec(soc,soccfg,instruments,settings):
         'freq_start'      : exp_settings['freq_start']/1e6,
         'freq_step'       : exp_settings['freq_step']/1e6,
         'freq_points'     : exp_settings['freq_points'],
-        'qub_gain'        : exp_settings['qub_gain'],
+        'qub_gain'        : 0, # PLACEHOLDER, gain loop
 
         #'qub_sigma'       : q_pulse['sigma'],
         #'qub_delay'       : q_pulse['delay'],
@@ -176,34 +178,45 @@ def cw_spec(soc,soccfg,instruments,settings):
     f0_step = exp_settings['freq_step']
     expts = exp_settings['freq_points']
     
+    g_start = exp_settings['qub_gain_start']
+    g_step = exp_settings['qub_gain_step']
+    g_expts = exp_settings['qub_gain_points']
+    
     fpts = np.arange(0,expts)*f0_step+f0_start
     end_freq = exp_settings["freq_start"] + exp_settings["freq_step"]*exp_settings["freq_points"]
+    gpts = exp_settings["qub_gain_start"] + (exp_settings["qub_gain_step"] * np.arange(exp_settings["qub_gain_points"]))
     
-    powerdat = np.zeros(len(fpts))
-    phasedat = np.zeros(len(fpts))
-    Is = np.zeros(len(fpts))
-    Qs = np.zeros(len(fpts))
+    powerdat = np.zeros((len(gpts), len(fpts)))
+    phasedat = np.zeros((len(gpts), len(fpts)))
+    Is = np.zeros((len(gpts), len(fpts)))
+    Qs = np.zeros((len(gpts), len(fpts)))
     
     t_start = time.time()
     
-    # add in gain later
-    # qubit frequency sweep
-    for f in range(0,len(fpts)):
-        config["qub_freq"]=fpts[f]/1e6 # convert to MHz
-        prog = CW_spec(soccfg, config)
-        trans_I, trans_Q = prog.acquire(soc,progress=False)
-        soc.reset_gens()
+    # qubit gain sweep
+    for g in range(0,len(gpts)):
+        print("Current Qubit Gain: " + str(gpts[g]) + ", Max Gain: " + str(gpts[-1]))
+        config["qub_gain"] = gpts[g]
         
-        mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
-        phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
-        powerdat[f] = mag
-        phasedat[f] = phase
-        Is[f] = trans_I[0][0]
-        Qs[f] = trans_Q[0][0]
-        
-        if f == 0:
-            t_stop = time.time()
-            estimate_time(t_start, t_stop, len(fpts))
+        # qubit frequency sweep
+        for f in range(0,len(fpts)):
+            
+            config["qub_freq"]=fpts[f]/1e6 # convert to MHz
+            prog = CW_spec(soccfg, config)
+            trans_I, trans_Q = prog.acquire(soc,progress=False)
+            soc.reset_gens()
+            
+            mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
+            phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
+            
+            powerdat[g,f] = mag
+            phasedat[g,f] = phase
+            Is[g,f] = trans_I[0][0]
+            Qs[g,f] = trans_Q[0][0]
+            
+            if f == 0:
+                t_stop = time.time()
+                estimate_time(t_start, t_stop, len(fpts)*len(gpts))
 
     full_data = {}
 
