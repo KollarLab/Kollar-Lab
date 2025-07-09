@@ -2,9 +2,8 @@
 """
 Created on Tue Dec 13 11:52:24 2022
 
-@author: kollarlab
+@author: jhyang
 
-Modified by: jhyang
 """
 
 from qick.averager_program import AveragerProgram
@@ -17,8 +16,41 @@ from utility.measurement_helpers import estimate_time
 import logging
 from utility.plotting_tools import simplescan_plot
 
+#######################################
+# Taken from CW_trans LoopBackProgram #
+#######################################
+class CavitySweepFlux(AveragerProgram):
+    def initialize(self):
+        cfg=self.cfg   
 
-class CW_spec(AveragerProgram):
+        # set the nyquist zone
+        self.declare_gen(ch=cfg["cav_channel"], nqz=1) # nqz zone fixed
+
+        #configure the readout lengths and downconversion frequencies
+        readout = self.us2cycles(cfg["meas_window"],ro_ch=cfg["ro_channels"][0])
+        self.declare_readout(ch=cfg["ro_channels"][0], length=readout,
+                             freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
+
+        freq=self.freq2reg(cfg["cav_freq"], gen_ch=cfg["cav_channel"], 
+                                 ro_ch=cfg["ro_channels"][0])
+        self.set_pulse_registers(ch=cfg["cav_channel"], style="const", freq=freq,
+                                 # converts phase degrees to QICK register val
+                                 phase=self.deg2reg(cfg["cav_phase"]), 
+                                 gain=cfg["cav_gain"], 
+                                 length=self.us2cycles(cfg["cav_pulse_len"],gen_ch=self.cfg["cav_channel"]), mode = "periodic")
+        self.synci(200)  # give processor some time to configure pulses
+    
+    def body(self):
+        self.measure(pulse_ch=self.cfg["cav_channel"], 
+             adcs=[self.cfg["ro_channels"][0]],
+             adc_trig_offset=self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"]),
+             wait=True,
+             syncdelay=self.us2cycles(self.cfg["relax_delay"],gen_ch=self.cfg["cav_channel"]))
+        
+######################
+# Taken from CW_spec #
+######################
+class CW_spec_flux(AveragerProgram):
     def initialize(self):
         cfg=self.cfg   
         gen_ch = cfg["cav_channel"]
@@ -93,13 +125,27 @@ class CW_spec(AveragerProgram):
         self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
 
-def get_cw_spec_settings():
+def get_cw_spec_flux_settings():
     settings = {}
     
     settings['scanname'] = 'continuous_power_scan'
-    settings['meas_type'] = 'CW_Spec_Testing'
+    settings['meas_type'] = 'CW_Spec_Flux_Testing'
+    
+    settings['start_voltage']  = 0
+    settings['stop_voltage']   = 0.1
+    settings['voltage_points'] = 5
+    
+    autoscan = {}
+    autoscan['freq_start']     = 4.4e9
+    autoscan['freq_stop']      = 4.41e9
+    autoscan['freq_points']    = 5
+    autoscan['reps']           = 301
+    autoscan['soft_avgs']      = 1
+
+    settings['autoscan'] = autoscan
     
     settings['cav_freq'] = 1e9
+    settings['cav_phase'] = 0
     settings['cav_gain'] = 1000
     settings['cav_pulse_len'] = 10
     settings['meas_window'] = 900
@@ -120,7 +166,7 @@ def get_cw_spec_settings():
     
     return settings
 
-def cw_spec(soc,soccfg,instruments,settings):
+def cw_spec_flux(soc,soccfg,instruments,settings):
     
     # suppresses sum buffer overflow warning
     logging.getLogger("qick").setLevel(logging.ERROR)
@@ -129,6 +175,10 @@ def cw_spec(soc,soccfg,instruments,settings):
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
     q_pulse      = exp_globals['qubit_pulse']
+    
+    autoscan_set = exp_settings['autoscan']
+    SRS = instruments['DCsupply']
+    soc.reset_gens()
     
 
     stamp    = userfuncs.timestamp()
@@ -172,6 +222,40 @@ def cw_spec(soc,soccfg,instruments,settings):
         'soft_avgs'       : exp_settings['soft_avgs']
         }
 
+    #############################
+    # Taken from spec_flux_scan #
+    #############################
+    
+    #set voltage sweep
+    start_voltage = exp_settings['start_voltage']
+    stop_voltage  = exp_settings['stop_voltage']
+    voltage_points = exp_settings['voltage_points']
+    voltages = np.round(np.linspace(start_voltage, stop_voltage, voltage_points),6)
+    max_voltage = 3.5
+    if np.max(voltages) > max_voltage:
+        raise ValueError('max voltage too large!')
+    else:
+        settings['voltages'] = voltages
+
+    SRS.Output = 'On'
+    
+    #Making array of cavity frequencies for transmission scan (to be looped through later)
+    start_freq = autoscan_set['freq_start']
+    stop_freq = autoscan_set['freq_stop']
+    freq_points = autoscan_set['freq_points']
+    trans_fpts = np.linspace(start_freq,stop_freq,freq_points)
+
+    #Dummy arrays for cavity scan
+    trans_mags   = np.zeros((voltage_points, autoscan_set['freq_points']))
+    trans_phases = np.zeros((voltage_points, autoscan_set['freq_points']))
+    
+    #Dummy arrays for spec scan
+    mags   = np.zeros((voltage_points, exp_settings['freq_points']))
+    phases = np.zeros((voltage_points, exp_settings['freq_points']))
+
+    first_it = True
+    
+    
     
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
@@ -205,7 +289,7 @@ def cw_spec(soc,soccfg,instruments,settings):
         for f in range(0,len(fpts)):
             
             config["qub_freq"]=fpts[f]/1e6 # convert to MHz
-            prog = CW_spec(soccfg, config)
+            prog = CW_spec_flux(soccfg, config)
             trans_I, trans_Q = prog.acquire(soc,progress=False)
             soc.reset_gens()
             
