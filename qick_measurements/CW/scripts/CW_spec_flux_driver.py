@@ -6,11 +6,6 @@ Created on Fri Dec 16 13:28:28 2022
 """
 
 from CW_spec_flux import cw_spec_flux, get_cw_spec_flux_settings
-
-# gain_vals = [1000, 2500, 5000] #cav only, qubit fixed at 500
-# windows = [10,100]
-# for g_vals in gain_vals:
-#     for w_vals in windows:
     
 settings = get_cw_spec_flux_settings()
 settings['scanname'] = 'Spec_flux_testing'
