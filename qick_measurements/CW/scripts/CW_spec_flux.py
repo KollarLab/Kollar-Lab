@@ -32,7 +32,7 @@ class CavitySweepFlux(AveragerProgram):
         self.declare_gen(ch=cfg["cav_channel"], nqz=1) # nqz zone fixed
 
         #configure the readout lengths and downconversion frequencies
-        readout = self.us2cycles(cfg["meas_window"],ro_ch=cfg["ro_channels"][0])
+        readout = self.us2cycles(cfg["cav_meas_window"],ro_ch=cfg["ro_channels"][0])
         self.declare_readout(ch=cfg["ro_channels"][0], length=readout,
                              freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
 
@@ -66,7 +66,7 @@ class CW_spec_flux(AveragerProgram):
         self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"])
         
         # configure the readout lengths and downconversion frequencies (ensuring it is an available DAC frequency)
-        readout = self.us2cycles(cfg["readout_length"],ro_ch=cfg["ro_channels"][0])
+        readout = self.us2cycles(cfg["qub_readout_length"],ro_ch=cfg["ro_channels"][0])
         for ch in cfg["ro_channels"]:
             self.declare_readout(ch=ch, length=readout,
                                  freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
@@ -139,6 +139,7 @@ def get_cw_spec_flux_settings():
     settings['start_voltage']  = 0
     settings['stop_voltage']   = 0.1
     settings['voltage_points'] = 5
+    settings['stability'] = False
     
     autoscan = {}
     autoscan['freq_start']     = 4.4e9
@@ -153,10 +154,11 @@ def get_cw_spec_flux_settings():
     settings['cav_phase'] = 0
     settings['cav_gain'] = 1000
     settings['cav_pulse_len'] = 10
-    settings['meas_window'] = 900
+    settings['cav_meas_window'] = 900
 
     settings['qub_gain'] = 0
     settings['qub_len'] = 20
+    settings['qub_readout_length'] = 500
     
     #Sweep parameters
     settings['freq_start']   = 4e9  
@@ -182,7 +184,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     q_pulse      = exp_globals['qubit_pulse']
     
     autoscan_set = exp_settings['autoscan']
-    SRS = instruments['DCsupply']
+    #SRS = instruments['DCsupply']
     soc.reset_gens()
     
 
@@ -198,7 +200,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
         'nqz_c'           : 1,
         'cav_phase'       : m_pulse['cav_phase'],
         'cav_pulse_len'   : exp_settings['cav_pulse_len'],
-        #'meas_window'     : exp_settings['meas_window'],
+        'cav_meas_window'     : exp_settings['cav_meas_window'],
         # set meas_pos to 0?
         'meas_time'       : m_pulse['meas_pos'],
         #'meas_gain'       : exp_settings['meas_gain'],
@@ -216,7 +218,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
         #'num_sigma'       : q_pulse['num_sigma'],
         'qub_len'         : exp_settings['qub_len'],
 
-        'readout_length'  : exp_settings['meas_window'],
+        'qub_readout_length'  : exp_settings['qub_readout_length'],
         'adc_trig_offset' : m_pulse['emp_delay'],  #+ m_pulse['meas_pos'],
 
 
@@ -240,7 +242,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     else:
         settings['voltages'] = voltages
 
-    SRS.Output = 'On'
+    #SRS.Output = 'On'
     
     #Making array of cavity frequencies for transmission scan (to be looped through later)
     start_freq = autoscan_set['freq_start']
@@ -265,7 +267,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     f0_start = exp_settings['freq_start']
     f0_step = exp_settings['freq_step']
     expts = exp_settings['freq_points']
-    fpts = np.arange(0,expts)*f0_step+f0_start
+    spec_fpts = np.arange(0,expts)*f0_step+f0_start
     #powerdat = np.zeros((len(voltages), len(fpts)))
     #phasedat = np.zeros((len(voltages), len(fpts)))
     #Is = np.zeros((len(voltages), len(fpts)))
@@ -282,7 +284,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
                 voltage = voltages[vind]
                 print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
                 
-                SRS.voltage_ramp(voltage)
+                #SRS.voltage_ramp(voltage)
                 time.sleep(0.1)
 
                 voltages = np.linspace(0,len(voltages)-1,len(voltages))
@@ -291,7 +293,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
             voltage = voltages[vind]
             print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
             
-            SRS.voltage_ramp(voltage)
+            #SRS.voltage_ramp(voltage)
             time.sleep(0.1)
         
         print('Sweeping transmission.')
@@ -314,7 +316,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
             projected_time = (time.time() - tstart) * len(trans_fpts)
             
             if find == 0:
-                print("Projected time for transmission sweep: {projected_time:.1f} seconds. ")
+                print(f"Projected time for transmission sweep: {projected_time:.1f} seconds. ")
         print("Transmission sweep complete. ")
 
         hanger = exp_globals['hanger'] #"Fitting" cav freq
@@ -346,7 +348,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
         else:
             config['cav_freq'] = freq_holder
 
-        print('spec, cav freq: {}'.format(config['cav_freq']/1e3))
+        print('spec, cav freq: {} GHz'.format(config['cav_freq']/1e3))
 
         config['reps'] = exp_settings['reps']
         config['soft_avgs'] = exp_settings['soft_avgs']
@@ -357,17 +359,17 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
         t_start = time.time()
         
         # qubit frequency sweep
-        for f in range(0,len(fpts)):
+        for f in range(0,len(spec_fpts)):
             
-            config["qub_freq"]=fpts[f]/1e6 # convert to MHz
+            config["qub_freq"]=spec_fpts[f]/1e6 # convert to MHz
             
             prog = CW_spec_flux(soccfg,config) #Make spec pulse sequence object
-            exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False) #Spec data acquisition
+            avg_di, avg_dq = prog.acquire(soc, progress=False) #Spec data acquisition # REMOVED expt_pts
             soc.reset_gens()
             
             Is = avg_di[0][0] # These ones I copied directly from another script, so I'm more certain of the indexing.
             Qs = avg_dq[0][0]
-            spec_fpts = exp_pts[0]*1e6
+            #spec_fpts = exp_pts[0]*1e6
             powerdat = np.sqrt(Is**2 + Qs**2)
             phasedat = np.arctan2(Qs,Is)*180/np.pi
             mags[vind] = powerdat
@@ -385,7 +387,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
             specdata['phases'] = phases[0:vind+1,:]
             
             singledata = {}
-            singledata['xaxis'] = spec_fpts/1e9
+            singledata['xaxis'] = spec_fpts[f]/1e9
             singledata['mag'] = powerdat
             singledata['phase'] = phasedat
             
@@ -409,7 +411,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
                 mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
             specplotdata['phases'] = mat
             
-            identifier = 'Cav Gain : ' + str(config['meas_gain'])  + ' au'
+            identifier = 'Cav Gain : ' + str(config['cav_gain'])  + ' au'
 
             plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
 
@@ -421,7 +423,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
 
             if f == 0:
                 t_stop = time.time()
-                estimate_time(t_start, t_stop, len(fpts))
+                estimate_time(t_start, t_stop, len(spec_fpts))
 
         return transdata,specdata,prog
                 

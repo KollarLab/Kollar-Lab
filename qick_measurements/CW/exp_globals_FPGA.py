@@ -19,7 +19,7 @@ exp_globals['ro_channels']   = [0]
 
 exp_globals['root_folder'] = r'K:\Data'
 exp_globals['project_name'] = 'FPGA_Loopback'
-exp_globals['device_name'] = 'CW_QUb_Testing'
+exp_globals['device_name'] = 'CW_Flux_Testing'
 
 exp_globals['hanger'] = True #This now does something for spec_flux_scan
 
