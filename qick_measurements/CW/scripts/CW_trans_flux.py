@@ -60,6 +60,7 @@ def get_cw_trans_flux_settings():
     settings['start_voltage']  = 0
     settings['stop_voltage']   = 0.1
     settings['voltage_points'] = 5
+    settings['stability'] = False
     
     
     settings['cav_gain'] = 1000
@@ -78,7 +79,7 @@ def get_cw_trans_flux_settings():
     
     return settings
 
-def cw_spec_flux(soc,soccfg,instruments,settings):
+def cw_trans_flux(soc,soccfg,instruments,settings):
     
     print("Initializing...")
     
@@ -89,7 +90,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
     
-    SRS = instruments['DCsupply']
+    #SRS = instruments['DCsupply']
     soc.reset_gens()
     
 
@@ -111,7 +112,6 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
         'freq_start'      : exp_settings['freq_start']/1e6,
         'freq_step'       : exp_settings['freq_step']/1e6,
         'freq_points'     : exp_settings['freq_points'],
-        'qub_gain'        : exp_settings['qub_gain'],
 
         'meas_window'  : exp_settings['meas_window'],
         'adc_trig_offset' : m_pulse['emp_delay'],  #+ m_pulse['meas_pos'],
@@ -137,13 +137,13 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     else:
         settings['voltages'] = voltages
 
-    SRS.Output = 'On'
+    #SRS.Output = 'On'
     
     #Making array of cavity frequencies for transmission scan (to be looped through later)
     start_freq = exp_settings['freq_start']
-    stop_freq = exp_settings['freq_stop']
-    freq_points = exp_settings['freq_points']
-    trans_fpts = np.linspace(start_freq,stop_freq,freq_points)
+    step = exp_settings['freq_step']
+    expts = exp_settings['freq_points']
+    trans_fpts = np.arange(0,expts)*step + start_freq
 
     #Dummy arrays for cavity scan
     trans_mags   = np.zeros((voltage_points, exp_settings['freq_points']))
@@ -162,7 +162,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     
     first_it = True
     t_start = time.time()
-    phase_result = {}
+    phase_result = []
     for vind in range(len(voltages)):
         
         if exp_settings['stability'] == True: # If running a stability scan, will ramp to starting voltage on the first iteration but then never ramp again.
@@ -171,7 +171,7 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
                 voltage = voltages[vind]
                 print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
                 
-                SRS.voltage_ramp(voltage)
+                #SRS.voltage_ramp(voltage)
                 time.sleep(0.1)
 
                 voltages = np.linspace(0,len(voltages)-1,len(voltages))
@@ -180,10 +180,8 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
             voltage = voltages[vind]
             print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
             
-            SRS.voltage_ramp(voltage)
+            #SRS.voltage_ramp(voltage)
             time.sleep(0.1)
-        
-        print('Sweeping transmission.')
         
         for find in range(len(trans_fpts)):
             tstart = time.time()
@@ -201,14 +199,13 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
             trans_mags[vind][find] = mag
             trans_phases[vind][find] = phase
             
-            if find == 0:
+            if vind == 0:
+                phase_result.append([trans_I, trans_Q])
+            
+            if find == 0 and vind == 0:
                 t_stop = time.time()
-                estimate_time(t_start, t_stop, len(trans_fpts))
-                
-        if vind == 0:
-            phase_result.append([trans_I, trans_Q])
+                estimate_time(t_start, t_stop, len(trans_fpts)*len(voltages))
         
-    print("Transmission sweep complete. ")
     
     phase_result = np.transpose(phase_result)
     print("Slope: ")

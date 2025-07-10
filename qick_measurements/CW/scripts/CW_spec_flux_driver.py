@@ -12,7 +12,7 @@ settings['scanname'] = 'Spec_flux_testing'
 
 settings['start_voltage']  = 0
 settings['stop_voltage']   = 0.1
-settings['voltage_points'] = 5
+settings['voltage_points'] = 2
 settings['stability'] = False
 
 autoscan = settings['autoscan']

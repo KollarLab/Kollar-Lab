@@ -13,6 +13,7 @@ settings['scanname'] = 'Trans_flux_testing'
 settings['start_voltage']  = 0
 settings['stop_voltage']   = 0.1
 settings['voltage_points'] = 5
+settings['stability'] = False
 
 cav_center = 3.6117e9 #7.230796e9 #4.389545e9 + 1e6 #7.08979e9 #7.1995e9 #7.8392e9 original
 span = 50e6 

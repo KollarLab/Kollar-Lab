@@ -423,9 +423,9 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
 
             if f == 0:
                 t_stop = time.time()
-                estimate_time(t_start, t_stop, len(spec_fpts))
+                estimate_time(t_start, t_stop, len(spec_fpts)*len(voltages))
 
-        return transdata,specdata,prog
+    return transdata,specdata,prog
                 
                 
     '''
