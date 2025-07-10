@@ -15,7 +15,6 @@ import userfuncs
 import os
 from utility.measurement_helpers import estimate_time
 import logging
-from utility.plotting_tools import simplescan_plot
 import matplotlib.pyplot as plt
 import utility.plotting_tools as plots
 from utility.userfits_v2 import fit_model
@@ -23,6 +22,8 @@ from utility.userfits_v2 import fit_model
 #######################################
 # Taken from CW_trans LoopBackProgram #
 #######################################
+
+# Plays a constant tone, swept under cw_spec_flux()
 class CavitySweepFlux(AveragerProgram):
     def initialize(self):
         cfg=self.cfg   
@@ -265,10 +266,10 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     f0_step = exp_settings['freq_step']
     expts = exp_settings['freq_points']
     fpts = np.arange(0,expts)*f0_step+f0_start
-    powerdat = np.zeros((len(voltages), len(fpts)))
-    phasedat = np.zeros((len(voltages), len(fpts)))
-    Is = np.zeros((len(voltages), len(fpts)))
-    Qs = np.zeros((len(voltages), len(fpts)))
+    #powerdat = np.zeros((len(voltages), len(fpts)))
+    #phasedat = np.zeros((len(voltages), len(fpts)))
+    #Is = np.zeros((len(voltages), len(fpts)))
+    #Qs = np.zeros((len(voltages), len(fpts)))
     
     
     
@@ -292,8 +293,6 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
             
             SRS.voltage_ramp(voltage)
             time.sleep(0.1)
-
-
         
         print('Sweeping transmission.')
         for find in range(len(trans_fpts)):
@@ -361,24 +360,73 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
         for f in range(0,len(fpts)):
             
             config["qub_freq"]=fpts[f]/1e6 # convert to MHz
-            prog = CW_spec_flux(soccfg, config)
-            trans_I, trans_Q = prog.acquire(soc,progress=False)
+            
+            prog = CW_spec_flux(soccfg,config) #Make spec pulse sequence object
+            exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False) #Spec data acquisition
             soc.reset_gens()
             
-            mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
-            phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
+            Is = avg_di[0][0] # These ones I copied directly from another script, so I'm more certain of the indexing.
+            Qs = avg_dq[0][0]
+            spec_fpts = exp_pts[0]*1e6
+            powerdat = np.sqrt(Is**2 + Qs**2)
+            phasedat = np.arctan2(Qs,Is)*180/np.pi
+            mags[vind] = powerdat
+            phases[vind] = phasedat
+
+            #Plots (updates each for loop)
+            transdata = {}
+            transdata['xaxis'] = trans_fpts/1e9
+            transdata['mags'] = trans_mags[0:vind+1,:]
+            transdata['phases'] = trans_phases[0:vind+1,:]
             
-            powerdat[vind,f] = mag
-            phasedat[vind,f] = phase
-            Is[vind,f] = trans_I[0][0]
-            Qs[vind,f] = trans_Q[0][0]
+            specdata = {}
+            specdata['xaxis'] = spec_fpts/1e9
+            specdata['mags'] = mags[0:vind+1,:]
+            specdata['phases'] = phases[0:vind+1,:]
             
+            singledata = {}
+            singledata['xaxis'] = spec_fpts/1e9
+            singledata['mag'] = powerdat
+            singledata['phase'] = phasedat
+            
+            trans_labels = ['Freq (GHz)','Voltage (V)']
+            spec_labels  = ['Freq (GHz)','Voltage (V)']
+            
+            #modify the spec data to subtract the offset in amp and phase
+            #and then plot the modified version
+            specplotdata = {}
+            specplotdata['xaxis']  = specdata['xaxis']
+            specplotdata['mags']   = specdata['mags']
+            specplotdata['phases'] = specdata['phases']
+            
+            mat = np.copy(specplotdata['mags'])
+            for ind in range(0, mat.shape[0]):
+                mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
+            specplotdata['mags'] = mat
+            
+            mat = np.copy(specplotdata['phases'])
+            for ind in range(0, mat.shape[0]):
+                mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
+            specplotdata['phases'] = mat
+            
+            identifier = 'Cav Gain : ' + str(config['meas_gain'])  + ' au'
+
+            plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
+
+            #Saving data
+            userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'voltages', 
+                                           'filename', 'trans_labels', 'spec_labels'], 
+                                           locals(), expsettings=settings, instruments=instruments)
+            plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
+
             if f == 0:
                 t_stop = time.time()
                 estimate_time(t_start, t_stop, len(fpts))
-                
-                
 
+        return transdata,specdata,prog
+                
+                
+    '''
     full_data = {}
 
     full_data['xaxis']  = fpts/1e9
@@ -406,69 +454,4 @@ def cw_spec_flux(soc,soccfg,instruments,settings):
     locals(), expsettings=settings, instruments={})
 
     '''
-    prog = CW_spec_flux(soccfg,config) #Make spec pulse sequence object
-    
-    exp_pts, avg_di, avg_dq = prog.acquire(soc, load_pulses=True, progress=False) #Spec data acquisition
 
-    Is = avg_di[0][0] # These ones I copied directly from another script, so I'm more certain of the indexing.
-    Qs = avg_dq[0][0]
-    
-    spec_fpts = exp_pts[0]*1e6
-    
-    powerdat = np.sqrt(Is**2 + Qs**2)
-    phasedat = np.arctan2(Qs,Is)*180/np.pi
-
-    mags[vind] = powerdat
-    phases[vind] = phasedat
-
-
-    #Plots (updates each for loop)
-    transdata = {}
-    transdata['xaxis'] = trans_fpts/1e9
-    transdata['mags'] = trans_mags[0:vind+1,:]
-    transdata['phases'] = trans_phases[0:vind+1,:]
-    
-    specdata = {}
-    specdata['xaxis'] = spec_fpts/1e9
-    specdata['mags'] = mags[0:vind+1,:]
-    specdata['phases'] = phases[0:vind+1,:]
-    
-    singledata = {}
-    singledata['xaxis'] = spec_fpts/1e9
-    singledata['mag'] = powerdat
-    singledata['phase'] = phasedat
-    
-    trans_labels = ['Freq (GHz)','Voltage (V)']
-    spec_labels  = ['Freq (GHz)','Voltage (V)']
-    
-    #modify the spec data to subtract the offset in amp and phase
-    #and then plot the modified version
-    specplotdata = {}
-    specplotdata['xaxis']  = specdata['xaxis']
-    specplotdata['mags']   = specdata['mags']
-    specplotdata['phases'] = specdata['phases']
-    
-    mat = np.copy(specplotdata['mags'])
-    for ind in range(0, mat.shape[0]):
-        mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
-    specplotdata['mags'] = mat
-    
-    mat = np.copy(specplotdata['phases'])
-    for ind in range(0, mat.shape[0]):
-        mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
-    specplotdata['phases'] = mat
-    
-    identifier = 'Cav Gain : ' + str(config['meas_gain'])  + ' au'
-
-    plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
-
-    #Saving data
-    userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'voltages', 
-                                   'filename', 'trans_labels', 'spec_labels'], 
-                                   locals(), expsettings=settings, instruments=instruments)
-    plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
-
-
-
-return transdata,specdata,prog
-'''
