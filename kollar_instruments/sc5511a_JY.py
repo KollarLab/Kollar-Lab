@@ -177,7 +177,7 @@ def getdict(struct):
     https://stackoverflow.com/questions/3789372/python-can-we-convert-a-ctypes-structure-to-a-dictionary
     """
     result = {}
-    for field, _ in struct._fields_:
+    for field, _ in struct.fields_:
          value = getattr(struct, field)
          # if the type is not a primitive and it evaluates to False ...
          if (type(value) not in [int, float, bool]) and not bool(value):
@@ -193,140 +193,138 @@ def getdict(struct):
     return result
 
 
-class SignalCore_SC5511A():
+class SignalCore_SC5511A(object):
     
-    def __init__(self, address: str, serial_number: str, dll_path: str = 'C:\\Program Files\\SignalCore\\SC5511A\\api\\c\\x64\\sc5511a.dll', debug = False, **kwargs: Any):
+    def __init__(self, name: str, serial_number: str, dll_path: str = 'C:\\Program Files\\SignalCore\\SC5511A\\api\\c\\x64\\sc5511a.dll', debug = False, **kwargs: Any):
 
         super().__init__()
-        # PyVisa needed? RST CLR SCPI or no?
-        #super().__init__(address, self.commandlist, self.errcmds, reset = reset, baud_rate = 9600)
 
-        logging.info(f'Initializing instrument SignalCore generator {serial_number} at {address}')
-        self._dll = ctypes.WinDLL(dll_path)
+        logging.info(f'Initializing instrument SignalCore generator {name}, #{serial_number}')
+        self.dll = ctypes.WinDLL(dll_path)
         if debug:
-            print(self._dll)
-        self._dll.sc5511a_open_device.restype = ctypes.c_uint64
-        self._handle = ctypes.c_void_p(self._dll.sc5511a_open_device(ctypes.c_char_p(bytes(serial_number, 'utf-8'))))
-        self._serial_number = ctypes.c_char_p(bytes(serial_number, 'utf-8'))
+            print(self.dll)
+        self.dll.sc5511a_open_device.restype = ctypes.c_uint64
+        self.handle = ctypes.c_void_p(self.dll.sc5511a_open_device(ctypes.c_char_p(bytes(serial_number, 'utf-8'))))
+        self.serial_number = ctypes.c_char_p(bytes(serial_number, 'utf-8'))
         
-        self._open = False
-        self._open = property(fset=self.set_open)
+        self.open = False
+        self.open = property(fset=self.set_open)
         
-        self._standby = False
-        self._standby = property(fset=self.set_standby)
+        self.standby = False
+        self.standby = property(fset=self.set_standby)
         
-        self._rf2_standby = False
-        self._rf2_standby = property(fset=self.set_rf2_standby)
+        self.rf2_standby = False
+        self.rf2_standby = property(fset=self.set_rf2_standby)
         
-        self._output = 0
-        self._output = property(self.get_output, self.set_output)
+        self.output = 0
+        self.output = property(self.get_output, self.set_output)
         
-        self._freq = List_buffer_set_t(0)
-        self._freq = property(self.get_frequency, self.set_frequency)
+        self.freq = List_buffer_set_t(0)
+        self.freq = property(self.get_frequency, self.set_frequency)
         
-        self._list_start_freq = List_buffer_set_t(0)
-        self._list_start_freq   = property(fset=self.set_list_start_freq)
-        self._list_stop_freq = List_buffer_set_t(0)
-        self._list_stop_freq    = property(fset=self.set_list_stop_freq)
-        self._list_step_freq = List_buffer_set_t(0)
-        self._list_step_freq    = property(fset=self.set_list_step_freq)
+        self.list_start_freq = List_buffer_set_t(0)
+        self.list_start_freq   = property(fset=self.set_list_start_freq)
+        self.list_stop_freq = List_buffer_set_t(0)
+        self.list_stop_freq    = property(fset=self.set_list_stop_freq)
+        self.list_step_freq = List_buffer_set_t(0)
+        self.list_step_freq    = property(fset=self.set_list_step_freq)
         
-        self._list_cycle_count = 0
-        self._list_cycle_count  = property(fset=self.set_list_cycle_count)
+        self.list_cycle_count = 0
+        self.list_cycle_count  = property(fset=self.set_list_cycle_count)
         
-        self._rf2_freq = RF2_t(0)
-        self._rf2_freq = property(fset=self.set_rf2_frequency)
+        self.rf2_freq = RF2_t(0)
+        self.rf2_freq = property(fset=self.set_rf2_frequency)
         
-        self._level = Level_t(0) #float
-        self._level = property(self.get_level, self.set_level)
+        self.level = Level_t(0) #float
+        self.level = property(self.get_level, self.set_level)
         
-        self._rf_mode = 0
-        self._rf_mode = property(self.get_rf_mode, self.set_rf_mode)
+        self.rf_mode = 0
+        self.rf_mode = property(self.get_rf_mode, self.set_rf_mode)
         
-        self._auto_level_disable = 0
-        self._auto_level_disable = property(self.get_auto_level_disable, self.set_auto_level_disable)
+        self.auto_level_disable = 0
+        self.auto_level_disable = property(self.get_auto_level_disable, self.set_auto_level_disable)
         
-        self._phase = Phase_t(0)
-        self._phase = property(self.get_signal_phase, self.set_signal_phase)
+        self.phase = Phase_t(0)
+        self.phase = property(self.get_signal_phase, self.set_signal_phase)
         
-        self._status = Operate_status_t(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        self._status = property(fget=self.get_operate_status)
+        self.status = Operate_status_t(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         
-        self._pll_status = Pll_status_t()
-        self._pll_status = property(fget=self.get_pll_status)
+        self.pll_status = Pll_status_t()
         
-        self._temperature = Device_temperature_t(0)
-        self._temperature = property(self.get_temperature)
+        self.temperature = Device_temperature_t(0)
+        self.temperature = property(self.get_temperature)
         
-        self._dac_value = Dac_value_t(0)
-        self._dac_value = property(self.get_alc_dac, self.set_alc_dac)
+        self.dac_value = Dac_value_t(0)
+        self.dac_value = property(self.get_alc_dac, self.set_alc_dac)
         
-        self._reference_dac = Dac_value_t(0)
-        self._reference_dac = property(fset=self.set_reference_dac)
+        self.reference_dac = Dac_value_t(0)
+        self.reference_dac = property(fset=self.set_reference_dac)
         
-        self._clock_config = Clock_config_t(0, 0, 0, 0, 0)
-        self._clock_config = property(fget= self.get_clock_config)
+        self.clock_config = Clock_config_t(0, 0, 0, 0, 0)
+        self.clock_config = property(fget= self.get_clock_config)
 
-        self._rf_params = Device_rf_params_t(0, 0, 0, 0, 0, 0, 0, 0, 0)
-        self._rf_params = property(fget=self.get_rf_parameters)
+        self.rf_params = Device_rf_params_t(0, 0, 0, 0, 0, 0, 0, 0, 0)
+        #self.rf_params = property(fget=self.get_rf_parameters)
         
-        self._reg_read = Reg_read_t(0)
-        self._reg_read = property(self.reg_read, self.reg_write)
+        self.reg_read = Reg_read_t(0)
+        self.reg_read = property(self.reg_read, self.reg_write)
         
-        self._list_mode = List_mode_t()
-        self._list_mode = property(self.get_list_mode, self.set_list_mode)
+        self.list_mode = List_mode_t()
         
-        self._device_info = Device_info_t(0, 0, 0, self._manufacture_date)
-        self._device_info = property(fget=self.get_idn)
+        self.manufacture_date = Manufacture_date_t(0, 0, 0, 0)
+        self.device_info = Device_info_t(0, 0, 0, self.manufacture_date)
+        self.device_info = property(fget=self.get_idn)
         
-        self._manufacture_date = Manufacture_date_t(0, 0, 0, 0)
-        self._device_status = Device_status_t(self._list_mode, self._status, self._pll_status)
+        self.device_status = Device_status_t(self.list_mode, self.status, self.pll_status)
+        self.list_mode = property(self.get_list_mode, self.set_list_mode)
+        self.status = property(fget=self.get_operate_status)
+        self.pll_status = property(fget=self.get_pll_status)
         
         if debug:
-            print(serial_number, self._handle)
-            self._dll.sc5511a_get_device_status(self._handle, ctypes.byref(self._device_status))
-            status = self._device_status.operate_status_t.rf1_out_enable
+            print(serial_number, self.handle)
+            self.dll.sc5511a_get_device_status(self.handle, ctypes.byref(self.device_status))
+            status = self.device_status.operate_status_t.rf1_out_enable
             print('check status', status)
 
-        self._auto_level_disable = 0 # setting this to 1 will lead to unstable output power
+        self.auto_level_disable = 0 # setting this to 1 will lead to unstable output power
         
     def settings(self) -> Dict[str, Any]:
         """
         Return a dict of all internal settings / state variables.
         """
         return {
-            'open':               self._open,
-            'clock_config':       getdict(self._clock_config),
-            'standby':            self._standby,
-            'output':             self._output,
-            'freq':               getdict(self._freq),
-            'start_freq':         getdict(self._list_start_freq),
-            'stop_freq':          getdict(self._list_stop_freq),
-            'step_freq':          getdict(self._list_step_freq),
-            'cycle count':        getdict(self._list_cycle_count),
-            'rf2_standby':        self._rf2_standby,
-            'rf_params':          getdict(self._rf_params),
-            'status':             getdict(self._status),
-            'phase':              getdict(self._phase),
-            'temperature':        getdict(self._temperature),
-            'dac_value':          getdict(self._dac_value),
-            'reg_read':           getdict(self._reg_read),
-            'pll_status':         getdict(self._pll_status),
-            'list_mode':          getdict(self._list_mode),
-            'manufacture_date':   getdict(self._manufacture_date),
-            'device_status':      getdict(self._device_status),
-            'device_info':        getdict(self._device_info),
+            'open':               self.open,
+            'clock_config':       getdict(self.clock_config),
+            'standby':            self.standby,
+            'output':             self.output,
+            'freq':               getdict(self.freq),
+            'start_freq':         getdict(self.list_start_freq),
+            'stop_freq':          getdict(self.list_stop_freq),
+            'step_freq':          getdict(self.list_step_freq),
+            'cycle count':        getdict(self.list_cycle_count),
+            'rf2_standby':        self.rf2_standby,
+            'rf_params':          getdict(self.rf_params),
+            'status':             getdict(self.status),
+            'phase':              getdict(self.phase),
+            'temperature':        getdict(self.temperature),
+            'dac_value':          getdict(self.dac_value),
+            'reg_read':           getdict(self.reg_read),
+            'pll_status':         getdict(self.pll_status),
+            'list_mode':          getdict(self.list_mode),
+            'manufacture_date':   getdict(self.manufacture_date),
+            'device_status':      getdict(self.device_status),
+            'device_info':        getdict(self.device_info),
         }
 
 
     def set_open(self, opened):
         """opens a device session"""
-        if opened and not self._open:
-            self._handle = ctypes.c_void_p(self._dll.sc5511a_open_device(self._serial_number))
-            self._open = True
-        elif not opened and self._open:
-            self._dll.sc5511a_close_device(self._handle)
-            self._open = False
+        if opened and not self.open:
+            self.handle = ctypes.c_void_p(self.dll.sc5511a_open_device(self.serial_number))
+            self.open = True
+        elif not opened and self.open:
+            self.dll.sc5511a_close_device(self.handle)
+            self.open = False
         return True
 
     def _close(self):
@@ -337,24 +335,24 @@ class SignalCore_SC5511A():
         """sets the signal phase of the device
         input: float"""
         c_phase= ctypes.c_float(phase)
-        error_code = self._dll.sc5511a_set_signal_phase(self._handle, c_phase)
-        self._phase.phase = phase
+        error_code = self.dll.sc5511a_set_signal_phase(self.handle, c_phase)
+        self.phase.phase = phase
         return error_code, phase
 
     def set_standby(self, enable = False):
         """sets the standby of the device.
         input: 
         standby (bool) true = standby enabled, false  = standby disabled."""
-        error_code = self._dll.sc5511a_set_standby(self._handle, enable)
-        self._standby = enable
+        error_code = self.dll.sc5511a_set_standby(self.handle, enable)
+        self.standby = enable
         return error_code, enable
 
     def set_rf2_standby(self, rf2_enable=False):
         """Sets the standby of the device for rf2.
         input:
         standby (bool) true = standby enabled, false = standby disabled."""
-        error_code = self._dll.sc5511a_set_rf2_standby(self._handle, rf2_enable)
-        self._rf2_standby = rf2_enable
+        error_code = self.dll.sc5511a_set_rf2_standby(self.handle, rf2_enable)
+        self.rf2_standby = rf2_enable
         return error_code, rf2_enable
 
     def set_output(self, output_enable):
@@ -364,8 +362,7 @@ class SignalCore_SC5511A():
                 enable (int) = OFF = 0 ; ON = 1
         """
         c_enable = ctypes.c_ubyte(output_enable)
-        error_code = self._dll.sc5511a_set_output(self._handle, c_enable)
-        self._output = output_enable
+        error_code = self.dll.sc5511a_set_output(self.handle, c_enable)
         return error_code, output_enable
 
     def get_output(self):
@@ -374,47 +371,48 @@ class SignalCore_SC5511A():
             Output:
                 status (int) : OFF = 0 ; ON = 1
         '''
-        error_code = self._dll.sc5511a_get_device_status(self._handle, ctypes.byref(self._device_status))
-        output_status = self._device_status.operate_status_t.rf1_out_enable
+        error_code = self.dll.sc5511a_get_device_status(self.handle, ctypes.byref(self.device_status))
+        output_status = self.device_status.operate_status_t.rf1_out_enable
+        self.output = output_status
         return error_code, output_status
 
     def set_rf_mode(self, rf_mode = 0):
         """
         sets the rf mode of the device
         """
-        error_code = self._dll.sc5511a_set_rf_mode(self._handle, rf_mode)
-        self._rf_mode = rf_mode
+        error_code = self.dll.sc5511a_set_rf_mode(self.handle, rf_mode)
+        self.rf_mode = rf_mode
         return error_code, rf_mode
 
     def get_rf_mode(self):
         """
         Gets RF mode
         (int) = 0 = single tone, 1 = List/Sweep"""
-        error_code = self._dll.sc5511a_get_device_status(self._handle, ctypes.byref(self._device_status))
-        rf_mode = self._device_status.operate_status_t.rf1_mode
+        error_code = self.dll.sc5511a_get_device_status(self.handle, ctypes.byref(self.device_status))
+        rf_mode = self.device_status.operate_status_t.rf1_mode
         return error_code, rf_mode
      
     def set_list_start_freq(self, start_freq):
         """frequency in Hz"""
         frequency=ctypes.c_ulonglong(start_freq)
-        error_code = self._dll.sc5511a_list_start_freq(self._handle, frequency)
-        self._list_start_freq.device_freq = start_freq
+        error_code = self.dll.sc5511a_list_start_freq(self.handle, frequency)
+        self.list_start_freq.device_freq = start_freq
         return error_code, start_freq
 
     def set_list_stop_freq(self, stop_freq):
         """Sets the list stop frequency
         input: int"""
         frequency = ctypes.c_ulonglong(stop_freq)
-        error_code = self._dll.sc5511a_list_stop_freq(self._handle, frequency)
-        self._list_stop_freq.device_freq = stop_freq
+        error_code = self.dll.sc5511a_list_stop_freq(self.handle, frequency)
+        self.list_stop_freq.device_freq = stop_freq
         return error_code, stop_freq
 
     def set_list_step_freq(self, step_freq):
         """Sets the list step frequency
         input: int"""
         frequency = ctypes.c_ulonglong(step_freq)
-        error_code = self._dll.sc5511a_list_step_freq(self._handle, frequency)
-        self._list_step_freq.device_freq = step_freq
+        error_code = self.dll.sc5511a_list_step_freq(self.handle, frequency)
+        self.list_step_freq.device_freq = step_freq
         return error_code, step_freq
     
     def set_list_cycle_count(self, cycle_num = 0):
@@ -422,16 +420,25 @@ class SignalCore_SC5511A():
         input: integer
         """
         cycle_count = ctypes.c_uint(cycle_num)
-        error_code = self._dll.sc5511a_list_cycle_count(self._handle, cycle_count)
-        self._list_cycle_count = cycle_num
+        error_code = self.dll.sc5511a_list_cycle_count(self.handle, cycle_count)
+        self.list_cycle_count = cycle_num
         return error_code, cycle_num
 
     def set_list_soft_trigger(self):
         """Sets the list soft trigger
         """
-        error_code = self._dll.sc5511a_list_soft_trigger(self._handle)
+        error_code = self.dll.sc5511a_list_soft_trigger(self.handle)
         return error_code
 
+
+    def get_frequency(self):
+        """Gets the frequency value
+        """
+        error_code = self.dll.sc5511a_get_rf_parameters(self.handle, ctypes.byref(self.rf_params))
+        frequency = self.rf_params.rf1_freq
+        self.freq = frequency
+        return error_code, frequency
+    
     def set_frequency(self, frequency):
         """
         Sets RF1 frequency. Valid between 100MHz and 20GHz
@@ -440,15 +447,7 @@ class SignalCore_SC5511A():
         """
 
         c_freq = ctypes.c_ulonglong(int(frequency))
-        error_code = self._dll.sc5511a_set_freq(self._handle, c_freq)
-        self._freq.device_freq = frequency
-        return error_code, frequency
-
-    def get_frequency(self):
-        """Gets the frequency value
-        """
-        error_code = self._dll.sc5511a_get_rf_parameters(self._handle, ctypes.byref(self._rf_params))
-        frequency = self._rf_params.rf1_freq
+        error_code = self.dll.sc5511a_set_freq(self.handle, c_freq)
         return error_code, frequency
 
     def set_clock_reference(self, ref, direct_lock, high_, lock_to_external):
@@ -459,14 +458,14 @@ class SignalCore_SC5511A():
         ext_direct_lock = ctypes.c_ubyte(direct_lock)
         high = ctypes.c_ubyte(high_)
         lock = ctypes.c_ubyte(lock_to_external)
-        error_code = self._dll.sc5511a_set_clock_reference(self._handle, ext_ref, ext_direct_lock, high, lock)
+        error_code = self.dll.sc5511a_set_clock_reference(self.handle, ext_ref, ext_direct_lock, high, lock)
         return error_code, ref, ext_direct_lock, high_, lock_to_external
 
     def get_reference_source(self):
         """ Gets the reference source
         ..........................
         """
-        error_code =  self._device_status.operate_status_t.ext_ref_lock_enable
+        error_code =  self.device_status.operate_status_t.ext_ref_lock_enable
         return error_code
 
     def set_level(self, power):
@@ -474,15 +473,15 @@ class SignalCore_SC5511A():
         input: float
         """
         c_power = ctypes.c_float(power)
-        error_code = self._dll.sc5511a_set_level(self._handle, c_power)
-        self._level.level = power
+        error_code = self.dll.sc5511a_set_level(self.handle, c_power)
         return error_code, power
 
     def get_level(self):
         """Gets the power level of the device
         """
-        error_code = self._dll.sc5511a_get_rf_parameters(self._handle, ctypes.byref(self._rf_params))
-        rf_level = self._rf_params.rf_level
+        error_code = self.dll.sc5511a_get_rf_parameters(self.handle, ctypes.byref(self.rf_params))
+        rf_level = self.rf_params.rf_level
+        self.level.level = rf_level
         return error_code, rf_level
 
     def set_auto_level_disable(self, enable):
@@ -493,15 +492,15 @@ class SignalCore_SC5511A():
         elif enable == 0:
             enable = 1
         c_enable = ctypes.c_ubyte(enable)
-        error_code = self._dll.sc5511a_set_auto_level_disable(self._handle, c_enable)
-        self._auto_level_disable = enable
+        error_code = self.dll.sc5511a_set_auto_level_disable(self.handle, c_enable)
+        self.auto_level_disable = enable
         return error_code, enable
 
     def get_auto_level_disable(self):
         """Gets the current status of the auto level
         """
-        error_code = self._dll.sc5511a_get_device_status(self._handle, ctypes.byref(self._device_status))
-        enabled = self._device_status.operate_status_t.auto_pwr_disable
+        error_code = self.dll.sc5511a_get_device_status(self.handle, ctypes.byref(self.device_status))
+        enabled = self.device_status.operate_status_t.auto_pwr_disable
         if enabled == 1:
             enabled = 0
         elif enabled == 0:
@@ -510,57 +509,57 @@ class SignalCore_SC5511A():
 
     def get_ext_ref_lock_enable(self):
         #This function works only for devices with firmware >= ver3.6 and hardware > ver16.0
-        error_code = self._dll.sc5511a_get_clock_config(self._handle, ctypes.byref(self._clock_config))
-        ext_ref_lock = self._clock_config.ext_ref_lock_enable
+        error_code = self.dll.sc5511a_get_clock_config(self.handle, ctypes.byref(self.clock_config))
+        ext_ref_lock = self.clock_config.ext_ref_lock_enable
         return error_code, ext_ref_lock
 
     def get_ref_out_select(self):
         #This function works only for devices with firmware >= ver3.6 and hardware > ver16.0
-        error_code = self._dll.sc5511a_get_clock_config(self._handle, ctypes.byref(self._clock_config))
-        ref_out_select = self._clock_config.ref_out_select
+        error_code = self.dll.sc5511a_get_clock_config(self.handle, ctypes.byref(self.clock_config))
+        ref_out_select = self.clock_config.ref_out_select
         return error_code, ref_out_select
 
     def get_pxi_clock_enable(self):
         #This function works only for devices with firmware >= ver3.6 and hardware > ver16.0
-        error_code = self._dll.sc5511a_get_clock_config(self._handle, ctypes.byref(self._clock_config))
-        pxi_clock_enable = self._clock_config.pxi_clock_enable
+        error_code = self.dll.sc5511a_get_clock_config(self.handle, ctypes.byref(self.clock_config))
+        pxi_clock_enable = self.clock_config.pxi_clock_enable
         return error_code, pxi_clock_enable
 
     def get_ext_direct_clock(self):
         #This function works only for devices with firmware >= ver3.6 and hardware > ver16.0
-        error_code = self._dll.sc5511a_get_clock_config(self._handle, ctypes.byref(self._clock_config))
-        ext_direct_clock = self._clock_config.ext_direct_clocking
+        error_code = self.dll.sc5511a_get_clock_config(self.handle, ctypes.byref(self.clock_config))
+        ext_direct_clock = self.clock_config.ext_direct_clocking
         return error_code, ext_direct_clock
 
     def get_ext_ref_freq(self):
         #This function works only for devices with firmware >= ver3.6 and hardware > ver16.0
-        error_code = self._dll.sc5511a_get_clock_config(self._handle, ctypes.byref(self._clock_config))
-        ext_ref_freq = self._clock_config.ext_ref_freq
+        error_code = self.dll.sc5511a_get_clock_config(self.handle, ctypes.byref(self.clock_config))
+        ext_ref_freq = self.clock_config.ext_ref_freq
         return error_code, ext_ref_freq
 
     def get_alc_dac(self) -> int:
         """Gets the alc dac value
         """
-        error_code = self._dll.sc5511a_get_alc_dac(self._handle, ctypes.byref(self._dac_value))
-        dac_value = self._dac_value.dac_value
+        error_code = self.dll.sc5511a_get_alc_dac(self.handle, ctypes.byref(self.dac_value))
+        dac_value = self.dac_value.dac_value
         return error_code, dac_value
 
     def store_default_state(self):
         """Stores the default state of the device
         """
-        error_code = self._dll.sc5511a_store_default_state(self._handle)
+        error_code = self.dll.sc5511a_store_default_state(self.handle)
         return error_code
 
     def get_signal_phase(self):
-        error_code = self._dll.sc5511a_get_signal_phase(self._handle, ctypes.byref(self._phase))
-        signal_phase = self._phase.phase
+        error_code = self.dll.sc5511a_get_signal_phase(self.handle, ctypes.byref(self.phase))
+        signal_phase = self.phase.phase
         return error_code, signal_phase
 
     def get_temperature(self):
         """Gets the current temperature of the device
         """
-        error_code = self._dll.sc5511a_get_temperature(self._handle, ctypes.byref(self._temperature))
-        device_temp = self._temperature.device_temp
+        error_code = self.dll.sc5511a_get_temperature(self.handle, ctypes.byref(self.temperature))
+        device_temp = self.temperature.device_temp
         return error_code, device_temp
 
     def set_list_mode(self, sss_mode=1, sweep_dir=0, tri_waveform=0, hw_trigger=0, step_on_hw_trig=0, return_to_start=0, trig_out_enable=1, trig_out_on_cycle=0) -> Dict[str, Optional[str]]:
@@ -576,31 +575,31 @@ class SignalCore_SC5511A():
         trig_out_on_cycle= 0: puts out a trigger pulse at each frequency change, 1: trigger pulse at the completion of each sweep/list cycle
         """
         lm = List_mode_t(sss_mode=sss_mode, sweep_dir=sweep_dir, tri_waveform=tri_waveform, hw_trigger=hw_trigger, step_on_hw_trig=step_on_hw_trig, return_to_start=return_to_start, trig_out_enable=trig_out_enable, trig_out_on_cycle=trig_out_on_cycle)
-        error_code = self._dll.sc5511a_list_mode_config(self._handle, ctypes.byref(lm))
-        self._list_mode = lm
+        error_code = self.dll.sc5511a_list_mode_config(self.handle, ctypes.byref(lm))
+        self.list_mode = lm
         return error_code, lm
 
     def get_idn(self) -> Dict[str, Optional[str]]:
         """Gets the device identity
         """
-        error_code = self._dll.sc5511a_get_device_info(self._handle, ctypes.byref(self._device_info))
-        #device_info = self._device_info
+        error_code = self.dll.sc5511a_get_device_info(self.handle, ctypes.byref(self.device_info))
+        #device_info = self.device_info
 
         IDN: Dict[str, Optional[str]] = {
             'vendor': "SignalCore",
             'model': "SC5511A",
-            'serial_number': self._serial_number.value.decode("utf-8"),
-            'firmware_revision': self._device_info.firmware_revision,
-            'hardware_revision': self._device_info.hardware_revision,
-            'manufacture_date': '20{}={}-{}, {}:00'.format(self._device_info.manufacture_date.year, self._device_info.manufacture_date.month, self._device_info.manufacture_date.day, self._device_info.manufacture_date.hour)
+            'serial_number': self.serial_number.value.decode("utf-8"),
+            'firmware_revision': self.device_info.firmware_revision,
+            'hardware_revision': self.device_info.hardware_revision,
+            'manufacture_date': '20{}={}-{}, {}:00'.format(self.device_info.manufacture_date.year, self.device_info.manufacture_date.month, self.device_info.manufacture_date.day, self.device_info.manufacture_date.hour)
             }
-        self._device_info = IDN
+        self.device_info = IDN
         return error_code, IDN
-
+    
     def get_rf_parameters(self):
         """Returns all of the RF parameters"""
-        error_code = self._dll.sc5511a_get_rf_parameters(self._handle, ctypes.byref(self._rf_params))
-        params = self._rf_params
+        error_code = self.dll.sc5511a_get_rf_parameters(self.handle, ctypes.byref(self.rf_params))
+        params = self.rf_params
 
         RF: Dict[str, Optional[str]] = {
             'rf1_freq' : params.rf1_freq,
@@ -617,8 +616,8 @@ class SignalCore_SC5511A():
 
     def get_clock_config(self)->Dict[str, Optional[str]]:
         #This function works only for devices with firmware >= ver3.6 and hardware > ver16.0
-        error_code = self._dll.sc5511a_get_clock_config(self._handle, ctypes.byref(self._clock_config))
-        clock_config = self._clock_config
+        error_code = self.dll.sc5511a_get_clock_config(self.handle, ctypes.byref(self.clock_config))
+        clock_config = self.clock_config
 
         CLOCK: Dict[str, Optional[str]] = {
             'ext_ref_lock_enable' : clock_config.clock_config,
@@ -632,8 +631,8 @@ class SignalCore_SC5511A():
     def get_list_mode(self)-> Dict[str, Optional[str]]:
         """Gets the current list mode values
         """
-        error_code = self._dll.sc5511a_get_device_status(self._handle, ctypes.byref(self._device_status))
-        device_status = self._device_status
+        error_code = self.dll.sc5511a_get_device_status(self.handle, ctypes.byref(self.device_status))
+        device_status = self.device_status
 
         LIST: Dict[str, Optional[str]] = {
             'vendor': "SignalCore",
@@ -652,8 +651,8 @@ class SignalCore_SC5511A():
     def get_operate_status(self)-> Dict[str, Optional[str]]:
         """Gets the current operate status values
         """
-        error_code = self._dll.sc5511a_get_device_status(self._handle, ctypes.byref(self._device_status))
-        device_status = self._device_status
+        error_code = self.dll.sc5511a_get_device_status(self.handle, ctypes.byref(self.device_status))
+        device_status = self.device_status
 
         OPERATE: Dict[str, Optional[str]] = {
             'vendor' : "SignalCore",
@@ -678,9 +677,9 @@ class SignalCore_SC5511A():
     def get_pll_status(self)-> Dict[str, Optional[str]]:
         """Gets the current PLL status values
         """
-        error_code = self._dll.sc5511a_get_device_status(self._handle, ctypes.byref(self._device_status))
-        device_status = self._device_status
-        #_pll_status_t = self._pll_status
+        error_code = self.dll.sc5511a_get_device_status(self.handle, ctypes.byref(self.device_status))
+        device_status = self.device_status
+        #_pll_status_t = self.pll_status
         PLL: Dict[str, Optional[str]] = {
             'vendor' : "SignalCore",
             'model' : "SC5511A",
@@ -700,7 +699,7 @@ class SignalCore_SC5511A():
         """Writes the specific value to the register, see documentation for more info
         """
         instruct_word = ctypes.c_uint(ins_word)
-        error_code = self._dll.sc5511a_reg_write(self._handle, reg_byte, instruct_word)
+        error_code = self.dll.sc5511a_reg_write(self.handle, reg_byte, instruct_word)
         # not sure if I should set reg_read variable to reg_byte or ins_word or... both?
         # don't think this function will be used in normal operation
         return error_code, ins_word
@@ -710,8 +709,8 @@ class SignalCore_SC5511A():
         """
         reg_byte = ctypes.c_ubyte(reg_byte)
         instruct_word = ctypes.c_ulonglong(ins_word)
-        error_code = self._dll.sc5511a_reg_read(self._handle, reg_byte, instruct_word, ctypes.byref(self._reg_read))
-        rec_word = self._reg_read.reg_read
+        error_code = self.dll.sc5511a_reg_read(self.handle, reg_byte, instruct_word, ctypes.byref(self.reg_read))
+        rec_word = self.reg_read.reg_read
 
         return error_code, rec_word
 
@@ -725,19 +724,19 @@ class SignalCore_SC5511A():
         Lock mode:
             input: integer = 0 = harmonic, 1 = fractional
         """
-        error_code = self._dll.sc5511a_set_synth_mode(self._handle, disable_spur_suppress, low_loop_gain, lock_mode)
+        error_code = self.dll.sc5511a_set_synth_mode(self.handle, disable_spur_suppress, low_loop_gain, lock_mode)
         return error_code, disable_spur_suppress, low_loop_gain, lock_mode
 
     def set_list_dwell_time(self, tunit):
         """ 1: 500 us, 2: 1ms"""
-        error_code = self._dll.sc5511a_list_dwell_time(self._handle, tunit)
+        error_code = self.dll.sc5511a_list_dwell_time(self.handle, tunit)
         #time = tunit*500
         return error_code, tunit
 
     def set_alc_mode(self, alc_mode = 0):
         """Sets the ALC to close(0) or open (1) mode operation for channel RF1"""
-        error_code = self._dll.sc5511a_set_alc_mode(self._handle, alc_mode)
-        self._alc_mode = alc_mode
+        error_code = self.dll.sc5511a_set_alc_mode(self.handle, alc_mode)
+        self.alc_mode = alc_mode
         return error_code, alc_mode
 
     def set_reference_dac(self, d_value = 0):
@@ -745,8 +744,8 @@ class SignalCore_SC5511A():
         input: integer
         """
         dac_value = ctypes.c_uint(d_value)
-        error_code = self._dll.sc5511a_set_reference_dac(self._handle, dac_value)
-        self._reference_dac.dac_value = d_value
+        error_code = self.dll.sc5511a_set_reference_dac(self.handle, dac_value)
+        self.reference_dac.dac_value = d_value
         return error_code, d_value
 
     def set_alc_dac(self, alc_value = 0):
@@ -754,8 +753,8 @@ class SignalCore_SC5511A():
         input: integer
         """
         dac_value = ctypes.c_uint(alc_value)
-        error_code = self._dll.sc5511a_set_alc_dac(self._handle, dac_value)
-        self._dac_value.dac_value = alc_value
+        error_code = self.dll.sc5511a_set_alc_dac(self.handle, dac_value)
+        self.dac_value.dac_value = alc_value
         return error_code, alc_value
 
     def list_buffer_points(self, l_points = 0):
@@ -763,7 +762,7 @@ class SignalCore_SC5511A():
         input: integer
         """
         list_points = ctypes.c_uint(l_points)
-        error_code = self._dll.sc5511a_list_buffer_points(self._handle, list_points)
+        error_code = self.dll.sc5511a_list_buffer_points(self.handle, list_points)
         return error_code, l_points
 
     def list_buffer_write(self, command):
@@ -771,7 +770,7 @@ class SignalCore_SC5511A():
         input: HEX or float values for frequency
         """
         command1 = ctypes.c_ulonglong(command)
-        error_code = self._dll.sc5511a_list_buffer_write(self._handle, command1)
+        error_code = self.dll.sc5511a_list_buffer_write(self.handle, command1)
         return error_code, command
         
 
@@ -779,7 +778,7 @@ class SignalCore_SC5511A():
         """Transfers values to and from the EEPROM/buffer
         """
         transfer = ctypes.c_ubyte(transfer_mode)
-        error_code = self._dll.sc5511a_list_buffer_transfer(self._handle, transfer)
+        error_code = self.dll.sc5511a_list_buffer_transfer(self.handle, transfer)
         return error_code, transfer_mode
 
 
@@ -787,20 +786,20 @@ class SignalCore_SC5511A():
         """Reads back values from the list buffer
         """
         address = ctypes.c_uint(address)
-        error_code = self._dll.sc5511a_list_buffer_read(self._handle, address, ctypes.byref(self._freq))
-        freq = self._freq.device_freq
+        error_code = self.dll.sc5511a_list_buffer_read(self.handle, address, ctypes.byref(self.freq))
+        freq = self.freq.device_freq
         return error_code, address, freq
 
     def set_rf2_frequency(self, freq):
         """Sets the RF2 frequency value
         input: integer
         """
-        error_code = self._dll.sc5511a_set_rf2_freq(self._handle, freq)
-        self._rf2_freq.device_freq = freq
+        error_code = self.dll.sc5511a_set_rf2_freq(self.handle, freq)
+        self.rf2_freq.device_freq = freq
         return error_code, freq
 
     def synth_self_cal(self):
         """Calibrates the synthesizer of the device
         """
-        error_code = self._dll.sc5511a_synth_self_cal(self._handle)
+        error_code = self.dll.sc5511a_synth_self_cal(self.handle)
         return error_code
