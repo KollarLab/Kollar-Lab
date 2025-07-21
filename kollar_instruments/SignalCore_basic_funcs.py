@@ -18,26 +18,40 @@ SC = SignalCore_SC5511A(name='SC1',serial_number='10004712')
 
 # SC.set_open works but then setting RF1 output fails with memory access violation.
 #SC.set_open(True)
-SC.standby
+
+
 SC.standby = True
 SC.standby
 SC.rf2_standby
 SC.output
 SC.output = True
-SC.rf_mode = 1 # 0 Single 1 List/Sweep
+SC.rf_mode = "SWEEP" # 0 Single 1 List/Sweep
 
+print()
 SC.start_freq = 321e6
-SC.stop_freq = 123
+SC.stop_freq = 123e6
 SC.step_freq
-SC.list_cycle_count = 17
+SC.cycle_count = 17
+print("*** SWEEP MODE ***")
+print(SC.settings())
+
+print()
+SC.rf_mode = "single mode" # have to change to single mode to change rf1 freq directly
 
 SC.freq = 6.17e9 # SC.ch1.freq = 5e9
-SC.freq
 SC.level  = 4 # SC.ch1.power = 13 #SET BACK TO THREE
+SC.auto_level
 SC.rf2_freq = 1234
+print("*** SINGLE MODE ***")
+SC.phase
+SC.phase = 50
+SC.phase
+print(SC.settings())
 
-SC.phase = 60
-print(SC.phase)
+print()
+print("Testing secondary functions:")
+SC.rf_mode = "fail"
+SC.temp
 
 
 
@@ -47,8 +61,7 @@ select_high = 1 #(selects 10 MHz or 100 MHz) but no clue what it does, maybe int
 lock_external = 1 #tells it to lock internal clock to external ref.
 
 SC.set_clock_reference(ext_ref_freq, ext_direct_clk, select_high, lock_external)
-print(SC.get_rf_parameters())
-SC._close()
+SC.dll.sc5511a_close_device(SC.handle)
 
 #Example ref clock functions
 # SC.ref.mode = 'Ext'
@@ -58,7 +71,7 @@ SC._close()
 
 
 #SC._close() #This doesn't work
-#SC._dll.sc5511a_close_device(SC._handle) #This does work
+#SC.dll.sc5511a_close_device(SC._handle) #This does work
 
 
 
