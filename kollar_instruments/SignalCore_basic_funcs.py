@@ -15,11 +15,24 @@ SC = SignalCore_SC5511A(name='SC1',serial_number='10004712')
 #Think it's worth looking through the holzworth code. That has two subclasses, one for the RF channels and one for reference clock. 
 #To talk with the channel, we go "holz.ch1.freq" and to talk with the reference we go "holz.ref.mode"
 # SC.settings (would give settings for whole)
+
+# SC.set_open works but then setting RF1 output fails with memory access violation.
+#SC.set_open(True)
+SC.standby
+SC.standby = True
+SC.standby
+SC.rf2_standby
 SC.output
-SC.output = 0
+SC.output = True
+SC.rf_mode = 1 # 0 Single 1 List/Sweep
+
+SC.start_freq = 321e6
+SC.stop_freq = 123
+SC.step_freq
 SC.list_cycle_count = 17
 
 SC.freq = 6.17e9 # SC.ch1.freq = 5e9
+SC.freq
 SC.level  = 4 # SC.ch1.power = 13 #SET BACK TO THREE
 SC.rf2_freq = 1234
 
@@ -35,6 +48,7 @@ lock_external = 1 #tells it to lock internal clock to external ref.
 
 SC.set_clock_reference(ext_ref_freq, ext_direct_clk, select_high, lock_external)
 print(SC.get_rf_parameters())
+SC._close()
 
 #Example ref clock functions
 # SC.ref.mode = 'Ext'

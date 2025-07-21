@@ -197,7 +197,13 @@ class SignalCore_SC5511A(object):
     
     def __init__(self, name: str, serial_number: str, dll_path: str = 'C:\\Program Files\\SignalCore\\SC5511A\\api\\c\\x64\\sc5511a.dll', debug = False, **kwargs: Any):
 
+        # Properties with only setter functions (standby) have an underscore prefix behind their variable.
+        # Properties with only getter functions () do not have a corresponding variable.
+        # Properties with both getter/setter functions have normal names. 
+
         super().__init__()
+
+        self.init = True    
 
         logging.info(f'Initializing instrument SignalCore generator {name}, #{serial_number}')
         self.dll = ctypes.WinDLL(dll_path)
@@ -207,39 +213,34 @@ class SignalCore_SC5511A(object):
         self.handle = ctypes.c_void_p(self.dll.sc5511a_open_device(ctypes.c_char_p(bytes(serial_number, 'utf-8'))))
         self.serial_number = ctypes.c_char_p(bytes(serial_number, 'utf-8'))
         
+        # Cannot use self.open = 0, must use the function
+        # SC.set_open(0) or SC._close()
+        # property setup for self.open will self reference and causes
+        # stack overflow or kernel death
+        #self.open_state = False
         self.open = False
-        self.open = property(fset=self.set_open)
         
-        self.standby = False
-        self.standby = property(fset=self.set_standby)
+        self._standby = False
         
-        self.rf2_standby = False
-        self.rf2_standby = property(fset=self.set_rf2_standby)
+        self._rf2_standby = True
         
-        self.output = 0
-        self.output = property(self.get_output, self.set_output)
+        self.output = False
         
-        self.freq = List_buffer_set_t(0)
-        self.freq = property(self.get_frequency, self.set_frequency)
+        self.freq = 1e9 #List_buffer_set_t(0)
         
-        self.list_start_freq = List_buffer_set_t(0)
-        self.list_start_freq   = property(fset=self.set_list_start_freq)
-        self.list_stop_freq = List_buffer_set_t(0)
-        self.list_stop_freq    = property(fset=self.set_list_stop_freq)
-        self.list_step_freq = List_buffer_set_t(0)
-        self.list_step_freq    = property(fset=self.set_list_step_freq)
+        self._start_freq = ctypes.c_ulonglong(0) # List_buffer_set_t(0)
+        self._stop_freq = ctypes.c_ulonglong(0) # List_buffer_set_t(0)
+        self._step_freq = 1e6 #List_buffer_set_t(0)
         
-        self.list_cycle_count = 0
-        self.list_cycle_count  = property(fset=self.set_list_cycle_count)
+        self._cycle_count = 0
         
-        self.rf2_freq = RF2_t(0)
-        self.rf2_freq = property(fset=self.set_rf2_frequency)
+        self._rf2_freq = RF2_t(0)
+        self._rf2_freq = property(fset=self.set_rf2_frequency)
         
         self.level = Level_t(0) #float
         self.level = property(self.get_level, self.set_level)
         
         self.rf_mode = 0
-        self.rf_mode = property(self.get_rf_mode, self.set_rf_mode)
         
         self.auto_level_disable = 0
         self.auto_level_disable = property(self.get_auto_level_disable, self.set_auto_level_disable)
@@ -273,12 +274,10 @@ class SignalCore_SC5511A(object):
         
         self.manufacture_date = Manufacture_date_t(0, 0, 0, 0)
         self.device_info = Device_info_t(0, 0, 0, self.manufacture_date)
-        self.device_info = property(fget=self.get_idn)
         
         self.device_status = Device_status_t(self.list_mode, self.status, self.pll_status)
         self.list_mode = property(self.get_list_mode, self.set_list_mode)
-        self.status = property(fget=self.get_operate_status)
-        self.pll_status = property(fget=self.get_pll_status)
+        #self.status and pll status?
         
         if debug:
             print(serial_number, self.handle)
@@ -287,6 +286,8 @@ class SignalCore_SC5511A(object):
             print('check status', status)
 
         self.auto_level_disable = 0 # setting this to 1 will lead to unstable output power
+        
+        self.init = False
         
     def settings(self) -> Dict[str, Any]:
         """
@@ -315,16 +316,34 @@ class SignalCore_SC5511A(object):
             'device_status':      getdict(self.device_status),
             'device_info':        getdict(self.device_info),
         }
-
+    
+    '''
+    @property
+    def open(self):
+        if not self.init:
+            if self.open_state == True:
+                print("Device session is active.")
+            else:
+                print("There are no active device sessions.")
+        return self.open
+    
+    @open.setter
+    def open(self, new_open):
+        self.set_open(new_open)
+        if not self.init:
+            print(f"Set output boolean to {new_open}.")
+    '''
 
     def set_open(self, opened):
         """opens a device session"""
         if opened and not self.open:
             self.handle = ctypes.c_void_p(self.dll.sc5511a_open_device(self.serial_number))
             self.open = True
+            print("Opened device session.")
         elif not opened and self.open:
             self.dll.sc5511a_close_device(self.handle)
             self.open = False
+            print("Closed device session.")
         return True
 
     def _close(self):
@@ -339,21 +358,63 @@ class SignalCore_SC5511A(object):
         self.phase.phase = phase
         return error_code, phase
 
+    @property
+    def standby(self):
+        print("Standby status is {status}.".format(
+            status = "active" if self._standby else "not active"))
+    
+    @standby.setter
+    def standby(self, new_standby):
+        error_code, enable = self.set_standby(new_standby)
+        self._standby = enable
+        if not self.init:
+            print("Set standby status to {status} {error}".format(
+                status = "active" if self._standby else "not active", 
+                error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
+
     def set_standby(self, enable = False):
         """sets the standby of the device.
         input: 
         standby (bool) true = standby enabled, false  = standby disabled."""
         error_code = self.dll.sc5511a_set_standby(self.handle, enable)
-        self.standby = enable
         return error_code, enable
+    
+    @property
+    def rf2_standby(self):
+        print("RF2 standby status is {status}.".format(
+            status = "active" if self._standby else "not active"))
+    
+    @rf2_standby.setter
+    def rf2_standby(self, new_standby):
+        error_code, enable = self.set_rf2_standby(new_standby)
+        self._rf2_standby = enable
+        if not self.init:
+            print("Set standby status to {status} {error}".format(
+                status = "active" if self._rf2_standby else "not active", 
+                error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
 
     def set_rf2_standby(self, rf2_enable=False):
         """Sets the standby of the device for rf2.
         input:
         standby (bool) true = standby enabled, false = standby disabled."""
         error_code = self.dll.sc5511a_set_rf2_standby(self.handle, rf2_enable)
-        self.rf2_standby = rf2_enable
         return error_code, rf2_enable
+
+    @property
+    def output(self):
+        error_code, status = self.get_output()
+        if not self.init:
+            print("Device output status is {status} {error}".format(
+                status = "active" if status else "not active", 
+                error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
+    
+    @output.setter
+    def output(self, new_output):
+        error_code, output_enable = self.set_output(new_output)
+        if not self.init:
+            print("Set device output to {status} {error}".format(
+                status = "active" if output_enable else "not active", 
+                error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
 
     def set_output(self, output_enable):
         """
@@ -364,6 +425,7 @@ class SignalCore_SC5511A(object):
         c_enable = ctypes.c_ubyte(output_enable)
         error_code = self.dll.sc5511a_set_output(self.handle, c_enable)
         return error_code, output_enable
+    
 
     def get_output(self):
         '''
@@ -372,17 +434,24 @@ class SignalCore_SC5511A(object):
                 status (int) : OFF = 0 ; ON = 1
         '''
         error_code = self.dll.sc5511a_get_device_status(self.handle, ctypes.byref(self.device_status))
-        output_status = self.device_status.operate_status_t.rf1_out_enable
-        self.output = output_status
-        return error_code, output_status
+        status = self.device_status.operate_status_t.rf1_out_enable
+        return error_code, status
 
-    def set_rf_mode(self, rf_mode = 0):
-        """
-        sets the rf mode of the device
-        """
-        error_code = self.dll.sc5511a_set_rf_mode(self.handle, rf_mode)
-        self.rf_mode = rf_mode
-        return error_code, rf_mode
+    @property
+    def rf_mode(self):
+        error_code, status = self.get_rf_mode()
+        if not self.init:
+            print("RF Mode is in {status}, {error}".format(
+                status = "Sweep Mode" if status else "Single Mode", 
+                error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
+    
+    @rf_mode.setter
+    def rf_mode(self, new_mode):
+        error_code, output_enable = self.set_rf_mode(new_mode)
+        if not self.init:
+            print("Set RF Mode to {status} {error}".format(
+                status = "Sweep Mode" if output_enable else "Single Mode", 
+                error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
 
     def get_rf_mode(self):
         """
@@ -391,29 +460,77 @@ class SignalCore_SC5511A(object):
         error_code = self.dll.sc5511a_get_device_status(self.handle, ctypes.byref(self.device_status))
         rf_mode = self.device_status.operate_status_t.rf1_mode
         return error_code, rf_mode
+    
+    def set_rf_mode(self, rf_mode = 0):
+        """
+        sets the rf mode of the device
+        """
+        error_code = self.dll.sc5511a_set_rf_mode(self.handle, rf_mode)
+        return error_code, rf_mode
+     
+    @property
+    def start_freq(self):
+        print(f"Sweep starting frequency is {self._start_freq} Hz.") 
+        
+    @start_freq.setter
+    def start_freq(self, start):
+        error_code, start_freq = self.set_list_start_freq(int(start))
+        if not self.init:
+            print("Set starting frequency to {status} {error}".format(status = start,
+                error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
      
     def set_list_start_freq(self, start_freq):
         """frequency in Hz"""
         frequency=ctypes.c_ulonglong(start_freq)
         error_code = self.dll.sc5511a_list_start_freq(self.handle, frequency)
-        self.list_start_freq.device_freq = start_freq
         return error_code, start_freq
+    
+    @property
+    def stop_freq(self):
+        print(f"Sweep stop frequency is {self._stop_freq} Hz.") 
+        
+    @stop_freq.setter
+    def stop_freq(self, stop):
+        error_code, stop_freq = self.set_list_stop_freq(int(stop))
+        if not self.init:
+            print("Set stopping frequency to {status} {error}".format(status = stop,
+                error = f"WITH ERROR CODE:  {error_code}" if error_code else "(no errors)"))
 
     def set_list_stop_freq(self, stop_freq):
         """Sets the list stop frequency
         input: int"""
         frequency = ctypes.c_ulonglong(stop_freq)
         error_code = self.dll.sc5511a_list_stop_freq(self.handle, frequency)
-        self.list_stop_freq.device_freq = stop_freq
         return error_code, stop_freq
+    
+    @property
+    def step_freq(self):
+        print(f"Sweep frequency step is {self._step_freq} Hz.") 
+        
+    @step_freq.setter
+    def step_freq(self, step):
+        error_code, step_freq = self.set_list_step_freq(int(step))
+        if not self.init:
+            print("Set frequency step to {status} {error}".format(status = step,
+                error = f"WITH ERROR CODE:  {error_code}" if error_code else "(no errors)"))
 
     def set_list_step_freq(self, step_freq):
         """Sets the list step frequency
         input: int"""
         frequency = ctypes.c_ulonglong(step_freq)
         error_code = self.dll.sc5511a_list_step_freq(self.handle, frequency)
-        self.list_step_freq.device_freq = step_freq
         return error_code, step_freq
+    
+    @property
+    def cycle_count(self):
+        print(f"Sweep cycle count is {self._cycle_count}.") 
+        
+    @cycle_count.setter
+    def cycle_count(self, count):
+        error_code, cycles = self.set_list_cycle_count(int(count))
+        if not self.init:
+            print("Set number of sweep cycles to {status} {error}".format(status = cycles,
+                error = f"WITH ERROR CODE:  {error_code}" if error_code else "(no errors)"))
     
     def set_list_cycle_count(self, cycle_num = 0):
         """Sets the list cycle count value
@@ -430,13 +547,27 @@ class SignalCore_SC5511A(object):
         error_code = self.dll.sc5511a_list_soft_trigger(self.handle)
         return error_code
 
+    @property
+    def freq(self):
+        error_code, f = self.get_frequency()
+        if not self.init:
+            print("Frequency is {status} {error}".format(
+                status = f, 
+                error = f"WITH ERROR CODE:  {error_code}" if error_code else "(no errors)"))
+    
+    @freq.setter
+    def freq(self, new_output):
+        error_code, output_freq = self.set_frequency(new_output)
+        if not self.init:
+            print("Set frequency to {status} {error}".format(
+                status = output_freq,
+                error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
 
     def get_frequency(self):
         """Gets the frequency value
         """
         error_code = self.dll.sc5511a_get_rf_parameters(self.handle, ctypes.byref(self.rf_params))
         frequency = self.rf_params.rf1_freq
-        self.freq = frequency
         return error_code, frequency
     
     def set_frequency(self, frequency):
