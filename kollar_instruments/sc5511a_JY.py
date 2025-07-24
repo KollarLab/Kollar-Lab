@@ -14,7 +14,6 @@ A simple driver for SignalCore SC5511A, transferred from the one written by Eric
 import ctypes
 import logging
 from typing import Any, Dict, Optional
-#from pprint import pprint
 
 #definitions for the register dictionary
 INITIALIZE = 0x01
@@ -216,7 +215,7 @@ class SignalCore_SC5511A(object):
         # property setup for self.open will self reference and causes
         # stack overflow or kernel death
         # self.open_state = False
-        self.open = True
+        self._open = self.open = True
         
         self._standby = False
         
@@ -224,7 +223,7 @@ class SignalCore_SC5511A(object):
         
         self._output = self.output = False
         
-        self.freq = 1e9
+        self.freq = 1e9 #_freq not needed as params.rf1_freq works
         
         self._start_freq = 777e6
         self._stop_freq = 789e6
@@ -240,10 +239,17 @@ class SignalCore_SC5511A(object):
         self._rf_mode = self.rf_mode = "Single"
         
         self.phase_v = Phase_t(0) # stores ctype dict for processing
-        self._phase = 0.0 # stores phase value, same for temperature
+        self._phase = 0.0 # stores phase value for printing
         
         self.temperature = Device_temperature_t(0)
         self._temp = 0
+        
+        self._ext_ref_freq = 0
+        self._ext_ref = "10 Mhz"
+        self._ext_direct_clock = False
+        self._select_high = 1
+        self._select = "100 Mhz"
+        self._lock_external = True
         
         self.status = Operate_status_t(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         self.pll_status = Pll_status_t()
@@ -266,32 +272,31 @@ class SignalCore_SC5511A(object):
         self.init = False
         
     
-    '''
+    
     @property
     def open(self):
         if not self.init:
-            if self.open_state == True:
+            if self._open == True:
                 print("Device session is active.")
             else:
                 print("There are no active device sessions.")
-        return self.open
     
     @open.setter
     def open(self, new_open):
         self.set_open(new_open)
         if not self.init:
             print(f"Set output boolean to {new_open}.")
-    '''
+    
 
     def set_open(self, opened):
         """opens a device session"""
-        if opened and not self.open:
+        if opened and not self._open:
             self.handle = ctypes.c_void_p(self.dll.sc5511a_open_device(self.serial_number))
-            self.open = True
+            self._open = True
             print("Opened device session.")
-        elif not opened and self.open:
+        elif not opened and self._open:
             self.dll.sc5511a_close_device(self.handle)
-            self.open = False
+            self._open = False
             print("Closed device session.")
         return True
 
@@ -418,12 +423,13 @@ class SignalCore_SC5511A(object):
     
     @rf_mode.setter
     def rf_mode(self, new_mode):
+        new_mode = str(new_mode)
         if "single" in new_mode.lower():
             mode = 0
         elif "sweep" in new_mode.lower():
             mode = 1
         else:
-            print("Mode not set. Available modes are Single and Sweep.")
+            print("Mode not set. Available modes are [Single] and [Sweep].")
             return
             
         error_code, output_enable = self.set_rf_mode(mode)
@@ -456,6 +462,7 @@ class SignalCore_SC5511A(object):
     def start_freq(self, start):
         error_code, start_freq = self.set_list_start_freq(int(start))
         if not self.init:
+            self._start_freq = start
             print("Set starting frequency to {status} {error}".format(status = start,
                 error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
      
@@ -473,6 +480,7 @@ class SignalCore_SC5511A(object):
     def stop_freq(self, stop):
         error_code, stop_freq = self.set_list_stop_freq(int(stop))
         if not self.init:
+            self._stop_freq = stop
             print("Set stopping frequency to {status} {error}".format(status = stop,
                 error = f"WITH ERROR CODE:  {error_code}" if error_code else "(no errors)"))
 
@@ -491,6 +499,7 @@ class SignalCore_SC5511A(object):
     def step_freq(self, step):
         error_code, step_freq = self.set_list_step_freq(int(step))
         if not self.init:
+            self._step_freq = step
             print("Set frequency step to {status} {error}".format(status = step,
                 error = f"WITH ERROR CODE:  {error_code}" if error_code else "(no errors)"))
 
@@ -509,6 +518,7 @@ class SignalCore_SC5511A(object):
     def cycle_count(self, count):
         error_code, cycles = self.set_list_cycle_count(int(count))
         if not self.init:
+            self._cycle_count = count
             print("Set number of sweep cycles to {status} {error}".format(status = cycles,
                 error = f"WITH ERROR CODE:  {error_code}" if error_code else "(no errors)"))
     
@@ -561,10 +571,18 @@ class SignalCore_SC5511A(object):
         error_code = self.dll.sc5511a_set_freq(self.handle, c_freq)
         return error_code, frequency
 
-    def set_clock_reference(self, ref, direct_lock, high_, lock_to_external):
+    def set_clock_reference(self, ref=None, direct_lock=None,high_=None, lock_to_external=None):
         """Sets the clock reference
         input: (int) ..............................
         """
+        if ref is None:
+            ref = self._ext_ref_freq
+        if direct_lock is None:
+            direct_lock = self._ext_direct_clock
+        if high_ is None:
+            high_ = self._select_high
+        if lock_to_external is None:
+            lock_to_external = self._lock_external
         ext_ref = ctypes.c_ubyte(ref)
         ext_direct_lock = ctypes.c_ubyte(direct_lock)
         high = ctypes.c_ubyte(high_)
@@ -616,15 +634,18 @@ class SignalCore_SC5511A(object):
         error_code, enable = self.get_auto_level_disable()
         if not self.init:
             print("Auto leveling is {status} {error}".format(
-                status = "enabled" if enable else "disabled", 
+                # format of provided function is screwy
+                status = "disabled" if enable else "enabled", 
                 error = f"WITH ERROR CODE:  {error_code}" if error_code else "(no errors)"))
     
     @auto_level.setter
     def auto_level(self, new_output):
         error_code, enable = self.set_auto_level_disable(new_output)
+        self._auto_level_disable = new_output
         if not self.init:
             print("Auto leveling has been {status} {error}".format(
-                status = "enabled" if enable else "disabled", 
+                # format of provided function is screwy
+                status = "disabled" if enable else "enabled", 
                 error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)"))
 
     def set_auto_level_disable(self, enable):
@@ -700,7 +721,6 @@ class SignalCore_SC5511A(object):
         print("Device temp is {status} degrees Celsius {error}".format(
             status = device_temp,
             error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)")) 
-        return device_temp
         
 
     def get_temperature(self):
@@ -744,6 +764,7 @@ class SignalCore_SC5511A(object):
         self.device_info = IDN
         return error_code, IDN
     
+    @property
     def settings(self):
         """Returns all of the parameters"""
         error_code = self.dll.sc5511a_get_rf_parameters(self.handle, ctypes.byref(self.rf_params))
@@ -766,10 +787,14 @@ class SignalCore_SC5511A(object):
             #'buffer_points' : params.buffer_points,
             'level' : params.rf_level,
             'auto_level' : str(self._auto_level_disable),
+            'ext_ref_freq' : self._ext_ref,
+            'ext_direct_clock' : self._ext_direct_clock,
+            'select_high' : self._select,
+            'lock_external' : self._lock_external,
             'standby' : str(self._standby),
             'rf2_standby' : str(self._rf2_standby),
             'rf2_freq' : params.rf2_freq,
-            'temp' : str(self.temp),
+            'temp' : str(self._temp),
             }
 
         return RF
@@ -780,13 +805,84 @@ class SignalCore_SC5511A(object):
         clock_config = self.clock_config
 
         CLOCK: Dict[str, Optional[str]] = {
-            'ext_ref_lock_enable' : clock_config.clock_config,
-            'ref_out_select' : clock_config.clock_config,
-            'pxi_clock_enable' : clock_config.clock_config,
-            'ext_direct_clocking' : clock_config.clock_config,
-            'ext_ref_freq' : clock_config.clock_config}
+            'ext_ref_lock_enable' : clock_config.ext_ref_lock_enable,#.clock_config,
+            'ref_out_select' : clock_config.ref_out_select,#.clock_config,
+            'pxi_clock_enable' : clock_config.pxi_clock_enable,#.clock_config,
+            'ext_direct_clocking' : clock_config.ext_direct_clocking,#.clock_config,
+            'ext_ref_freq' : clock_config.ext_ref_freq}#.clock_config}
 
         return error_code, CLOCK
+    
+    @property
+    def ext_ref_freq(self):
+        print("External reference lock is {status}."
+              .format(status = "100 Mhz" if self._ext_ref_freq else "10 MHz")) 
+        
+    @ext_ref_freq.setter
+    def ext_ref_freq(self, ref_freq):
+        ref_freq = str(ref_freq)
+        if "100" in ref_freq:
+            self._ext_ref_freq = True
+            self._ext_ref = "100 Mhz"
+        elif "10" in ref_freq:
+            self._ext_ref_freq = False
+            self._ext_ref = "10 Mhz"
+        else:
+            print("External reference frequency options are [10] or [100] MHz.")
+            return
+        error_code, *_ = self.set_clock_reference()
+        print("Set reference frequency to {status} {error}".format(
+            status = "100 Mhz" if self._ext_ref_freq else "10 MHz",
+            error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)")) 
+        
+    @property
+    def ext_direct_clock(self):
+        print("Direct clock synthesizer is {status}."
+              .format(status = "enabled" if self._ext_direct_clock else "disabled")) 
+        
+    @ext_direct_clock.setter
+    def ext_direct_clock(self, clk):
+        self._ext_direct_clock = clk
+        error_code, *_ = self.set_clock_reference()
+        print("{status} direct clock synthesizer {error}".format(
+            status = "Enabled" if clk else "Disabled",
+            error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)")) 
+        
+    @property
+    def select_high(self):
+        print("'Select high' is {status}."
+              .format(status = "100 Mhz" if self._select_high else "10 MHz")) 
+        
+    @select_high.setter
+    def select_high(self, ref_freq):
+        ref_freq = str(ref_freq)
+        if "100" in ref_freq:
+            self._select_high = True
+            self._select = "100 Mhz"
+        elif "10" in ref_freq:
+            self._select_high = False
+            self._select = "10 Mhz"
+        else:
+            print("'Select high' frequency options are [10] or [100] MHz.")
+            return
+        error_code, *_ = self.set_clock_reference()
+        print("Set 'select high' to {status} {error}".format(
+            status = "100 Mhz" if self._ext_ref_freq else "10 MHz",
+            error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)")) 
+        
+    @property
+    def lock_external(self):
+        print("Internal clock is {status} to external reference."
+              .format(status = "locked" if self._lock_external else "not locked")) 
+        
+    @lock_external.setter
+    def lock_external(self, lock):
+        self._lock_external = lock
+        error_code, *_ = self.set_clock_reference()
+        print("Lock to external reference {status} {error}".format(
+            status = "engaged" if lock else "disengaged",
+            error = f"WITH ERROR CODE: :  {error_code}" if error_code else "(no errors)")) 
+        
 
     def get_list_mode(self)-> Dict[str, Optional[str]]:
         """Gets the current list mode values
