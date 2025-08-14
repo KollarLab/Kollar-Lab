@@ -133,6 +133,7 @@ def CW_trans(soc, soccfg, instruments, settings):
             #print(config)
             prog =LoopbackProgram(soccfg, config)
             trans_I, trans_Q = prog.acquire(soc,progress=False)
+            soc.reset_gens()
             mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
             phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
 

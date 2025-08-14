@@ -45,7 +45,7 @@ print("*** SINGLE MODE ***")
 SC.phase
 SC.phase = 50
 SC.phase
-print(SC.settings)
+SC.print(SC.settings)
 
 print()
 print("Testing secondary functions:")
@@ -60,7 +60,7 @@ select_high = 1 #(selects 10 MHz or 100 MHz) but no clue what it does, maybe int
 lock_external = 1 #tells it to lock internal clock to external ref.
 
 SC.set_clock_reference(ext_ref_freq, ext_direct_clk, select_high, lock_external)
-#SC.dll.sc5511a_close_device(SC.handle)
+SC.dll.sc5511a_close_device(SC.handle)
 
 #Example ref clock functions
 # SC.ref.mode = 'Ext'

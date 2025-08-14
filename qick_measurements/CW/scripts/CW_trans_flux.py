@@ -20,6 +20,10 @@ from utility.plotting_tools import simplescan_plot
 #######################################
 # Taken from CW_trans LoopBackProgram #
 #######################################
+#UNCOMMENT SRS SECTIONS WHEN TESTING! #
+#PLOTTING MAY HAVE SOME PROBLEMS!     #
+#######################################
+
 
 # Plays a constant tone, swept under cw_spec_flux()
 class CavitySweepFluxTrans(AveragerProgram):

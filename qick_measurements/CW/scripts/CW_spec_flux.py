@@ -22,6 +22,9 @@ from utility.userfits_v2 import fit_model
 #######################################
 # Taken from CW_trans LoopBackProgram #
 #######################################
+#UNCOMMENT SRS SECTIONS WHEN TESTING! #
+#PLOTTING MAY HAVE SOME PROBLEMS!     #
+#######################################
 
 # Plays a constant tone, swept under cw_spec_flux()
 class CavitySweepFlux(AveragerProgram):
@@ -134,7 +137,7 @@ def get_cw_spec_flux_settings():
     settings = {}
     
     settings['scanname'] = 'continuous_power_scan'
-    settings['meas_type'] = 'CW_Spec_Flux_Testing'
+    settings['meas_type'] = 'CW_Spec_Flux'
     
     settings['start_voltage']  = 0
     settings['stop_voltage']   = 0.1
