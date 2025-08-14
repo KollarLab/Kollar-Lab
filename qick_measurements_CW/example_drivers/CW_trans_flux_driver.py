@@ -5,7 +5,7 @@ Created on Fri Dec 16 13:28:28 2022
 @author: jhyang
 """
 
-from CW_trans_flux import cw_trans_flux, get_cw_trans_flux_settings
+from qick_measurements_CW.CW_trans_flux import cw_trans_flux, get_cw_trans_flux_settings
     
 settings = get_cw_trans_flux_settings()
 settings['scanname'] = 'Trans_flux_testing'
@@ -15,14 +15,14 @@ settings['stop_voltage']   = 0.1
 settings['voltage_points'] = 5
 settings['stability'] = False
 
-cav_center = 3.6117e9 #7.230796e9 #4.389545e9 + 1e6 #7.08979e9 #7.1995e9 #7.8392e9 original
-span = 50e6 
-freq_points = 51
+cav_center = 7.230796e9 #4.389545e9 + 1e6 #7.08979e9 #7.1995e9 #7.8392e9 original
+span = 10e6
+freq_points = 201
 
-settings['cav_gain'] = 2000
-settings['meas_window'] = 10000
+settings['cav_gain'] = 3000
+settings['meas_window'] = 100000
 settings['cav_pulse_len'] = 10
-settings['initial_phase'] = -0.001041 -6.860519651869944e-07 # 0.13 # rad
+settings['initial_phase'] = -0.00100288439 # 0.13 # rad
 
 #Sweep Parameters
 settings['freq_start']      = cav_center-span/2

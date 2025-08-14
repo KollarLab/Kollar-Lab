@@ -5,7 +5,7 @@ Created on Fri Dec 16 13:28:28 2022
 @author: jhyang
 """
 
-from CW_spec_flux import cw_spec_flux, get_cw_spec_flux_settings
+from qick_measurements_CW.CW_spec_flux import cw_spec_flux, get_cw_spec_flux_settings
     
 settings = get_cw_spec_flux_settings()
 settings['scanname'] = 'Spec_flux_testing'

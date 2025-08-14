@@ -1,4 +1,4 @@
-pip install Pyro4
+#pip install Pyro4
 import Pyro4
 
 # from qick import QickSoc

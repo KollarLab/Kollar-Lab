@@ -5,26 +5,33 @@ Created on Wed Feb  1 11:32:50 2023
 @author: kollarlab
 """
 
-from T1 import meas_T1, get_T1_settings
+from qick_measurements.T1 import meas_T1, get_T1_settings
+from kollar_instruments.SGS import SGS100A
 
 #scans = 80
 
 T1s = []
 
+logen = SGS100A('TCPIP0::rssgs100a110738::inst0::INSTR')
+
+logen.Ref.Source = 'INT'
+logen.Ref.Frequency = 10e6
 
 instruments = {}
-instruments['LO'] = logen
+#instruments['LO'] = logen
 
 settings = get_T1_settings()
 
  
-settings['scanname'] = 'T1_test_corrected_2'
+settings['scanname'] = 'T1_with_new_amp'
+settings['debug'] = False
+settings['debug_time'] = 0
 
-settings['cav_freq']  = 7.31266e9
-settings['meas_gain'] = 1000
+settings['cav_freq']  = 7.230796e9 #7.31266e9
+settings['meas_gain'] = 5000 #1000
 
-settings['qub_freq']  = 5.87781e9
-settings['qub_gain']  = 6000
+settings['qub_freq']  = 3.6117e9#5.87781e9
+settings['qub_gain']  = 500#6000
 
 settings['Tau_min']    = 200e-9
 settings['Tau_max']    = 40e-6

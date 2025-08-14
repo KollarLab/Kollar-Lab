@@ -8,8 +8,8 @@ exp_globals['LO_freq']  = 0
 exp_globals['LO_power'] = 22
 
 #Channel config
-exp_globals['cav_channel']   = 6 #4 is correct
-exp_globals['qub_channel'] = 5 #6 #6 is correct
+exp_globals['cav_channel']   = 4 #4 is correct
+exp_globals['qub_channel'] = 6 #6 #6 is correct
 exp_globals['ro_channels']   = [0]
 
 #Project naming
