@@ -45,6 +45,9 @@ def T2_gaussian_model(t_ax, amp, off, freq, phi, amp_scale, offset, center, tphi
     # t1_decay = 1 #np.exp(-t_ax/(2*T1))
     return np.exp(-(t_ax-center)**2/(tphi**2))*amp*np.cos(2*np.pi*t_ax*freq+phi)+off
 
+def Gaussian_decay_model(t_ax, amp, off, center, tphi):
+    return np.exp(-(t_ax-center)**2/(tphi**2))*amp+off
+
 def ring_up_model(t_ax, amp, offset, tau, freq, phi):
     return amp*np.cos(2*np.pi*freq*t_ax+phi)*(1-np.exp(-t_ax/tau))+offset
 
@@ -105,8 +108,6 @@ def lorenztian_model(f_ax, amp, offset, center, sigma):
     :rtype: _type_
     '''    
     return offset+amp/np.pi*(sigma/((f_ax-center)**2+sigma**2))
-
-
 
 def T1_guess(t_ax, amps, plot=False, verbose=False):
     '''
@@ -350,6 +351,20 @@ def T2_gaussian_guess(t_ax, amps, plot=False, verbose=False):
         
     return [amp_guess, off_guess, freq_guess, phi_guess, amp_scale_guess, offset_guess, center_guess, tphi]
 
+def Gaussian_decay_guess(t_ax, amps, plot=False, verbose=False):
+    envelope_mirror = np.flip(amps)
+    new_time_mirror = np.flip(t_ax)*-1
+    envelope = np.hstack((envelope_mirror,amps))
+    new_time = np.hstack((new_time_mirror,t_ax))
+    [amp_scale_guess, offset_guess, center_guess, sigma_guess] = gaussian_guess(new_time, envelope, verbose)
+    tphi = np.sqrt(2)*sigma_guess
+    
+    if plot:
+        plt.plot(new_time, envelope)
+
+    return [amp_scale_guess, offset_guess, center_guess, tphi]
+
+
 def lorenztian_guess(f_ax, amps, verbose=False):
     '''
     lorenztian_guess _summary_
@@ -364,8 +379,6 @@ def lorenztian_guess(f_ax, amps, verbose=False):
     [amp, offset, center, sigma] = peak_guess(f_ax, amps, verbose)
     amp_scale = amp*np.pi*sigma
     return [amp_scale, offset, center, sigma]
-
-
 
 def create_param_dict(names, vals):
     '''
@@ -441,6 +454,13 @@ def fit_model(t_ax, amps, model, plot=False, guess=None, ax=None, verbose=False)
         key_names = ['tau', 'freq']
         key_params = ['$\\tau$', '$f_0$']
         units = ['us', 'MHz']
+    elif model=='Gaussian_decay':
+        fit_func = Gaussian_decay_model
+        guess_func = Gaussian_decay_guess
+        params = ['amp', 'off', 'center', 'tphi']
+        key_names = ['tphi']
+        key_params = ['$\\tau$']
+        units = ['us']
     elif model=='T2_gaussian':
         fit_func = T2_gaussian_model
         guess_func = T2_gaussian_guess
