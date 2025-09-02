@@ -26,9 +26,12 @@ def get_default_settings():
     settings['meas_type']   = 'spec_flux_scan'
     #settings['project_dir'] = r'Z:\Data'
     
-    settings['start_voltage'] = -2
-    settings['stop_voltage'] =  2
-    settings['voltage_points'] = 251
+    #Sweep parameter
+#    settings['CAV_Attenuation'] = 30
+    settings['flux_start'] = np.array([0,0,0])
+    settings['flux_stop']  = np.array([0,0,0])
+    settings['flux_pts']   = 11
+    settings['qubit_num'] = False
     
     settings['RFport'] = 3
     settings['Mport'] = 2
