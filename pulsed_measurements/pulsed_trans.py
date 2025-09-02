@@ -83,7 +83,7 @@ def pulsed_trans(instruments, settings):
     ##HDAWG settings
 #    configure_hdawg(hdawg, settings)
     
-    progFile = open(r"C:\Users\kollarlab\Documents\GitHub\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder_4channels.cpp",'r')
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder_4channels.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()

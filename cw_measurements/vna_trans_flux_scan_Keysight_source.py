@@ -73,7 +73,7 @@ def vna_trans_flux_scan(instruments, settings, channel=1):
     voltages = np.round(np.linspace(start_voltage, stop_voltage, voltage_points),4)
     max_voltage = 9.1
     if np.max(voltages) > max_voltage:
-        raise ValueError('max voltage too! large')
+        raise ValueError('max voltage too large')
     else:
         pass
     

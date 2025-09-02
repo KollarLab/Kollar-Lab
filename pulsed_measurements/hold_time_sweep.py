@@ -231,8 +231,8 @@ def hold_time_sweep(instruments, settings):
         ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         if first_it:
             tstop = time.time()
-            if exp_settings['verbose']:
-                estimate_time(tstart, tstop, len(taus))
+            #if exp_settings['verbose']:
+            estimate_time(tstart, tstop, len(taus))
             first_it = False      
 
         fig = plt.figure(1, figsize=(13,8))
@@ -261,8 +261,8 @@ def hold_time_sweep(instruments, settings):
                            expsettings=settings, instruments=instruments, saveHWsettings=first_it)
 
     t2 = time.time()
-    if exp_settings['verbose']:
-        print('Elapsed time: {}'.format(t2-tstart))
+    #if exp_settings['verbose']:
+    print('Elapsed time: {}'.format(t2-tstart))
 
     userfuncs.SaveFull(saveDir, filename, ['taus','xaxis', 'amps', 'amp_int'],
                          locals(), expsettings=settings, instruments=instruments)

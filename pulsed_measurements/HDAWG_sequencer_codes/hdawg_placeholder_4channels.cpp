@@ -12,6 +12,7 @@ wave m = marker(samples/2, 3);
 
 ch1 = ch1+m;
 ch3 = ch3+m;
+//ch4 = ch4+m;
 
 while(true){
   waitDigTrigger(1);

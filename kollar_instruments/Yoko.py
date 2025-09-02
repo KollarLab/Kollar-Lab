@@ -4,8 +4,8 @@ Created on Wed Oct  9 08:15:08 2024
 
 @author: gchis
 """
-
-from SCPIinst import SCPIinst
+from kollar_instruments.SCPIinst import SCPIinst
+#from SCPIinst import SCPIinst
 from bidict import bidict
 import numpy as np
 import time

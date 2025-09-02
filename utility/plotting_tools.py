@@ -8,6 +8,8 @@ Created on Tue Nov 10 10:46:45 2020
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import mplcursors
+mplcursors.cursor(multiple=True)
 from scipy.signal import find_peaks, savgol_filter
 
 def general_VNAplot(xaxis, mags, phases, yaxis, scanname, HWattenuation = 0, 
@@ -138,6 +140,107 @@ def simplescan_plot(full_data, singledata,
     
     fig.canvas.draw()
     fig.canvas.flush_events()
+    return
+
+def simplescan_plot_TripleDDC(full_data, singledata, 
+                    yaxis, 
+                    scanname, 
+                    labels, 
+                    identifier='', 
+                    fig_num='', 
+                    cmap='hot', 
+                    vmin=np.nan, vmax=np.nan,
+                    IQdata = False):  
+    
+    if fig_num == '':
+        fig = plt.figure(figsize=(13,8))
+    else:
+        fig = plt.figure(fig_num, figsize=(13,8))
+    plt.clf()
+    
+    #modifying this function so that it can plot mag/phase data or I/Q data
+    if not IQdata:
+        key1_1, key1_2, key1_3 = 'mags_carr', 'mags_usb', 'mags_lsb'
+        title1_1, title1_2, title1_3 = 'Mag_carr', 'Mag_usb', 'Mag_lsb'
+        
+        key2_1, key2_2, key2_3 = 'phases_carr', 'phases_usb', 'phases_lsb'
+        title2_1, title2_2, title2_3 = 'Phase_carr', 'Phase_usb', 'Phase_lsb'
+        
+        ax = plt.subplot(3,2,1)
+        general_colormap_subplot(ax,full_data['xaxis'], yaxis['carr'], full_data[key1_1], labels, title1_1, cmap, vmin, vmax)
+        
+        ax = plt.subplot(3,2,2)
+        plt.plot(singledata['xaxis'], singledata[key1_1])
+        plt.xlabel(labels[0])
+        plt.title('Single shot ' + title1_1)
+        
+        ax = plt.subplot(3,2,3)
+        general_colormap_subplot(ax,full_data['xaxis'], yaxis['usb'], full_data[key1_2], labels, title1_2, cmap, vmin, vmax)
+        
+        ax = plt.subplot(3,2,4)
+        plt.plot(singledata['xaxis'], singledata[key1_2])
+        plt.xlabel(labels[0])
+        plt.title('Single shot ' + title1_2)
+        
+        ax = plt.subplot(3,2,5)
+        general_colormap_subplot(ax,full_data['xaxis'], yaxis['lsb'], full_data[key1_3], labels, title1_3, cmap, vmin, vmax)
+        
+        ax = plt.subplot(3,2,6)
+        plt.plot(singledata['xaxis'], singledata[key1_3])
+        plt.xlabel(labels[0])
+        plt.title('Single shot ' + title1_3)
+        
+        plt.suptitle('Filename: {}, {}'.format(scanname, identifier))
+        plt.tight_layout()
+        mplcursors.cursor(multiple=True)
+        
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        
+    else:
+        key1_1, key1_2, key1_3 = 'I_carr', 'I_usb', 'I_lsb'
+        title1_1, title1_2, title1_3 = 'I_carr', 'I_usb', 'I_lsb'
+        
+        key2_1, key2_2, key2_3 = 'Q_carr', 'Q_usb', 'Q_lsb'
+        title2_1, title2_2, title2_3 = 'Q_carr', 'Q_usb', 'Q_lsb'
+        
+        ax = plt.subplot(3,2,1)
+        plt.plot(singledata['xaxis'], singledata[key1_1])
+        plt.xlabel(labels[0])
+        plt.title('Single shot ' + title1_1)
+        
+        ax = plt.subplot(3,2,2)
+        plt.plot(singledata['xaxis'], singledata[key2_1])
+        plt.xlabel(labels[0])
+        plt.title('Single shot ' + title2_1)
+        
+        ax = plt.subplot(3,2,3)
+        plt.plot(singledata['xaxis'], singledata[key1_2])
+        plt.xlabel(labels[0])
+        plt.title('Single shot ' + title1_2)
+        
+        ax = plt.subplot(3,2,4)
+        plt.plot(singledata['xaxis'], singledata[key2_2])
+        plt.xlabel(labels[0])
+        plt.title('Single shot ' + title2_2)
+        
+        ax = plt.subplot(3,2,5)
+        plt.plot(singledata['xaxis'], singledata[key1_3])
+        plt.xlabel(labels[0])
+        plt.title('Single shot ' + title1_3)
+        
+        ax = plt.subplot(3,2,6)
+        plt.plot(singledata['xaxis'], singledata[key2_3])
+        plt.xlabel(labels[0])
+        plt.title('Single shot ' + title2_3)
+
+    
+        plt.suptitle('Filename: {}, {}'.format(scanname, identifier))
+        plt.tight_layout()
+        mplcursors.cursor(multiple=True)
+        
+        fig.canvas.draw()
+        fig.canvas.flush_events()
     return
 
 def simplescan_plot_update(full_data, 
@@ -293,7 +396,7 @@ def general_colormap_subplot(ax, xaxis, yaxis, data, labels,
         xlimits =  [xaxis-1e-3, xaxis+1e-3]
         
     if (type(yaxis) == list) or (type(yaxis) == np.ndarray):
-        if (len(yaxis)) == 1:
+        if (len(yaxis)) == 1 or (yaxis[0] == yaxis[-1]):
             ylimits = [yaxis[0]-1e-3, yaxis[0]+1e-3]
         else:
             ylimits = [yaxis[0], yaxis[-1]]  

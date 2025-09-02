@@ -175,6 +175,7 @@ class channel(object):
         output = self.inst.query(writeStr)
         # example '1980.00000 MHz'
         val = float(output[0:-3])*1e6
+        
         return val
     @freq.setter
     def freq(self, val):
@@ -186,6 +187,34 @@ class channel(object):
         writeStr = channel + ':FREQ:' + str(val_MHz) + 'MHz'
 #        print(writeStr)
         self.inst.query(writeStr)
+        '''This is added on 10/30/2024 with a magic word Frequency Tuning Word, FTW, command to stablize the frequency drift over time. - Won, Gabirel'''
+        '''In order to incorporate freq drift solution, set the freq everytime when measurement is held.'''
+        band = 0
+        if val_MHz <= 128:
+            band = 0
+        elif val_MHz <= 256:
+            band = 1
+        elif val_MHz <= 512:
+            band = 2
+        elif val_MHz <= 1024:
+            band = 3
+        elif val_MHz <= 2048:
+            band = 4
+        elif val_MHz <= 4096:
+            band = 5
+        elif val_MHz <= 8193:
+            band = 6
+        elif val_MHz <= 16387:
+            band = 7
+        else:
+            band = 8
+        ftw = (val * 2**48) / (10**9 * 2**band)
+        ftw_num = int(np.round(ftw, 0))
+        if ftw_num%2 != 0:
+            ftw_num += 1
+        writeStr_ftw = channel + ':FREQ:FTW:' + str(ftw_num)
+#        print(writeStr_ftw)
+        self.inst.query(writeStr_ftw)
 
     @property
     def Freq(self):

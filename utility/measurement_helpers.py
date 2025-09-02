@@ -151,8 +151,8 @@ def extract_data(raw_data, xaxis, settings):
         return data - back_val, data_x, raw_data - back_val, xaxis
     else:
         return data, data_x, raw_data, xaxis
-        
-        
+    
+    
 def extract_data_heterodyne(raw_data, xaxis, settings):
     '''
     Extracts the data from a trace. Finds the indices of start/ stop for both
@@ -207,6 +207,173 @@ def extract_data_heterodyne(raw_data, xaxis, settings):
     
     filtered_sin = filtered_sin_full[data_start:data_start+window_width]
     filtered_cos = filtered_cos_full[data_start:data_start+window_width]
+    
+    return filtered_cos, filtered_sin, data_x, filtered_cos_full, filtered_sin_full, xaxis
+        
+        
+def extract_data_heterodyne_singleshot(raw_data, xaxis, settings):
+    '''
+    Extracts the data from a trace. Finds the indices of start/ stop for both
+    data and background (assumes that they are the same length, which should
+    be enforced by the card samples in the actual exp script) and splices the 
+    correct ranges from the raw data. Returns a time axis for the data window 
+    and subtracts mean of background if specified.
+
+    ALL VALUES SHOULD BE IN TIME UNITS (base seconds)
+
+    This has been modified from extract_data so that it will work with heterodyne and digital down conversion
+    
+    Parameters
+    _________________
+
+        init_buffer: 
+            buffer specified to card before the measurement tone
+        emp_delay: 
+            combination of line delay and other delays that correctly shifts the digitizer to match the HDAWG time axis
+        meas_window: 
+            width of the measurement pulse
+        post_buffer: 
+            time to wait after the pulse before measuring background
+        
+        
+    '''
+    # raw_data : dim[segment, time trace]
+    measurement_pulse = settings['exp_globals']['measurement_pulse']
+    init_buffer = measurement_pulse['init_buffer']
+    emp_delay   = measurement_pulse['emp_delay']
+    meas_window = measurement_pulse['meas_window']
+    post_buffer = measurement_pulse['post_buffer']
+    
+    timestep   = xaxis[1] - xaxis[0]
+    data_start = int((init_buffer + emp_delay)/timestep)
+    back_start = int((init_buffer + emp_delay + meas_window + post_buffer)/timestep)
+    window_width = int(meas_window/timestep)
+    
+    data_x = xaxis[data_start:data_start+window_width]
+    background = raw_data[:,back_start:back_start+window_width]
+    back_val = np.mean(background, axis=1, keepdims=True)
+
+    if settings['exp_settings']['subtract_background']:
+        raw_data = raw_data-back_val
+
+    #now I am ready to filter the data.
+    LPF = settings['LPF']
+    digLO_sin = settings['digLO_sin']
+    digLO_cos = settings['digLO_cos']
+    
+    filtered_sin_full = signal.sosfilt(LPF, raw_data*digLO_sin)
+    filtered_cos_full = signal.sosfilt(LPF, raw_data*digLO_cos)
+    
+    filtered_sin = filtered_sin_full[:,data_start:data_start+window_width]
+    filtered_cos = filtered_cos_full[:,data_start:data_start+window_width]
+    
+    return filtered_cos, filtered_sin, data_x, filtered_cos_full, filtered_sin_full, xaxis
+
+
+def extract_data_heterodyne_2meas(raw_data, xaxis, settings):
+    # gets the two separated measurement results
+    measurement_pulse = settings['exp_globals']['measurement_pulse']
+    init_buffer = measurement_pulse['init_buffer']
+    emp_delay   = measurement_pulse['emp_delay']
+    emp_delay2  = measurement_pulse['emp_delay2']
+    meas_window = measurement_pulse['meas_window']
+    post_buffer = measurement_pulse['post_buffer']
+    SB_delay    = measurement_pulse['SB_delay'] 
+    cav2_delay  = measurement_pulse['meas2_delay'] 
+    
+    timestep   = xaxis[1] - xaxis[0]
+    data_start = int((init_buffer + emp_delay)/timestep)
+    data_start2 = int((init_buffer + emp_delay + cav2_delay + emp_delay2)/timestep)
+    back_start = int((init_buffer + emp_delay + meas_window + post_buffer)/timestep)
+    window_width = int(meas_window/timestep)
+    
+    data_x = xaxis[data_start:data_start+window_width]
+    data_x2 = xaxis[data_start2:data_start2+window_width]
+    background = raw_data[:,back_start:back_start+window_width]
+    back_val = np.mean(background, axis=1, keepdims=True)
+
+    if settings['exp_settings']['subtract_background']:
+        raw_data = raw_data-back_val
+
+    #now I am ready to filter the data.
+    LPF = settings['LPF']
+    digLO_sin = settings['digLO_sin']
+    digLO_cos = settings['digLO_cos']
+    
+    filtered_sin_full = signal.sosfilt(LPF, raw_data*digLO_sin)
+    filtered_cos_full = signal.sosfilt(LPF, raw_data*digLO_cos)
+    
+    filtered_sin = filtered_sin_full[:,data_start:data_start+window_width]
+    filtered_cos = filtered_cos_full[:,data_start:data_start+window_width]
+    filtered_sin2 = filtered_sin_full[:, data_start2:data_start2+window_width]
+    filtered_cos2 = filtered_cos_full[:, data_start2:data_start2+window_width]
+    
+    return filtered_cos, filtered_sin, filtered_cos2, filtered_sin2, data_x, data_x2, filtered_cos_full, filtered_sin_full, xaxis
+
+
+def extract_data_heterodyne2(raw_data, xaxis, settings, digLO_sin, digLO_cos):
+    
+    measurement_pulse = settings['exp_globals']['measurement_pulse']
+    init_buffer = measurement_pulse['init_buffer']
+    emp_delay   = measurement_pulse['emp_delay']
+    meas_window = measurement_pulse['meas_window']
+    post_buffer = measurement_pulse['post_buffer']
+    
+    timestep   = xaxis[1] - xaxis[0]
+    data_start = int((init_buffer + emp_delay)/timestep)
+    back_start = int((init_buffer + emp_delay + meas_window + post_buffer)/timestep)
+    window_width = int(meas_window/timestep)
+    
+    data_x = xaxis[data_start:data_start+window_width]
+    background = raw_data[back_start:back_start+window_width]
+    back_val = np.mean(background)
+
+    if settings['exp_settings']['subtract_background']:
+        raw_data = raw_data-back_val
+
+    #now I am ready to filter the data.
+    LPF = settings['LPF']
+    digLO_sin = digLO_sin
+    digLO_cos = digLO_cos
+    
+    filtered_sin_full = signal.sosfilt(LPF, raw_data*digLO_sin)
+    filtered_cos_full = signal.sosfilt(LPF, raw_data*digLO_cos)
+    
+    filtered_sin = filtered_sin_full[data_start:data_start+window_width]
+    filtered_cos = filtered_cos_full[data_start:data_start+window_width]
+    
+    return filtered_cos, filtered_sin, data_x, filtered_cos_full, filtered_sin_full, xaxis
+
+def extract_data_heterodyne2_segments(raw_data, xaxis, settings, digLO_sin, digLO_cos):
+    
+    measurement_pulse = settings['exp_globals']['measurement_pulse']
+    init_buffer = measurement_pulse['init_buffer']
+    emp_delay   = measurement_pulse['emp_delay']
+    meas_window = measurement_pulse['meas_window']
+    post_buffer = measurement_pulse['post_buffer']
+    
+    timestep   = xaxis[1] - xaxis[0]
+    data_start = int((init_buffer + emp_delay)/timestep)
+    back_start = int((init_buffer + emp_delay + meas_window + post_buffer)/timestep)
+    window_width = int(meas_window/timestep)
+    
+    data_x = xaxis[data_start:data_start+window_width]
+    background = raw_data[:,back_start:back_start+window_width]
+    back_val = np.mean(background, axis=1, keepdims=True)
+
+    if settings['exp_settings']['subtract_background']:
+        raw_data = raw_data-back_val
+
+    #now I am ready to filter the data.
+    LPF = settings['LPF']
+    digLO_sin = digLO_sin
+    digLO_cos = digLO_cos
+    
+    filtered_sin_full = signal.sosfilt(LPF, raw_data*digLO_sin)
+    filtered_cos_full = signal.sosfilt(LPF, raw_data*digLO_cos)
+    
+    filtered_sin = filtered_sin_full[:, data_start:data_start+window_width]
+    filtered_cos = filtered_cos_full[:, data_start:data_start+window_width]
     
     return filtered_cos, filtered_sin, data_x, filtered_cos_full, filtered_sin_full, xaxis
         
@@ -388,6 +555,132 @@ def read_and_process_single_channel(card, settings, plot):
 
 
 def read_and_process(card, settings, plot, IQstorage = True):
+    '''The original version of this function wanted to convert to
+    amplitude(t) and phase(t). This has been found to be problematic.
+    To get the old version of operation, set
+    IQstorage = False
+    IQstorage = True will instead return I(t) and Q(t) for
+    later processing.
+    '''
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    Ip = np.mean(I, 0)
+    Qp = np.mean(Q, 0)
+    
+    mixer_config = settings['exp_globals']['mixer_config']
+    Ipp, Qpp = remove_IQ_ellipse(Ip, Qp, mixer_config)
+#    Ipp, Qpp = remove_slow_drift(Ipp, Qpp, time_el)
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
+#    Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+#    Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+    
+    if not IQstorage:
+        Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+        Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+        amp_full = np.sqrt(Ifull**2+Qfull**2)
+        
+        if settings['exp_globals']['IF'] == 0:
+            phase_full = np.arctan2(Qfull, Ifull)*180/np.pi
+            
+        else:
+            raw_angle = np.arctan2(Qfull, Ifull)*180/np.pi
+            phase_full = np.mod(raw_angle + 360*settings['exp_globals']['IF']*xaxis, 360)
+    #        plt.figure(101)
+    #        plt.clf()
+    #        ax = plt.subplot(1,2,1)
+    #        plt.plot(xaxis, raw_angle)
+    #        plt.title('raw phase angle')
+    #        ax = plt.subplot(1,2,2)
+    #        plt.plot(xaxis, phase_full)
+    #        plt.show()
+    #        plt.title('(hopefully) corrected phase angle')
+        amp = np.sqrt(Idata**2+Qdata**2)
+        
+        if settings['exp_globals']['IF'] == 0:
+            phase = np.arctan2(Qdata, Idata)*180/np.pi
+            
+        else:
+            raw_angle = np.arctan2(Qdata, Idata)*180/np.pi
+            phase = np.mod(raw_angle + 360*settings['exp_globals']['IF']*Itime, 360)
+            
+        if plot:
+            plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+            
+        return amp, phase, amp_full, phase_full, xaxis
+    
+    else:
+        #do not convert to amp(t) and phase(t)
+#        if plot:
+#            amp = np.sqrt(Idata**2+Qdata**2) #this is just a guide to theeye for locating the pulse
+#            amp_full = np.sqrt(Ifull**2+Qfull**2)
+#            plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+
+        if settings['exp_globals']['IF'] == 0:
+#            Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+#            Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+#            if plot:
+#                amp = np.sqrt(Idata**2+Qdata**2) #this is just a guide to theeye for locating the pulse
+#                amp_full = np.sqrt(Ifull**2+Qfull**2)
+#                plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+            #matching newer names
+            I_window, Itime, I_full, time_full = extract_data(Ipp, xaxis, settings)
+            Q_window, Qtime, Q_full, time_full = extract_data(Qpp, xaxis, settings)
+            
+            if plot:
+                amp = np.sqrt(I_window**2+Q_window**2) #this is just a guide to theeye for locating the pulse
+                amp_full = np.sqrt(I_full**2+Q_full**2)
+                plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
+                
+        else:
+            #Quick fix to the problem of full cancellation in the DDC data. Turns out the channels got swapped
+            #during a reshuffle and combining the channels incorrectly leads to near perfect cancellation (offset by
+            #the mixer impairements). For now I just swapped the definition of I and Q to match the combination phase
+            I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
+            Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
+            
+            #rotate the mixer Q signal back into I so they can be averaged properly
+            theta = -np.pi/2
+            Qprime_sin = Q_sin*np.cos(theta) + -Q_cos *np.sin(theta)
+            Qprime_cos = Q_sin*np.sin(theta) + Q_cos*np.cos(theta)
+            
+            Qprime_sin_full = Q_sin_full*np.cos(theta) + -Q_cos_full *np.sin(theta)
+            Qprime_cos_full = Q_sin_full*np.sin(theta) + Q_cos_full*np.cos(theta)
+            
+            Q_window  = (I_sin +  Qprime_sin)/2
+            I_window = (I_cos + Qprime_cos)/2
+            
+            Q_full  = (I_sin_full +  Qprime_sin_full)/2
+            I_full = (I_cos_full + Qprime_cos_full)/2
+            
+            if plot:
+                fig0 = plt.figure(97)
+                plt.clf()
+                ax = plt.subplot(1,2,1)
+                plt.plot(xaxis*1e6, Ip, label = 'raw V1')
+                plt.plot(xaxis*1e6, Qp, label = 'raw V2')
+                plt.xlabel('Time (us)')
+                plt.ylabel('Voltage')
+                plt.title('Card Voltages')
+                ax.legend(loc = 'upper right')
+                
+                ax = plt.subplot(1,2,2)
+                plt.plot(xaxis*1e6, np.sqrt(Ip**2 + Qp**2), label = 'crude amplitude')
+                plt.plot(xaxis*1e6, np.sqrt(Ipp**2 + Qpp**2), label = 'mixer corrected')
+                plt.xlabel('Time (us)')
+                plt.ylabel('Voltage')
+                plt.title('Rough Pulse Amplitude')
+                ax.legend(loc = 'upper right')
+                plt.show()
+                fig0.canvas.draw()
+                fig0.canvas.flush_events()
+                
+                amp = np.sqrt(Q_window**2+I_window**2) #this is just the I signal
+                amp_full = np.sqrt(I_full**2+Q_full**2)
+                plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
+        return I_window, Q_window, I_full, Q_full, xaxis
+
+
+def read_and_process_singleshot(card, settings, plot, IQstorage = True):
     '''The original version of this function wanted to convert to 
     amplitude(t) and phase(t). This has been found to be problematic.
     To get the old version of operation, set
@@ -398,8 +691,10 @@ def read_and_process(card, settings, plot, IQstorage = True):
     '''
     card.ArmAndWait()
     I, Q = card.ReadAllData()
-    Ip = np.mean(I, 0)
-    Qp = np.mean(Q, 0)
+    Ip = I#np.mean(I, 0)
+    Qp = Q#np.mean(Q, 0)
+    
+    
     mixer_config = settings['exp_globals']['mixer_config']
     Ipp, Qpp = remove_IQ_ellipse(Ip, Qp, mixer_config)
 #    Ipp, Qpp = remove_slow_drift(Ipp, Qpp, time_el)
@@ -467,6 +762,342 @@ def read_and_process(card, settings, plot, IQstorage = True):
             #Quick fix to the problem of full cancellation in the DDC data. Turns out the channels got swapped 
             #during a reshuffle and combining the channels incorrectly leads to near perfect cancellation (offset by
             #the mixer impairements). For now I just swapped the definition of I and Q to match the combination phase
+            I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne_singleshot(Ipp, xaxis, settings)
+            Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne_singleshot(Qpp, xaxis, settings)
+            
+            
+                
+            #rotate the mixer Q signal back into I so they can be averaged properly
+            theta = -np.pi/2
+            Qprime_sin = Q_sin*np.cos(theta) + -Q_cos *np.sin(theta) 
+            Qprime_cos = Q_sin*np.sin(theta) + Q_cos*np.cos(theta)
+            
+            Qprime_sin_full = Q_sin_full*np.cos(theta) + -Q_cos_full *np.sin(theta) 
+            Qprime_cos_full = Q_sin_full*np.sin(theta) + Q_cos_full*np.cos(theta)
+            
+            
+            Q_window  = (I_sin +  Qprime_sin)/2
+            I_window = (I_cos + Qprime_cos)/2
+            
+            Q_full  = (I_sin_full +  Qprime_sin_full)/2
+            I_full = (I_cos_full + Qprime_cos_full)/2
+            
+            if plot:
+                fig0 = plt.figure(97)
+                plt.clf()
+                ax = plt.subplot(1,2,1)
+                plt.plot(xaxis*1e6, Ip[0], label = 'raw V1')
+                plt.plot(xaxis*1e6, Qp[0], label = 'raw V2')
+                plt.xlabel('Time (us)')
+                plt.ylabel('Voltage')
+                plt.title('Card Voltages')
+                ax.legend(loc = 'upper right')
+                
+                ax = plt.subplot(1,2,2)
+                plt.plot(xaxis*1e6, np.sqrt(Ip[0]**2 + Qp[0]**2), label = 'crude amplitude')
+                plt.plot(xaxis*1e6, np.sqrt(Ipp[0]**2 + Qpp[0]**2), label = 'mixer corrected')
+                plt.xlabel('Time (us)')
+                plt.ylabel('Voltage')
+                plt.title('Rough Pulse Amplitude')
+                ax.legend(loc = 'upper right')
+                plt.show()
+                fig0.canvas.draw()
+                fig0.canvas.flush_events()
+                
+                amp = np.sqrt(Q_window[0]**2+I_window[0]**2) #this is just the I signal
+                amp_full = np.sqrt(I_full[0]**2+Q_full[0]**2)
+                plot_data_extraction(amp, Itime, amp_full, time_full, I_full[0], Q_full[0])
+                
+        return I_window, Q_window, I_full, Q_full, xaxis
+
+
+
+def read_and_process_2meas(card, settings, plot, IQstorage = True):
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    Ip = I#np.mean(I, 0)
+    Qp = Q#np.mean(Q, 0)
+    
+    
+    mixer_config = settings['exp_globals']['mixer_config']
+    Ipp, Qpp = remove_IQ_ellipse(Ip, Qp, mixer_config)
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
+
+    
+    if not IQstorage:
+        Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+        Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+        
+        amp_full = np.sqrt(Ifull**2+Qfull**2)
+        if settings['exp_globals']['IF'] == 0:
+            phase_full = np.arctan2(Qfull, Ifull)*180/np.pi
+        else:
+            raw_angle = np.arctan2(Qfull, Ifull)*180/np.pi
+            phase_full = np.mod(raw_angle + 360*settings['exp_globals']['IF']*xaxis, 360)
+            
+    #        plt.figure(101)
+    #        plt.clf()
+    #        ax = plt.subplot(1,2,1)
+    #        plt.plot(xaxis, raw_angle)
+    #        plt.title('raw phase angle')
+    #        ax = plt.subplot(1,2,2)
+    #        plt.plot(xaxis, phase_full)
+    #        plt.show()
+    #        plt.title('(hopefully) corrected phase angle')
+    
+        amp = np.sqrt(Idata**2+Qdata**2)
+        
+        if settings['exp_globals']['IF'] == 0:
+            phase = np.arctan2(Qdata, Idata)*180/np.pi
+        else:
+            raw_angle = np.arctan2(Qdata, Idata)*180/np.pi
+            phase = np.mod(raw_angle + 360*settings['exp_globals']['IF']*Itime, 360)
+    
+        if plot:
+            plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+    
+        return amp, phase, amp_full, phase_full, xaxis
+    else:
+        #do not convert to amp(t) and phase(t)
+#        if plot:
+#            amp = np.sqrt(Idata**2+Qdata**2) #this is just a guide to theeye for locating the pulse
+#            amp_full = np.sqrt(Ifull**2+Qfull**2)
+#            plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+        
+        if settings['exp_globals']['IF'] == 0:
+#            Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+#            Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+#            if plot:
+#                amp = np.sqrt(Idata**2+Qdata**2) #this is just a guide to theeye for locating the pulse
+#                amp_full = np.sqrt(Ifull**2+Qfull**2)
+#                plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+            
+            #matching newer names
+            I_window, Itime, I_full, time_full = extract_data(Ipp, xaxis, settings)
+            Q_window, Qtime, Q_full, time_full = extract_data(Qpp, xaxis, settings)
+            if plot:
+                amp = np.sqrt(I_window**2+Q_window**2) #this is just a guide to theeye for locating the pulse
+                amp_full = np.sqrt(I_full**2+Q_full**2)
+                plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
+        else:
+            #Quick fix to the problem of full cancellation in the DDC data. Turns out the channels got swapped 
+            #during a reshuffle and combining the channels incorrectly leads to near perfect cancellation (offset by
+            #the mixer impairements). For now I just swapped the definition of I and Q to match the combination phase
+            I_cos, I_sin, I_cos2, I_sin2, Itime, Itime2, I_cos_full, I_sin_full, time_full = extract_data_heterodyne_2meas(Ipp, xaxis, settings)
+            Q_cos, Q_sin, Q_cos2, Q_sin2, Qtime, Qtime2, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne_2meas(Qpp, xaxis, settings)
+            
+            
+                
+            #rotate the mixer Q signal back into I so they can be averaged properly
+            theta = -np.pi/2
+            Qprime_sin = Q_sin*np.cos(theta) + -Q_cos *np.sin(theta) 
+            Qprime_cos = Q_sin*np.sin(theta) + Q_cos*np.cos(theta)
+
+            Qprime_sin2 = Q_sin2*np.cos(theta) + -Q_cos2 *np.sin(theta) 
+            Qprime_cos2 = Q_sin2*np.sin(theta) + Q_cos2*np.cos(theta)
+            
+            Qprime_sin_full = Q_sin_full*np.cos(theta) + -Q_cos_full *np.sin(theta) 
+            Qprime_cos_full = Q_sin_full*np.sin(theta) + Q_cos_full*np.cos(theta)
+            
+            
+            Q_window  = (I_sin +  Qprime_sin)/2
+            I_window = (I_cos + Qprime_cos)/2
+
+            Q_window2  = (I_sin2 +  Qprime_sin2)/2
+            I_window2 = (I_cos2 + Qprime_cos2)/2
+            
+            Q_full  = (I_sin_full +  Qprime_sin_full)/2
+            I_full = (I_cos_full + Qprime_cos_full)/2
+            
+
+            if plot:
+                fig0 = plt.figure(97)
+                plt.clf()
+                ax = plt.subplot(1,2,1)
+                plt.plot(xaxis*1e6, Ip[0], label = 'raw V1')
+                plt.plot(xaxis*1e6, Qp[0], label = 'raw V2')
+                plt.xlabel('Time (us)')
+                plt.ylabel('Voltage')
+                plt.title('Card Voltages')
+                ax.legend(loc = 'upper right')
+                
+                ax = plt.subplot(1,2,2)
+                plt.plot(xaxis*1e6, np.sqrt(Ip[0]**2 + Qp[0]**2), label = 'crude amplitude')
+                plt.plot(xaxis*1e6, np.sqrt(Ipp[0]**2 + Qpp[0]**2), label = 'mixer corrected')
+                plt.xlabel('Time (us)')
+                plt.ylabel('Voltage')
+                plt.title('Rough Pulse Amplitude')
+                ax.legend(loc = 'upper right')
+                plt.show()
+                fig0.canvas.draw()
+                fig0.canvas.flush_events()
+                
+                amp = np.sqrt(Q_window[0]**2+I_window[0]**2) #this is just the I signal
+                amp2 = np.sqrt(Q_window2[0]**2+I_window2[0]**2)
+                amp_full = np.sqrt(I_full[0]**2+Q_full[0]**2)
+                plot_data_extraction_2meas(amp, Itime, amp2, Itime2, amp_full, time_full, I_full[0], Q_full[0])
+                
+        return I_window, Q_window, I_window2, Q_window2, I_full, Q_full, xaxis
+
+
+def read_and_process_2Readouts(card, settings, plot, IQstorage = True):
+
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    Ip = np.mean(I, 0)
+    Qp = np.mean(Q, 0)
+    
+    
+    mixer_config = settings['exp_globals']['mixer_config']
+    Ipp, Qpp = remove_IQ_ellipse(Ip, Qp, mixer_config)
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
+    
+    # Get IQ for the carrier
+    digLO_sin_carr, digLO_cos_carr = settings['digLO_sin_carr'], settings['digLO_cos_carr']
+    Idata = {}
+    Idata['filtered_cos'], Idata['filtered_sin'], Idata['data_x'], Idata['filtered_cos_full'], Idata['filtered_sin_full'], Idata['xaxis'] = extract_data_heterodyne2(Ipp, xaxis, settings, digLO_sin_carr, digLO_cos_carr)
+    
+    Qdata = {}
+    Qdata['filtered_cos'], Qdata['filtered_sin'], Qdata['data_x'], Qdata['filtered_cos_full'], Qdata['filtered_sin_full'], Qdata['xaxis'] = extract_data_heterodyne2(Qpp, xaxis, settings, digLO_sin_carr, digLO_cos_carr)
+ 
+    I_window_carr, Q_window_carr, I_time_carr, I_full_carr, Q_full_carr, I_time_full_carr = extract_finalIQ(Idata, Qdata)
+    
+    # Get IQ for the off resonant tone
+    digLO_sin_sb, digLO_cos_sb = settings['digLO_sin_sb'], settings['digLO_cos_sb']
+    Idata = {}
+    Idata['filtered_cos'], Idata['filtered_sin'], Idata['data_x'], Idata['filtered_cos_full'], Idata['filtered_sin_full'], Idata['xaxis'] = extract_data_heterodyne2(Ipp, xaxis, settings, digLO_sin_sb, digLO_cos_sb)
+    
+    Qdata = {}
+    Qdata['filtered_cos'], Qdata['filtered_sin'], Qdata['data_x'], Qdata['filtered_cos_full'], Qdata['filtered_sin_full'], Qdata['xaxis'] = extract_data_heterodyne2(Qpp, xaxis, settings, digLO_sin_sb, digLO_cos_sb)
+ 
+    I_window_sb, Q_window_sb, I_time_sb, I_full_sb, Q_full_sb, I_time_full_sb = extract_finalIQ(Idata, Qdata)
+    
+
+    ### For debugging - plot fft of Ip and Qp 
+    fft_mag_Ip = np.abs(np.fft.fft(Ip))
+    fft_freq_Ip = np.fft.fftfreq(len(Ip),1/card.sampleRate)
+    
+    fft_mag_Qp = np.abs(np.fft.fft(Qp))
+    fft_freq_Qp = np.fft.fftfreq(len(Qp),1/card.sampleRate)
+    
+    if plot:
+        fig0 = plt.figure(972)
+        plt.clf()
+        ax = plt.subplot(2,2,1)
+        plt.plot(xaxis*1e6, Ip, label = 'raw V1')
+        plt.plot(xaxis*1e6, Qp, label = 'raw V2')
+        plt.xlabel('Time (us)')
+        plt.ylabel('Voltage')
+        plt.title('Card Voltages')
+        ax.legend(loc = 'upper right')
+        
+        ax = plt.subplot(2,2,2)
+        plt.plot(xaxis*1e6, np.sqrt(Ip**2 + Qp**2), label = 'crude amplitude')
+        plt.plot(xaxis*1e6, np.sqrt(Ipp**2 + Qpp**2), label = 'mixer corrected')
+        plt.xlabel('Time (us)')
+        plt.ylabel('Voltage')
+        plt.title('Rough Pulse Amplitude')
+        ax.legend(loc = 'upper right')
+        
+        ax = plt.subplot(2,2,3)
+        plt.plot(fft_freq_Ip[:len(fft_freq_Ip)//2]/1e6, np.log10(fft_mag_Ip[:len(fft_mag_Ip)//2]), label='raw_I')
+        plt.xlabel("Freq (MHz)")
+        plt.xlim(0,50)
+        plt.title('FFT for raw V1')
+        ax.legend(loc = 'upper right')
+        
+        ax = plt.subplot(2,2,4)
+        plt.plot(fft_freq_Qp[:len(fft_freq_Qp)//2]/1e6, np.log10(fft_mag_Qp[:len(fft_mag_Qp)//2]), label='raw_Q')
+        plt.xlabel("Freq (MHz)")
+        plt.xlim(0,50)
+        plt.title('FFT for raw V2')
+        ax.legend(loc = 'upper right')
+        
+        plt.show()
+        fig0.canvas.draw()
+        fig0.canvas.flush_events()
+        
+        carr = {}
+        carr['amp'] = np.sqrt(Q_window_carr**2 + I_window_carr**2)
+        carr['amp_full'] = np.sqrt(Q_full_carr**2 + I_full_carr**2)
+        carr['Ifull'], carr['Qfull'] = I_full_carr, Q_full_carr 
+        
+        sb = {}
+        sb['amp'] = np.sqrt(Q_window_sb**2 + I_window_sb**2)
+        sb['amp_full'] = np.sqrt(Q_full_sb**2 + I_full_sb**2)
+        sb['Ifull'], sb['Qfull'] = I_full_sb, Q_full_sb 
+        
+        plot_data_extraction_2Readouts(carr, sb, I_time_carr, I_time_full_carr)
+        
+    # save data for return
+    carr_data = {}
+    carr_data['I_window'], carr_data['Q_window'], carr_data['I_full'], carr_data['Q_full'] = I_window_carr, Q_window_carr, I_full_carr, Q_full_carr
+    
+    sb_data = {}
+    sb_data['I_window'], sb_data['Q_window'], sb_data['I_full'], sb_data['Q_full'] = I_window_sb, Q_window_sb, I_full_sb, Q_full_sb
+        
+    return carr_data, sb_data, I_time_full_carr
+    
+def read_and_process_pdh(card, settings, plot, IQstorage = True):
+    '''The original version of this function wanted to convert to 
+    amplitude(t) and phase(t). This has been found to be problematic.
+    To get the old version of operation, set
+    IQstorage = False
+    
+    IQstorage = True will instead return I(t) and Q(t) for 
+    later processing.
+    '''
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    Ip = np.mean(I, 0)
+    Qp = np.mean(Q, 0)
+    
+    ### PDH TESTS
+    Ip2 = Ip**2
+    Qp2 = Qp**2
+    
+    
+    mixer_config = settings['exp_globals']['mixer_config']
+    Ipp, Qpp = remove_IQ_ellipse(Ip2, Qp2, mixer_config)
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
+
+    
+    if not IQstorage:
+        Idata, Itime, Ifull, time_full = extract_data(Ipp, xaxis, settings)
+        Qdata, Qtime, Qfull, time_full = extract_data(Qpp, xaxis, settings)
+        
+        amp_full = np.sqrt(Ifull**2+Qfull**2)
+        if settings['exp_globals']['IF'] == 0:
+            phase_full = np.arctan2(Qfull, Ifull)*180/np.pi
+        else:
+            raw_angle = np.arctan2(Qfull, Ifull)*180/np.pi
+            phase_full = np.mod(raw_angle + 360*settings['exp_globals']['IF']*xaxis, 360)
+            
+    
+        amp = np.sqrt(Idata**2+Qdata**2)
+        
+        if settings['exp_globals']['IF'] == 0:
+            phase = np.arctan2(Qdata, Idata)*180/np.pi
+        else:
+            raw_angle = np.arctan2(Qdata, Idata)*180/np.pi
+            phase = np.mod(raw_angle + 360*settings['exp_globals']['IF']*Itime, 360)
+    
+        if plot:
+            plot_data_extraction(amp, Itime, amp_full, time_full, Ifull, Qfull)
+    
+        return amp, phase, amp_full, phase_full, xaxis
+    else:
+        
+        if settings['exp_globals']['IF'] == 0:
+            
+            #matching newer names
+            I_window, Itime, I_full, time_full = extract_data(Ipp, xaxis, settings)
+            Q_window, Qtime, Q_full, time_full = extract_data(Qpp, xaxis, settings)
+            if plot:
+                amp = np.sqrt(I_window**2+Q_window**2) #this is just a guide to theeye for locating the pulse
+                amp_full = np.sqrt(I_full**2+Q_full**2)
+                plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
+        else:
             I_cos, I_sin, Itime, I_cos_full, I_sin_full, time_full = extract_data_heterodyne(Ipp, xaxis, settings)
             Q_cos, Q_sin, Qtime, Q_cos_full, Q_sin_full, time_full = extract_data_heterodyne(Qpp, xaxis, settings)
             
@@ -512,10 +1143,386 @@ def read_and_process(card, settings, plot, IQstorage = True):
                 amp = np.sqrt(Q_window**2+I_window**2) #this is just the I signal
                 amp_full = np.sqrt(I_full**2+Q_full**2)
                 plot_data_extraction(amp, Itime, amp_full, time_full, I_full, Q_full)
+                
+            ### For IBK's debugging - plot fft of Ip and Qp 
+            fft_mag_Ip = np.abs(np.fft.fft(Ip))
+            fft_freq_Ip = np.fft.fftfreq(len(Ip),1/card.sampleRate)
+            
+            fft_mag_Qp = np.abs(np.fft.fft(Qp))
+            fft_freq_Qp = np.fft.fftfreq(len(Qp),1/card.sampleRate)
+            if plot:
+                fig17 = plt.figure(170)
+                plt.clf()
+                ax = plt.subplot(1,2,1)
+                plt.plot(fft_freq_Ip[:len(fft_freq_Ip)//2]/1e6, np.log10(fft_mag_Ip[:len(fft_mag_Ip)//2]), label='raw_I')
+                plt.xlabel("Freq (MHz)")
+                plt.xlim(0,50)
+                ax.legend()
+                
+                ax = plt.subplot(1,2,2)
+                plt.plot(fft_freq_Qp[:len(fft_freq_Qp)//2]/1e6, np.log10(fft_mag_Qp[:len(fft_mag_Qp)//2]), label='raw_Q')
+                plt.xlabel("Freq (MHz)")
+                plt.xlim(0,50)
+                ax.legend()
+                plt.suptitle("Card Voltages FFT")
+                plt.show()
+                fig17.canvas.draw()
+                fig17.canvas.flush_events()
         
         return I_window, Q_window, I_full, Q_full, xaxis
-            
+
+def extract_data_heterodyne_TripleDDC(raw_data, xaxis, settings):
+    '''
+    Extracts the data from a trace. Finds the indices of start/ stop for both
+    data and background (assumes that they are the same length, which should
+    be enforced by the card samples in the actual exp script) and splices the 
+    correct ranges from the raw data. Returns a time axis for the data window 
+    and subtracts mean of background if specified.
+
+    ALL VALUES SHOULD BE IN TIME UNITS (base seconds)
+
+    This has been modified from extract_data so that it will work with heterodyne and digital down conversion
+    
+    Parameters
+    _________________
+
+        init_buffer: 
+            buffer specified to card before the measurement tone
+        emp_delay: 
+            combination of line delay and other delays that correctly shifts the digitizer to match the HDAWG time axis
+        meas_window: 
+            width of the measurement pulse
+        post_buffer: 
+            time to wait after the pulse before measuring background
         
+        
+    '''
+    measurement_pulse = settings['exp_globals']['measurement_pulse']
+    init_buffer = measurement_pulse['init_buffer']
+    emp_delay   = measurement_pulse['emp_delay']
+    meas_window = measurement_pulse['meas_window']
+    post_buffer = measurement_pulse['post_buffer']
+    
+    timestep   = xaxis[1] - xaxis[0]
+    data_start = int((init_buffer + emp_delay)/timestep)
+    # print(data_start)
+    back_start = int((init_buffer + emp_delay + meas_window + post_buffer)/timestep)
+    window_width = int(meas_window/timestep)
+    
+    data_x = xaxis[data_start:data_start+window_width]
+    background = raw_data[back_start:back_start+window_width]
+    back_val = np.mean(background, axis=1, keepdims=True )
+
+    # if settings['exp_settings']['subtract_background']:  #7/15/25. We think that this line is causing errors with matrix dimensions
+    #     raw_data = raw_data-back_val
+
+    #now I am ready to filter the data.
+    LPF = settings['LPF']
+    
+    # For the carrier (carr), upper sideband (usb), and the lower sideband (lsb)
+    digLO_sin_carr = settings['digLO_sin_carr']
+    digLO_cos_carr = settings['digLO_cos_carr']
+    
+    digLO_sin_usb = settings['digLO_sin_usb']
+    digLO_cos_usb = settings['digLO_cos_usb']
+    
+    digLO_sin_lsb = settings['digLO_sin_lsb']
+    digLO_cos_lsb = settings['digLO_cos_lsb']
+    
+    # Filter for each of the components
+    
+    filtered_sin_full_carr = signal.sosfilt(LPF, raw_data*digLO_sin_carr)
+    filtered_cos_full_carr = signal.sosfilt(LPF, raw_data*digLO_cos_carr)
+    filtered_sin_carr = filtered_sin_full_carr[:, data_start:data_start+window_width]
+    filtered_cos_carr = filtered_cos_full_carr[:, data_start:data_start+window_width]
+    
+    filtered_sin_full_usb = signal.sosfilt(LPF, raw_data*digLO_sin_usb)
+    filtered_cos_full_usb = signal.sosfilt(LPF, raw_data*digLO_cos_usb)
+    filtered_sin_usb = filtered_sin_full_usb[:, data_start:data_start+window_width]
+    filtered_cos_usb = filtered_cos_full_usb[:, data_start:data_start+window_width]
+  
+    filtered_sin_full_lsb = signal.sosfilt(LPF, raw_data*digLO_sin_lsb)
+    filtered_cos_full_lsb = signal.sosfilt(LPF, raw_data*digLO_cos_lsb)
+    filtered_sin_lsb = filtered_sin_full_lsb[:, data_start:data_start+window_width]
+    filtered_cos_lsb = filtered_cos_full_lsb[:, data_start:data_start+window_width]
+    
+    filtered_carr = {}
+    filtered_carr['filtered_cos'] = filtered_cos_carr
+    filtered_carr['filtered_sin'] = filtered_sin_carr
+    filtered_carr['filtered_cos_full'] = filtered_cos_full_carr
+    filtered_carr['filtered_sin_full'] = filtered_sin_full_carr
+    filtered_carr['data_x'] = data_x
+    filtered_carr['xaxis'] = xaxis
+    
+    filtered_usb = {}
+    filtered_usb['filtered_cos'] = filtered_cos_usb
+    filtered_usb['filtered_sin'] = filtered_sin_usb
+    filtered_usb['filtered_cos_full'] = filtered_cos_full_usb
+    filtered_usb['filtered_sin_full'] = filtered_sin_full_usb
+    filtered_usb['data_x'] = data_x
+    filtered_usb['xaxis'] = xaxis
+    
+    filtered_lsb = {}
+    filtered_lsb['filtered_cos'] = filtered_cos_lsb
+    filtered_lsb['filtered_sin'] = filtered_sin_lsb
+    filtered_lsb['filtered_cos_full'] = filtered_cos_full_lsb
+    filtered_lsb['filtered_sin_full'] = filtered_sin_full_lsb
+    filtered_lsb['data_x'] = data_x
+    filtered_lsb['xaxis'] = xaxis
+    
+    return filtered_carr, filtered_usb, filtered_lsb
+
+def extract_finalIQ(Idata, Qdata):
+    I_cos, I_sin = Idata['filtered_cos'], Idata['filtered_sin']
+    I_cos_full, I_sin_full = Idata['filtered_cos_full'], Idata['filtered_sin_full']
+    I_time, I_time_full = Idata['data_x'], Idata['xaxis']
+    
+    Q_cos, Q_sin = Qdata['filtered_cos'], Qdata['filtered_sin']
+    Q_cos_full, Q_sin_full = Qdata['filtered_cos_full'], Qdata['filtered_sin_full']
+    # Q_time, Q_time_full = Qdata['data_x'], Qdata['xaxis']
+    
+    # rotate the mixer Q signal back into I so they can be averaged properly
+    Q_window = (I_sin + Q_cos)/2
+    I_window = (I_cos - Q_sin)/2
+    
+    Q_full = (I_sin_full + Q_cos_full)/2
+    I_full = (I_cos_full - Q_sin_full)/2
+    
+    return I_window, Q_window, I_time, I_full, Q_full, I_time_full
+    
+def read_and_process_TripleDDC(card, settings, plot, IQstorage = True):
+
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    Ip = I #np.mean(I, 0)
+    Qp = Q #np.mean(Q, 0)
+    
+    
+    mixer_config = settings['exp_globals']['mixer_config']
+    Ipp, Qpp = remove_IQ_ellipse(Ip, Qp, mixer_config)
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
+    
+    I_filtered_carr, I_filtered_usb, I_filtered_lsb = extract_data_heterodyne_TripleDDC(Ipp, xaxis, settings)
+    Q_filtered_carr, Q_filtered_usb, Q_filtered_lsb = extract_data_heterodyne_TripleDDC(Qpp, xaxis, settings)
+    
+    # Extract final IQ for carrier
+    I_window_carr, Q_window_carr, I_time_carr, I_full_carr, Q_full_carr, I_time_full_carr = extract_finalIQ(I_filtered_carr, Q_filtered_carr)
+        
+    # Extract final IQ for upper sideband
+    I_window_usb, Q_window_usb, I_time_usb, I_full_usb, Q_full_usb, I_time_full_usb = extract_finalIQ(I_filtered_usb, Q_filtered_usb)   
+    
+    # Extract final IQ for lower sideband
+    I_window_lsb, Q_window_lsb, I_time_lsb, I_full_lsb, Q_full_lsb, I_time_full_lsb = extract_finalIQ(I_filtered_lsb, Q_filtered_lsb) 
+
+    ### For debugging - plot fft of Ip and Qp 
+    fft_mag_Ip = np.abs(np.fft.fft(Ip[0]))
+    fft_freq_Ip = np.fft.fftfreq(len(Ip[0]),1/card.sampleRate)
+    
+    fft_mag_Qp = np.abs(np.fft.fft(Qp[0]))
+    fft_freq_Qp = np.fft.fftfreq(len(Qp[0]),1/card.sampleRate)
+    
+    if plot:
+        fig0 = plt.figure(971)
+        plt.clf()
+        ax = plt.subplot(2,2,1)
+        plt.plot(xaxis*1e6, Ip[0], label = 'raw V1')
+        plt.plot(xaxis*1e6, Qp[0], label = 'raw V2')
+        plt.xlabel('Time (us)')
+        plt.ylabel('Voltage')
+        plt.title('Card Voltages')
+        ax.legend(loc = 'upper right')
+        
+        ax = plt.subplot(2,2,2)
+        plt.plot(xaxis*1e6, np.sqrt(Ip[0]**2 + Qp[0]**2), label = 'crude amplitude')
+        plt.plot(xaxis*1e6, np.sqrt(Ipp[0]**2 + Qpp[0]**2), label = 'mixer corrected')
+        plt.xlabel('Time (us)')
+        plt.ylabel('Voltage')
+        plt.title('Rough Pulse Amplitude')
+        ax.legend(loc = 'upper right')
+        
+        ax = plt.subplot(2,2,3)
+        plt.plot(fft_freq_Ip[:len(fft_freq_Ip)//2]/1e6, np.log10(fft_mag_Ip[:len(fft_mag_Ip)//2]), label='raw_I')
+        plt.xlabel("Freq (MHz)")
+        plt.xlim(0,50)
+        plt.title('FFT for raw V1')
+        ax.legend(loc = 'upper right')
+        
+        ax = plt.subplot(2,2,4)
+        plt.plot(fft_freq_Qp[:len(fft_freq_Qp)//2]/1e6, np.log10(fft_mag_Qp[:len(fft_mag_Qp)//2]), label='raw_Q')
+        plt.xlabel("Freq (MHz)")
+        plt.xlim(0,50)
+        plt.title('FFT for raw V2')
+        ax.legend(loc = 'upper right')
+        
+        plt.show()
+        fig0.canvas.draw()
+        fig0.canvas.flush_events()
+        
+        carr = {}
+        carr['amp'] = np.sqrt(Q_window_carr[0]**2 + I_window_carr[0]**2)
+        carr['amp_full'] = np.sqrt(Q_full_carr[0]**2 + I_full_carr[0]**2)
+        carr['Ifull'], carr['Qfull'] = I_full_carr[0], Q_full_carr[0] 
+        
+        usb = {}
+        usb['amp'] = np.sqrt(Q_window_usb[0]**2 + I_window_usb[0]**2)
+        usb['amp_full'] = np.sqrt(Q_full_usb[0]**2 + I_full_usb[0]**2)
+        usb['Ifull'], usb['Qfull'] = I_full_usb[0], Q_full_usb[0] 
+        
+        lsb = {}
+        lsb['amp'] = np.sqrt(Q_window_lsb[0]**2 + I_window_lsb[0]**2)
+        lsb['amp_full'] = np.sqrt(Q_full_lsb[0]**2 + I_full_lsb[0]**2)
+        lsb['Ifull'], lsb['Qfull'] = I_full_lsb[0], Q_full_lsb[0] 
+        # carr = {}
+        # carr['amp'] = np.sqrt(Q_window_carr**2 + I_window_carr**2)
+        # carr['amp_full'] = np.sqrt(Q_full_carr**2 + I_full_carr**2)
+        # carr['Ifull'], carr['Qfull'] = I_full_carr, Q_full_carr 
+        
+        # usb = {}
+        # usb['amp'] = np.sqrt(Q_window_usb**2 + I_window_usb**2)
+        # usb['amp_full'] = np.sqrt(Q_full_usb**2 + I_full_usb**2)
+        # usb['Ifull'], usb['Qfull'] = I_full_usb, Q_full_usb 
+        
+        # lsb = {}
+        # lsb['amp'] = np.sqrt(Q_window_lsb**2 + I_window_lsb**2)
+        # lsb['amp_full'] = np.sqrt(Q_full_lsb**2 + I_full_lsb**2)
+        # lsb['Ifull'], lsb['Qfull'] = I_full_lsb, Q_full_lsb 
+        
+        plot_data_extraction_TripleDDC(carr, usb, lsb, I_time_carr, I_time_full_carr)
+        
+    # save data for return
+    carr_data = {}
+    carr_data['I_window'], carr_data['Q_window'], carr_data['I_full'], carr_data['Q_full'] = I_window_carr, Q_window_carr, I_full_carr, Q_full_carr
+    
+    usb_data = {}
+    usb_data['I_window'], usb_data['Q_window'], usb_data['I_full'], usb_data['Q_full'] = I_window_usb, Q_window_usb, I_full_usb, Q_full_usb
+    
+    lsb_data = {}
+    lsb_data['I_window'], lsb_data['Q_window'], lsb_data['I_full'], lsb_data['Q_full'] = I_window_lsb, Q_window_lsb, I_full_lsb, Q_full_lsb
+        
+    return carr_data, usb_data, lsb_data, I_time_full_carr
+            
+def plot_data_extraction_TripleDDC(carr, usb, lsb, time_extract, time_full):
+    
+    carr = {key: value.flatten() for key, value in carr.items()}
+    usb = {key: value.flatten() for key, value in usb.items()}
+    lsb = {key: value.flatten() for key, value in lsb.items()}
+    time_extract = time_extract.flatten()
+    time_full = time_full.flatten()
+    # print(carr)
+
+    fig = plt.figure(991)
+    plt.clf()
+    ax = plt.subplot(2,2,1)
+    plt.plot(time_full*1e6, carr['amp_full'], 'r')
+    plt.plot(time_extract*1e6, carr['amp'],'b')
+    plt.xlabel('Time (us)')
+    plt.title('carrier')
+    #plt.legend()
+    
+    ax = plt.subplot(2,2,2)
+    plt.plot(time_full*1e6, usb['amp_full'], 'r')
+    plt.plot(time_extract*1e6, usb['amp'],'b')
+    plt.xlabel('Time (us)')
+    plt.title('upper sideband')
+    #plt.legend()
+    
+    ax = plt.subplot(2,2,3)
+    plt.plot(time_full*1e6, lsb['amp_full'], 'r')
+    plt.plot(time_extract*1e6, lsb['amp'],'b')
+    plt.xlabel('Time (us)')
+    plt.title('lower sideband')
+    #plt.legend()
+        
+    plt.suptitle('Data window check')
+    plt.show()
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+    fig2 = plt.figure(981)
+    plt.clf()
+    plt.subplot(2,3,1)
+    plt.plot(time_full*1e6, carr['Ifull'], 'b')
+    plt.xlabel('Time (us)')
+    plt.title('carr I')    
+
+    plt.subplot(2,3,2)
+    plt.plot(time_full*1e6, carr['Qfull'], 'r')
+    plt.xlabel('Time (us)')
+    plt.title('carr Q')  
+    
+    plt.subplot(2,3,3)
+    plt.plot(time_full*1e6, usb['Ifull'], 'b')
+    plt.xlabel('Time (us)')
+    plt.title('usb I')    
+
+    plt.subplot(2,3,4)
+    plt.plot(time_full*1e6, usb['Qfull'], 'r')
+    plt.xlabel('Time (us)')
+    plt.title('usb Q') 
+
+    plt.subplot(2,3,5)
+    plt.plot(time_full*1e6, lsb['Ifull'], 'b')
+    plt.xlabel('Time (us)')
+    plt.title('lsb I')    
+
+    plt.subplot(2,3,6)
+    plt.plot(time_full*1e6, lsb['Qfull'], 'r')
+    plt.xlabel('Time (us)')
+    plt.title('lsb Q')     
+
+    plt.suptitle('Single read I and Q')
+    plt.show()
+    fig2.canvas.draw()
+    fig2.canvas.flush_events()     
+    
+
+def plot_data_extraction_2Readouts(carr, sb, time_extract, time_full):
+   
+    fig = plt.figure(992)
+    plt.clf()
+    ax = plt.subplot(1,2,1)
+    plt.plot(time_full*1e6, carr['amp_full'], 'r')
+    plt.plot(time_extract*1e6, carr['amp'],'b')
+    plt.xlabel('Time (us)')
+    plt.title('carrier')
+    
+    ax = plt.subplot(1,2,2)
+    plt.plot(time_full*1e6, sb['amp_full'], 'r')
+    plt.plot(time_extract*1e6, sb['amp'],'b')
+    plt.xlabel('Time (us)')
+    plt.title('sideband')
+          
+    plt.suptitle('Data window check')
+    plt.show()
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+    fig2 = plt.figure(982)
+    plt.clf()
+    plt.subplot(2,2,1)
+    plt.plot(time_full*1e6, carr['Ifull'], 'b')
+    plt.xlabel('Time (us)')
+    plt.title('carr I')    
+
+    plt.subplot(2,2,2)
+    plt.plot(time_full*1e6, carr['Qfull'], 'r')
+    plt.xlabel('Time (us)')
+    plt.title('carr Q')  
+    
+    plt.subplot(2,2,3)
+    plt.plot(time_full*1e6, sb['Ifull'], 'b')
+    plt.xlabel('Time (us)')
+    plt.title('usb I')    
+
+    plt.subplot(2,2,4)
+    plt.plot(time_full*1e6, sb['Qfull'], 'r')
+    plt.xlabel('Time (us)')
+    plt.title('usb Q')    
+
+    plt.suptitle('Single read I and Q')
+    plt.show()
+    fig2.canvas.draw()
+    fig2.canvas.flush_events()    
 
 def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     '''
@@ -567,6 +1574,59 @@ def plot_data_extraction(amp_extract, time_extract, amp_full, time_full, I, Q):
     fig2.canvas.draw()
     fig2.canvas.flush_events()
 
+
+def plot_data_extraction_2meas(amp_extract, time_extract, amp_extract2, time_extract2, amp_full, time_full, I, Q):
+    '''
+    plot_data_extraction _summary_
+
+    :param amp_extract: _description_
+    :type amp_extract: _type_
+    :param time_extract: _description_
+    :type time_extract: _type_
+    :param amp_full: _description_
+    :type amp_full: _type_
+    :param time_full: _description_
+    :type time_full: _type_
+    :param I: _description_
+    :type I: _type_
+    :param Q: _description_
+    :type Q: _type_
+    '''    
+    fig = plt.figure(99)
+    plt.clf()
+    plt.plot(time_full*1e6, amp_full, 'r', label='full')
+    plt.plot(time_extract*1e6, amp_extract,'b', label='first meas')
+    plt.plot(time_extract2*1e6, amp_extract2,'b', label='second meas')
+    plt.xlabel('Time (us)')
+    plt.title('Data window check')
+    plt.show()
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+    fig2 = plt.figure(98)
+    plt.clf()
+    plt.subplot(1,3,1)
+    plt.plot(time_full*1e6, I, 'b')
+    plt.xlabel('Time (us)')
+    plt.title('I')    
+
+    plt.subplot(1,3,2)
+    plt.plot(time_full*1e6, Q, 'r')
+    plt.xlabel('Time (us)')
+    plt.title('Q')    
+
+    plt.subplot(1,3,3)
+    plt.plot(time_full*1e6, I, 'b')
+    plt.plot(time_full*1e6, Q, 'r')
+    plt.xlabel('Time (us)')
+    plt.title('I and Q')    
+
+    plt.suptitle('Single read I and Q')
+    plt.show()
+    fig2.canvas.draw()
+    fig2.canvas.flush_events()
+
+
 def configure_hdawg(hdawg, settings):
     '''
     configure_hdawg _summary_
@@ -580,6 +1640,9 @@ def configure_hdawg(hdawg, settings):
     hdawg_config = settings['hdawg_config']
     amp = hdawg_config['amplitude']
     trigger_slope = hdawg_config['trigger_slope']
+    #########################################
+    # hdawg.settings['System']['referenceClock'] = hdawg_config['referenceSource']
+    ##################################################
     hdawg.AWGs[0].samplerate = hdawg_config['samplerate']
     hdawg.channelgrouping = hdawg_config['channelgrouping']
     hdawg.Channels[0].configureChannel(amp=amp,marker_out='Marker', hold='False')
@@ -649,8 +1712,305 @@ def configure_card(card, settings):
     card.sampleRate     = card_config['sampleRate']
     card.activeChannels = card_config['activeChannels']
     card.triggerSlope   = card_config['triggerSlope']
+    card.clockSource    = card_config['clockSource']
+    card.averages       = exp_settings['averages']
+    card.segments       = exp_settings['segments']
+    card.triggerDelay   = trigger_delay
+    card.samples        = int(meas_samples)
+    card.SetParams()   
+
+
+def configure_card_manualDelay(card, settings):
+    '''
+    WARNING!!!!!!!!!
+    Messing around to manually edit the card buffer delay for PDH stability stuff.
+    DO NOT use this version for normal code
+
+
+    Helper function to configure the card from a set of settings. This will
+    force a standard definition of what the digitizer timing should be. Computes
+    the total acquisition time and converts it to samples (also configures the 
+    rest of the digitizer but this is the main part that requires logic)
+
+    Inputs
+    _______
+
+        settings dictionary with the following keys (should be initialized from
+        the get_default_settings method)
+
+        meas_window: 
+            width of measurment tone
+        meas_pos: 
+            position of measurement tone relative to the rise edge of the trigger
+        emp_delay: 
+            line delay and other delays accumulated between the AWG and the digitizer
+        init_buffer: 
+            buffer to collect data before the pulse
+        post_buffer: 
+            buffer after measurment tone to wait out the ringing before background subtraction
+        averages: 
+            number of averages for the card to perform in HW
+        segments: 
+            number of segments (will be averaged together), useful when number of averages gets very high ~>50e3
+        sampleRate: 
+            sampling rate of digitizer (make this lower for longer acquisitions)
+        activeChannels: 
+            active channels on digitizer (both by default)
+        timeout: 
+            timeout (in s) for VISA communication (make this longer for longer acquisitions)
+        channelRange: 
+            full scale (peak to peak) of each channel, 0.5 or 2.5 V
+
+    '''
+    exp_globals = settings['exp_globals']
+    exp_settings = settings['exp_settings']
+
+    manual_delays = exp_globals['manual_delays']
+    card_delay = manual_delays['card_delay']
+
+    measurement_pulse = exp_globals['measurement_pulse']
+    card_config = exp_globals['card_config']
+
+    #Compute total acquisition time
+    meas_pos    = measurement_pulse['meas_pos']
+    meas_window = measurement_pulse['meas_window']
+    emp_delay   = measurement_pulse['emp_delay']
+    init_buffer = measurement_pulse['init_buffer']
+    post_buffer = measurement_pulse['post_buffer']
+
+    card_time = 2*meas_window + emp_delay + init_buffer + post_buffer
+    meas_samples = card_config['sampleRate']*card_time
+
+    #Compute trigger delay, has to be multiple of 32ns for Acquiris
+    #option to force it to mess up
+    trigger_delay = np.floor((meas_pos - init_buffer + card_delay)/32e-9)*32e-9
+    ##normal formula for the card start time
+    #trigger_delay = np.floor((meas_pos - init_buffer)/32e-9)*32e-9
+    
+    card.channelRange   = card_config['channelRange']
+    card.timeout        = card_config['timeout']
+    card.sampleRate     = card_config['sampleRate']
+    card.activeChannels = card_config['activeChannels']
+    card.triggerSlope   = card_config['triggerSlope']
+    card.clockSource    = card_config['clockSource']
+    card.averages       = exp_settings['averages']
+    card.segments       = exp_settings['segments']
+    card.triggerDelay   = trigger_delay
+    card.samples        = int(meas_samples)
+    card.SetParams() 
+
+
+
+def configure_card_2meas(card, settings):
+    '''
+    Helper function to configure the card from a set of settings. This will
+    force a standard definition of what the digitizer timing should be. Computes
+    the total acquisition time and converts it to samples (also configures the 
+    rest of the digitizer but this is the main part that requires logic)
+
+    Inputs
+    _______
+
+        settings dictionary with the following keys (should be initialized from
+        the get_default_settings method)
+
+        meas_window: 
+            width of measurment tone
+        meas_pos: 
+            position of measurement tone relative to the rise edge of the trigger
+        emp_delay: 
+            line delay and other delays accumulated between the AWG and the digitizer
+        init_buffer: 
+            buffer to collect data before the pulse
+        post_buffer: 
+            buffer after measurment tone to wait out the ringing before background subtraction
+        averages: 
+            number of averages for the card to perform in HW
+        segments: 
+            number of segments (will be averaged together), useful when number of averages gets very high ~>50e3
+        sampleRate: 
+            sampling rate of digitizer (make this lower for longer acquisitions)
+        activeChannels: 
+            active channels on digitizer (both by default)
+        timeout: 
+            timeout (in s) for VISA communication (make this longer for longer acquisitions)
+        channelRange: 
+            full scale (peak to peak) of each channel, 0.5 or 2.5 V
+
+    '''
+    exp_globals = settings['exp_globals']
+    exp_settings = settings['exp_settings']
+
+    measurement_pulse = exp_globals['measurement_pulse']
+    card_config = exp_globals['card_config']
+
+    #Compute total acquisition time
+    meas_pos    = measurement_pulse['meas_pos']
+    meas_window = measurement_pulse['meas_window']
+    emp_delay   = measurement_pulse['emp_delay']
+    emp_delay2  = measurement_pulse['emp_delay2']
+    init_buffer = measurement_pulse['init_buffer']
+    post_buffer = measurement_pulse['post_buffer']
+    cav2_delay  = measurement_pulse['meas2_delay']
+
+    card_time = init_buffer + emp_delay + 2*meas_window + cav2_delay + emp_delay2 + post_buffer
+    meas_samples = card_config['sampleRate']*card_time
+
+    #Compute trigger delay, has to be multiple of 32ns for Acquiris
+    trigger_delay = np.floor((meas_pos - init_buffer)/32e-9)*32e-9
+    
+    card.channelRange   = card_config['channelRange']
+    card.timeout        = card_config['timeout']
+    card.sampleRate     = card_config['sampleRate']
+    card.activeChannels = card_config['activeChannels']
+    card.triggerSlope   = card_config['triggerSlope']
     card.averages       = exp_settings['averages']
     card.segments       = exp_settings['segments']
     card.triggerDelay   = trigger_delay
     card.samples        = int(meas_samples)
     card.SetParams()    
+
+    
+def total_power(power_list_dBm):
+    # calculate the power in mW for each power in power_list_dBm
+    mW_list = [10**(ind/10) for ind in power_list_dBm]
+    # get total power in mW
+    mW_sum = np.sum(mW_list)
+    # convert mW power to dBm
+    dBm = 10*np.log10(mW_sum)
+
+    return dBm
+
+def get_amp_comps(power_list_dBm, gen_dBm):
+    '''
+
+    Parameters
+    ----------
+    power_list_dBm : TYPE
+        DESCRIPTION.
+    gen_dBm : TYPE
+        DESCRIPTION.
+
+    Raises
+    ------
+    ValueError
+        DESCRIPTION.
+
+    Returns
+    -------
+    amp_list : TYPE
+        DESCRIPTION.
+
+    '''
+    # confirm if the sum of the components is less than the generator's
+    gen_dBm = gen_dBm - 6 # this accounts for the signal loss when IQ modulation is turned on. 
+    # need to figure out why the signal loses 6 dBm with IQ modulation
+    
+    total_comp_power = total_power(power_list_dBm)
+    if total_comp_power > gen_dBm:
+        raise ValueError('Sum of the components is greater than the available power. Use different combinations.')
+    else:
+        # calculate the corresponding power factor for each component
+        power_factor = [10**(0.1*(pind - gen_dBm)) for pind in power_list_dBm]
+        # now calculate the amplitudes list
+        amp_list = [np.round(np.sqrt(ind),3) for ind in power_factor]
+
+    return amp_list
+
+def read_and_process_2Readouts_segments(card, settings, plot, IQstorage = True):
+
+    card.ArmAndWait()
+    I, Q = card.ReadAllData()
+    Ip = I 
+    Qp = Q 
+    
+    
+    mixer_config = settings['exp_globals']['mixer_config']
+    Ipp, Qpp = remove_IQ_ellipse(Ip, Qp, mixer_config)
+    xaxis = np.linspace(0, card.samples, card.samples, endpoint=False)/card.sampleRate
+    
+    # Get IQ for the carrier
+    digLO_sin_carr, digLO_cos_carr = settings['digLO_sin_carr'], settings['digLO_cos_carr']
+    Idata = {}
+    Idata['filtered_cos'], Idata['filtered_sin'], Idata['data_x'], Idata['filtered_cos_full'], Idata['filtered_sin_full'], Idata['xaxis'] = extract_data_heterodyne2_segments(Ipp, xaxis, settings, digLO_sin_carr, digLO_cos_carr)
+    
+    Qdata = {}
+    Qdata['filtered_cos'], Qdata['filtered_sin'], Qdata['data_x'], Qdata['filtered_cos_full'], Qdata['filtered_sin_full'], Qdata['xaxis'] = extract_data_heterodyne2_segments(Qpp, xaxis, settings, digLO_sin_carr, digLO_cos_carr)
+ 
+    I_window_carr, Q_window_carr, I_time_carr, I_full_carr, Q_full_carr, I_time_full_carr = extract_finalIQ(Idata, Qdata)
+    
+    # Get IQ for the off resonant tone
+    digLO_sin_sb, digLO_cos_sb = settings['digLO_sin_sb'], settings['digLO_cos_sb']
+    Idata = {}
+    Idata['filtered_cos'], Idata['filtered_sin'], Idata['data_x'], Idata['filtered_cos_full'], Idata['filtered_sin_full'], Idata['xaxis'] = extract_data_heterodyne2_segments(Ipp, xaxis, settings, digLO_sin_sb, digLO_cos_sb)
+    
+    Qdata = {}
+    Qdata['filtered_cos'], Qdata['filtered_sin'], Qdata['data_x'], Qdata['filtered_cos_full'], Qdata['filtered_sin_full'], Qdata['xaxis'] = extract_data_heterodyne2_segments(Qpp, xaxis, settings, digLO_sin_sb, digLO_cos_sb)
+ 
+    I_window_sb, Q_window_sb, I_time_sb, I_full_sb, Q_full_sb, I_time_full_sb = extract_finalIQ(Idata, Qdata)
+    
+
+    ### For debugging - plot fft of Ip and Qp 
+    fft_mag_Ip = np.abs(np.fft.fft(Ip[0]))
+    fft_freq_Ip = np.fft.fftfreq(len(Ip[0]),1/card.sampleRate)
+    
+    fft_mag_Qp = np.abs(np.fft.fft(Qp[0]))
+    fft_freq_Qp = np.fft.fftfreq(len(Qp[0]),1/card.sampleRate)
+    
+    if plot:
+        fig0 = plt.figure(972)
+        plt.clf()
+        ax = plt.subplot(2,2,1)
+        plt.plot(xaxis*1e6, Ip[0], label = 'raw V1')
+        plt.plot(xaxis*1e6, Qp[0], label = 'raw V2')
+        plt.xlabel('Time (us)')
+        plt.ylabel('Voltage')
+        plt.title('Card Voltages')
+        ax.legend(loc = 'upper right')
+        
+        ax = plt.subplot(2,2,2)
+        plt.plot(xaxis*1e6, np.sqrt(Ip[0]**2 + Qp[0]**2), label = 'crude amplitude')
+        plt.plot(xaxis*1e6, np.sqrt(Ipp[0]**2 + Qpp[0]**2), label = 'mixer corrected')
+        plt.xlabel('Time (us)')
+        plt.ylabel('Voltage')
+        plt.title('Rough Pulse Amplitude')
+        ax.legend(loc = 'upper right')
+        
+        ax = plt.subplot(2,2,3)
+        plt.plot(fft_freq_Ip[:len(fft_freq_Ip)//2]/1e6, np.log10(fft_mag_Ip[:len(fft_mag_Ip)//2]), label='raw_I')
+        plt.xlabel("Freq (MHz)")
+        plt.xlim(0,50)
+        plt.title('FFT for raw V1')
+        ax.legend(loc = 'upper right')
+        
+        ax = plt.subplot(2,2,4)
+        plt.plot(fft_freq_Qp[:len(fft_freq_Qp)//2]/1e6, np.log10(fft_mag_Qp[:len(fft_mag_Qp)//2]), label='raw_Q')
+        plt.xlabel("Freq (MHz)")
+        plt.xlim(0,50)
+        plt.title('FFT for raw V2')
+        ax.legend(loc = 'upper right')
+        
+        plt.show()
+        fig0.canvas.draw()
+        fig0.canvas.flush_events()
+        
+        carr = {}
+        carr['amp'] = np.sqrt(Q_window_carr[0]**2 + I_window_carr[0]**2)
+        carr['amp_full'] = np.sqrt(Q_full_carr[0]**2 + I_full_carr[0]**2)
+        carr['Ifull'], carr['Qfull'] = I_full_carr[0], Q_full_carr[0] 
+        
+        sb = {}
+        sb['amp'] = np.sqrt(Q_window_sb[0]**2 + I_window_sb[0]**2)
+        sb['amp_full'] = np.sqrt(Q_full_sb[0]**2 + I_full_sb[0]**2)
+        sb['Ifull'], sb['Qfull'] = I_full_sb[0], Q_full_sb[0] 
+        
+        plot_data_extraction_2Readouts(carr, sb, I_time_carr, I_time_full_carr)
+        
+    # save data for return
+    carr_data = {}
+    carr_data['I_window'], carr_data['Q_window'], carr_data['I_full'], carr_data['Q_full'] = I_window_carr, Q_window_carr, I_full_carr, Q_full_carr
+    
+    sb_data = {}
+    sb_data['I_window'], sb_data['Q_window'], sb_data['I_full'], sb_data['Q_full'] = I_window_sb, Q_window_sb, I_full_sb, Q_full_sb
+        
+    return carr_data, sb_data, I_time_full_carr

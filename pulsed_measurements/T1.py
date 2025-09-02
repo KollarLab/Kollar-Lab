@@ -100,7 +100,7 @@ def meas_T1(instruments, settings):
     ## Configure HDAWG
 #    configure_hdawg(hdawg, settings)
     
-    progFile = open(r"C:\Users\kollarlab\Documents\GitHub\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -191,7 +191,7 @@ def meas_T1(instruments, settings):
         qubit_I.add_pulse('gaussian_square', position=position-tau, 
                           amplitude=q_pulse['piAmp'], length = q_pulse['hold_time'], 
                           ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
-        qubit_marker.add_window(position-tau-150e-9, position-tau+150e-9)
+        qubit_marker.add_window(position-tau-250e-9, position-tau+150e-9)
         awg_sched.plot_waveforms()
         
 #        ###hack for drainage T1

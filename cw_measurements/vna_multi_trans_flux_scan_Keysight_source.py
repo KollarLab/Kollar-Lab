@@ -74,9 +74,6 @@ def multi_trans_flux_scan(instruments, settings):
     CAV_Attenuation = exp_globals['CAV_Attenuation']
     
     #Make array of fluxes
-
-
-
     flux_start = exp_settings['flux_start']
     flux_stop  = exp_settings['flux_stop']
     flux_pts   = exp_settings['flux_pts']

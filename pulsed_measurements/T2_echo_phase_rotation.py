@@ -105,7 +105,7 @@ def meas_T2_phase_rotation(instruments, settings):
     ## Configure HDAWG
 #    configure_hdawg(hdawg, settings)
     
-    progFile = open(r"C:\Users\kollarlab\Documents\GitHub\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
+    progFile = open(r"C:\Users\Kollarlab\Desktop\Kollar-Lab\pulsed_measurements\HDAWG_sequencer_codes\hdawg_placeholder.cpp",'r')
     rawprog  = progFile.read()
     loadprog = rawprog
     progFile.close()
@@ -196,7 +196,7 @@ def meas_T2_phase_rotation(instruments, settings):
         t_reset_t = time.time()
         t_reset = t_reset_t-t_loop_start
         position = start_time-delay-num_sigma*sigma
-        qubit_time = num_sigma*sigma
+        qubit_time = num_sigma*sigma + q_pulse['hold_time']
         
         #the main pulses    
         qubit_I.add_pulse('gaussian_square', position=position-tau-hold_time, 
@@ -236,8 +236,8 @@ def meas_T2_phase_rotation(instruments, settings):
             raise ValueError('Invalid T2_mode')
             
         
-        qubit_marker.add_window(position-tau, position-tau+qubit_time)
-        qubit_marker.add_window(position, position+qubit_time)
+        qubit_marker.add_window(position-tau-qubit_time, position-tau)
+        qubit_marker.add_window(position-qubit_time, position)
         # qubit_marker.add_window(position-tau, start_time)
         
         if exp_settings['pulse_count'] > 0:
