@@ -105,9 +105,9 @@ def vna_spec_flux_scan(instruments, settings):
     Qbit_Attenuation = exp_globals['Qbit_Attenuation']
 
     #Make array of fluxes
-    flux_start = exp_settings['flux_start']
-    flux_stop  = exp_settings['flux_stop']
-    flux_pts   = exp_settings['flux_pts']
+    flux_start = exp_settings['spec']['flux_start']
+    flux_stop  = exp_settings['spec']['flux_stop']
+    flux_pts   = exp_settings['spec']['flux_pts']
     flux_holder = []
 
     for iind in range(2):
@@ -129,7 +129,7 @@ def vna_spec_flux_scan(instruments, settings):
         intermediate_fluxes = full_fluxes[i] - flux_offsets
         full_voltages[i] = f2v@intermediate_fluxes
 
-    qubit_num = exp_settings['qubit_num']
+    qubit_num = exp_settings['spec']['qubit_num']
 
     if qubit_num:
         fluxes = np.transpose(full_fluxes)[qubit_num-1]
@@ -185,13 +185,13 @@ def vna_spec_flux_scan(instruments, settings):
         back_data = vna.trans_meas(back_settings)
         
     for vind in range(len(full_voltages)):
-        Dual_gen.Ch1_dc_voltage_ramp(-np.round(full_voltages[vind][0], 4))
+        Dual_gen.Ch1_dc_voltage_ramp(-np.round(full_voltages[vind][0], 4)) #minus sign here is because FBL_1 has the opposite polarity with the magnet and FBL_2
         Dual_gen.Ch2_dc_voltage_ramp(np.round(full_voltages[vind][1], 4))
         time.sleep(0.1)
 
         if vind == 0:
-            print('Voltage {}: initial {}, final {}'.format(str(1),-np.round(full_voltages[vind][0], 4),-np.round(full_voltages[-1][0], 4)))
-            print('Voltage {}: initial {}, final {}'.format(str(2),np.round(full_voltages[vind][1], 4),np.round(full_voltages[-1][1], 4)))
+            print('Voltage {}: initial {} V, final {} V'.format(str(1),-np.round(full_voltages[vind][0], 4),-np.round(full_voltages[-1][0], 4)))
+            print('Voltage {}: initial {} V, final {} V'.format(str(2),np.round(full_voltages[vind][1], 4),np.round(full_voltages[-1][1], 4)))
 
         print('')
         print('Progress: ' + str(vind+1) + '/' + str(len(full_voltages)))                            
@@ -273,7 +273,7 @@ def vna_spec_flux_scan(instruments, settings):
         
         plots.autoscan_plot(transdata, specplotdata, singledata, fluxes[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
             
-        userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'full_fluxes', 'fluxes' 
+        userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'full_fluxes', 'fluxes',
                                        'filename', 'trans_labels', 'spec_labels'], 
                                        locals(), expsettings=settings, instruments=instruments)
         plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
@@ -288,7 +288,7 @@ def vna_spec_flux_scan(instruments, settings):
     Dual_gen.Ch1_output = 0
     Dual_gen.Ch2_output = 0
     
-    data = {'saveDir': saveDir, 'filename': filename, 'transdata':transdata, 'specdata':specdata, 'voltages':voltages}
+    data = {'saveDir': saveDir, 'filename': filename, 'transdata':transdata, 'specdata':specdata, 'full_voltages':full_voltages}
 
     return data
 
