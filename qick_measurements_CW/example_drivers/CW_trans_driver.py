@@ -9,15 +9,15 @@ from qick_measurements_CW.CW_trans import get_CW_trans_settings, CW_trans
 
 settings = get_CW_trans_settings()
 instruments = {}
-settings['scanname']  = 'E_Delay_Calibration_Check2'
+settings['scanname']  = 'cavity_at_800_gain'
  
-cav_center = 8.069e9#7.230796e9#4.389545e9 + 1e6 #7.08979e9 #7.1995e9 #7.19962e9 #q2 7.11736e9 #q3 7.1409e9
-span = 5e6
+cav_center = 6.52424e9#7.230796e9#4.389545e9 + 1e6 #7.08979e9 #7.1995e9 #7.19962e9 #q2 7.11736e9 #q3 7.1409e9
+span = 15e6
 freq_points = 801
 
 
-settings['gain_start']     = 15000#8000 #7000
-settings['gain_step']      = 12000
+settings['gain_start']     = 800#8000 #7000
+settings['gain_step']      = 300
 settings['gain_points']    = 1
 
 

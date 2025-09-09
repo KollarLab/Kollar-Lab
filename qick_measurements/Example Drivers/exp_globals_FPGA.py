@@ -16,8 +16,8 @@ exp_globals['ro_channels']   = [0]
 # exp_globals['device_name'] = 'Loopback'
 
 exp_globals['root_folder'] = r'Z:\Data'
-exp_globals['project_name'] = 'Topological_Pumping'
-exp_globals['device_name'] = 'Topo_pumping_V3_0'
+exp_globals['project_name'] = 'Hot_Qubits'
+exp_globals['device_name'] = 'TXQ_v1'
 
 #HW config (this currently does NOTHING)
 #exp_globals['CAV_Attenuation']  = 0
