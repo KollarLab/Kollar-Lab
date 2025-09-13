@@ -180,9 +180,11 @@ def hold_time_sweep(instruments, settings):
         qubit_marker.reset()
         
         position = start_time-delay-num_sigma*sigma
+        qubit_time = num_sigma*sigma + tau
+    
         
         #normal T1
-        qubit_I.add_pulse('gaussian_square', position=position-tau, 
+        qubit_I.add_pulse('gaussian_square', position=position-qubit_time, 
                           amplitude=q_pulse['piAmp'], length = tau, 
                           ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
         if exp_settings['DRAG']:
@@ -190,7 +192,7 @@ def hold_time_sweep(instruments, settings):
             dI = np.diff(I_vals)*2.4e9/200e6
             qubit_Q.wave_array[:-1] = 0.25*dI
             
-        qubit_marker.add_window(position-tau-150e-9, position+num_sigma*sigma+150e-9)
+        qubit_marker.add_window(position-qubit_time-10e-9, position+10e-9) #to fully include the qubit pulse
         awg_sched.plot_waveforms()
         
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])

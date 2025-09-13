@@ -186,18 +186,19 @@ def meas_T1(instruments, settings):
         qubit_marker.reset()
         
         position = start_time-delay-num_sigma*sigma
+        qubit_time = num_sigma*sigma + q_pulse['hold_time']
+
         
         #normal T1
-        qubit_I.add_pulse('gaussian_square', position=position-tau, 
-                          amplitude=q_pulse['piAmp'], length = q_pulse['hold_time'], 
-                          ramp_sigma=q_pulse['sigma'], num_sigma=q_pulse['num_sigma'])
-        qubit_marker.add_window(position-tau-250e-9, position-tau+150e-9)
+        qubit_I.add_pulse('gaussian_square', position=position-tau-qubit_time, 
+                          amplitude=q_pulse['piAmp'], 
+                          length = q_pulse['hold_time'], 
+                          ramp_sigma=q_pulse['sigma'], 
+                          num_sigma=q_pulse['num_sigma'])
+        qubit_marker.add_window(position-tau-qubit_time-10e-9, position-tau+10e-9) # to fully include the qubit pulse
         awg_sched.plot_waveforms()
         
-#        ###hack for drainage T1
-#        qubit_I.add_pulse('gaussian_square', position=1e-6, length = (position-1e-6 -tau), amplitude=q_pulse['piAmp'], ramp_sigma=1e-9, num_sigma=2)
-#        qubit_marker.add_window(0, position-tau)
-#        awg_sched.plot_waveforms()
+
         
         [ch1, ch2, marker] = awg_sched.compile_schedule('HDAWG', ['Qubit_I', 'Qubit_Q'], ['Qubit_enable', 'Cavity_enable'])
         

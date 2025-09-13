@@ -121,7 +121,7 @@ def meas_T2_phase_rotation(instruments, settings):
     awg_sched.add_analog_channel(1, name='Qubit_I')
     awg_sched.add_analog_channel(2, name='Qubit_Q')
     
-    awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=50e-9, HW_offset_off=50e-9)
+    awg_sched.add_digital_channel(1, name='Qubit_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
     awg_sched.add_digital_channel(2, name='Cavity_enable', polarity='Pos', HW_offset_on=0, HW_offset_off=0)
     
     loadprog = loadprog.replace('_samples_', str(awg_sched.samples))
@@ -198,8 +198,15 @@ def meas_T2_phase_rotation(instruments, settings):
         position = start_time-delay-num_sigma*sigma
         qubit_time = num_sigma*sigma + q_pulse['hold_time']
         
+        if qubit_time >= np.min(taus):
+            print('qubit_time is longer than tau_min')
+            print('Two qubit pulses will overlap!')
+            print('qubit_time = ' + str(qubit_time))
+            
+            break
+        
         #the main pulses    
-        qubit_I.add_pulse('gaussian_square', position=position-tau-hold_time, 
+        qubit_I.add_pulse('gaussian_square', position=position-tau-qubit_time, 
                           amplitude=q_pulse['piAmp']/2,
                           length = hold_time,
                           ramp_sigma=q_pulse['sigma'], 
@@ -207,13 +214,13 @@ def meas_T2_phase_rotation(instruments, settings):
 
         if exp_settings['T2_mode'] == 'detuning':
             if exp_settings['basis'] =='X':
-                qubit_I.add_pulse('gaussian_square', position=position-hold_time, 
+                qubit_I.add_pulse('gaussian_square', position=position-qubit_time, 
                                   amplitude=q_pulse['piAmp']/2,
                                   length = hold_time,
                                   ramp_sigma=q_pulse['sigma'], 
                                   num_sigma=q_pulse['num_sigma'])
             elif exp_settings['basis'] =='Y':
-                qubit_Q.add_pulse('gaussian_square', position=position-hold_time, 
+                qubit_Q.add_pulse('gaussian_square', position=position-qubit_time, 
                                   amplitude=q_pulse['piAmp']/2,
                                   length = hold_time,
                                   ramp_sigma=q_pulse['sigma'], 
@@ -222,12 +229,12 @@ def meas_T2_phase_rotation(instruments, settings):
                 print(exp_settings['basis'])
                 print('Invalid basis selected for second pulse ("X" or "Y")')
         elif exp_settings['T2_mode'] == 'phase_rotation':
-            qubit_I.add_pulse('gaussian_square', position=position-hold_time,
+            qubit_I.add_pulse('gaussian_square', position=position-qubit_time,
                               length = hold_time,
                               amplitude= np.cos(2*np.pi * tau* exp_settings['phase_rotation_f'])*q_pulse['piAmp']/2, 
                               ramp_sigma=q_pulse['sigma'], 
                               num_sigma=q_pulse['num_sigma'])
-            qubit_Q.add_pulse('gaussian_square', position=position-hold_time, 
+            qubit_Q.add_pulse('gaussian_square', position=position-qubit_time, 
                               length = hold_time, 
                               amplitude= np.sin(2*np.pi * tau* exp_settings['phase_rotation_f'])*q_pulse['piAmp']/2, 
                               ramp_sigma=q_pulse['sigma'], 
@@ -236,9 +243,9 @@ def meas_T2_phase_rotation(instruments, settings):
             raise ValueError('Invalid T2_mode')
             
         
-        qubit_marker.add_window(position-tau-qubit_time, position-tau)
-        qubit_marker.add_window(position-qubit_time, position)
-        # qubit_marker.add_window(position-tau, start_time)
+        qubit_marker.add_window(position-tau-qubit_time-10e-9, position-tau+10e-9) # the extra 10e-9 is to include the qubit pulse fully
+        qubit_marker.add_window(position-qubit_time-10e-9, position+10e-9) # same here
+        
         
         if exp_settings['pulse_count'] > 0:
             numPulses = exp_settings['pulse_count']
@@ -246,13 +253,22 @@ def meas_T2_phase_rotation(instruments, settings):
             temp = np.linspace(0,tau, numPulses + 2)
             pulseTimes = CPMG_times#temp[1:-1]
             
+            if position-qubit_time - (position-tau) <= qubit_time:
+                print('qubit_time is longer than pulse separation')
+                print('Qubit pulses will overlap!')
+                print('qubit_time = ' + str(qubit_time))
+                print('Separation = ' + str(tau-qubit_time))
+            
+                break
+            
             for tp in pulseTimes:
-                qubit_I.add_pulse('gaussian_square', position=position-tp-hold_time, 
+                qubit_I.add_pulse('gaussian_square', position=position-tp-qubit_time, 
                                   length = hold_time,
                                   amplitude=q_pulse['piAmp'], 
                                   ramp_sigma=q_pulse['sigma'], 
                                   num_sigma=q_pulse['num_sigma'])
-                qubit_marker.add_window(position-tp, position-tp+qubit_time)
+                qubit_marker.add_window(position-tp-qubit_time-10e-9, position-tp+10e-9) # same here for including the qubit pulses
+                print('Separation = ' + str(tau-qubit_time))
       
         t_pulse_gen_t = time.time()
         t_pulse_gen = t_pulse_gen_t-t_reset_t

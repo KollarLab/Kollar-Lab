@@ -188,7 +188,7 @@ def extract_data_heterodyne(raw_data, xaxis, settings):
     timestep   = xaxis[1] - xaxis[0]
     data_start = int((init_buffer + emp_delay)/timestep)
     back_start = int((init_buffer + emp_delay + meas_window + post_buffer)/timestep)
-    window_width = int(meas_window/timestep)
+    window_width = int(meas_window/timestep*0.8) # to avoid filter edge effect
     
     data_x = xaxis[data_start:data_start+window_width]
     background = raw_data[back_start:back_start+window_width]
