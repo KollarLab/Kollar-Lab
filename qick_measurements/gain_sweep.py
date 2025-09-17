@@ -125,12 +125,12 @@ def gain_sweep(soc,soccfg,instruments,settings):
     
     soc.reset_gens()
     
-    lo_freq = exp_globals["LO_freq"]
+    lo_freq = exp_globals["LO_freq"]*exp_globals['LO']
     
     if False:
     #if exp_globals['LO']:
         logen = instruments['LO']
-        lo_freq = exp_globals['LO_freq']
+        lo_freq = exp_globals['LO_freq']*exp_globals['LO']
         logen.freq   = lo_freq
         logen.power  = exp_globals['LO_power']
         logen.output = 1

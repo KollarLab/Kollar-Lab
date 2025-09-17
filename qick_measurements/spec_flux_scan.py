@@ -190,7 +190,7 @@ def spec_flux_scan(soc,soccfg,instruments,settings):
 
     soc.reset_gens()
     
-    lo_freq = exp_globals["LO_freq"] #This is for if we're using a SignalCore for upconversion, in globals this is set to 0 GHz so not a problem
+    lo_freq = exp_globals["LO_freq"]*exp_globals['LO'] #This is for if we're using a SignalCore for upconversion, in globals this is set to 0 GHz so not a problem
     
 
     stamp    = userfuncs.timestamp()

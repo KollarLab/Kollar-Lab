@@ -135,7 +135,7 @@ def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
         config["meas_gain"] = gpts[g] 
         
         for f in range(0,len(fpts)): # Loop through freq values
-            board_freq = (fpts[f] - exp_globals['LO_freq'])/1e6
+            board_freq = (fpts[f] - exp_globals['LO_freq']*exp_globals['LO'])/1e6
             config["cav_freq"] = board_freq
             config['cav_phase'] = phases[f] # Current solution for the phase wrapping
             prog = CavitySweep(soccfg,config)

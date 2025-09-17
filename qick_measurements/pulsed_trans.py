@@ -141,11 +141,13 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         Qs  = np.zeros((len(fpts), total_samples))
         
         for f in range(0,len(fpts)):
-            board_freq = (fpts[f] - exp_globals['LO_freq'])/1e6
+            board_freq = (fpts[f] - exp_globals['LO_freq']*exp_globals['LO'])/1e6
             config["cav_freq"] = board_freq
             prog = CavitySweep(soccfg,config)
             #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
             holder = prog.acquire_decimated(soc, load_pulses=True, progress=False)
+            
+            
             I_full = holder[0][0]
             Q_full = holder[0][1]
             I_window = I_full[meas_start:meas_end]

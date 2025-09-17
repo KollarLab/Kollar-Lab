@@ -216,7 +216,7 @@ def meas_T1(soc,soccfg,instruments,settings):
         'meas_window'     : m_pulse['meas_window'],
         'meas_time'       : m_pulse['meas_pos'],
         'meas_gain'       : exp_settings['meas_gain'],
-        'cav_freq'        : (exp_settings['cav_freq']-exp_globals['LO_freq'])/1e6,
+        'cav_freq'        : (exp_settings['cav_freq']-exp_globals['LO_freq']*exp_globals['LO'])/1e6,
         
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
