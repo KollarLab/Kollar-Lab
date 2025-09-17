@@ -205,6 +205,7 @@ def cw_spec(soc,soccfg,instruments,settings):
         for f in range(0,len(fpts)):
             
             config["qub_freq"]=fpts[f]/1e6 # convert to MHz
+            #print(config)
             prog = CW_spec(soccfg, config)
             trans_I, trans_Q = prog.acquire(soc,progress=False)
             soc.reset_gens()
