@@ -112,6 +112,7 @@ def pulsed_trans(instruments, settings):
     hdawg.AWGs[0].load_program(loadprog)
     hdawg.AWGs[0].load_waveform('0', ch1, ch2, marker)
     hdawg.AWGs[0].run_loop()
+    # hdawg.AWGs[1].run_loop()
     time.sleep(0.1)
     
     ##create the digital down conversion filter if needed.

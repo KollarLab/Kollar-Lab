@@ -195,19 +195,21 @@ def meas_T2_phase_rotation(instruments, settings):
         qubit_marker.reset()
         t_reset_t = time.time()
         t_reset = t_reset_t-t_loop_start
-        position = start_time-delay-num_sigma*sigma
+        position = start_time-delay
         qubit_time = num_sigma*sigma + q_pulse['hold_time']
         
-        if qubit_time >= np.min(taus):
-            print('qubit_time is longer than tau_min')
-            print('Two qubit pulses will overlap!')
-            print('qubit_time = ' + str(qubit_time))
-            
-            break
+# =============================================================================
+#         if qubit_time >= np.min(taus):
+#             print('qubit_time is longer than tau_min')
+#             print('Two qubit pulses will overlap!')
+#             print('qubit_time = ' + str(qubit_time))
+#             
+#             break
+# =============================================================================
         
         #the main pulses    
-        qubit_I.add_pulse('gaussian_square', position=position-tau-qubit_time, 
-                          amplitude=q_pulse['piAmp']/2,
+        qubit_I.add_pulse('gaussian_square', position=position-tau-2*qubit_time, #this factor of 2 is to make sure the separation between the end of this pulse
+                          amplitude=q_pulse['piAmp']/2,                          #and the beginning of 2nd pulse is tau.
                           length = hold_time,
                           ramp_sigma=q_pulse['sigma'], 
                           num_sigma=q_pulse['num_sigma'])
@@ -228,6 +230,7 @@ def meas_T2_phase_rotation(instruments, settings):
             else:
                 print(exp_settings['basis'])
                 print('Invalid basis selected for second pulse ("X" or "Y")')
+                
         elif exp_settings['T2_mode'] == 'phase_rotation':
             qubit_I.add_pulse('gaussian_square', position=position-qubit_time,
                               length = hold_time,
@@ -243,9 +246,9 @@ def meas_T2_phase_rotation(instruments, settings):
             raise ValueError('Invalid T2_mode')
             
         
-        qubit_marker.add_window(position-tau-qubit_time-10e-9, position-tau+10e-9) # the extra 10e-9 is to include the qubit pulse fully
-        qubit_marker.add_window(position-qubit_time-10e-9, position+10e-9) # same here
-        
+        qubit_marker.add_window(position-tau-2*qubit_time-250e-9, position-tau-qubit_time+250e-9) # the extra 250e-9 is to include the qubit pulse fully
+        qubit_marker.add_window(position-qubit_time-250e-9, position+250e-9) # same here
+        #qubit_marker.add_window(position-tau-2*qubit_time-250e-9, position+250e-9) # this is a temporary solution just to check if the marker
         
         if exp_settings['pulse_count'] > 0:
             numPulses = exp_settings['pulse_count']
@@ -253,11 +256,11 @@ def meas_T2_phase_rotation(instruments, settings):
             temp = np.linspace(0,tau, numPulses + 2)
             pulseTimes = CPMG_times#temp[1:-1]
             
-            if position-qubit_time - (position-tau) <= qubit_time:
-                print('qubit_time is longer than pulse separation')
+            if tau <= qubit_time:
+                print('qubit_time is longer than pulse separation tau')
                 print('Qubit pulses will overlap!')
                 print('qubit_time = ' + str(qubit_time))
-                print('Separation = ' + str(tau-qubit_time))
+                print('Separation = ' + str(tau))
             
                 break
             
@@ -439,3 +442,7 @@ def meas_T2_phase_rotation(instruments, settings):
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
     return T2, freq, taus, amp_int, time_array, [t_pulse_array, save_plot]
+
+
+
+
