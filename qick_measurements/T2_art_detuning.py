@@ -45,16 +45,16 @@ class T2_sequence(AveragerProgram):
         self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
         
         freq_q  = self.freq2reg(cfg["qub_freq"],gen_ch=qub_ch)
-        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=qub_ch)
+        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=gen_ch)
         gain_q  = cfg["qub_gain"]
         
-        self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
+        self.default_pulse_registers(ch=qub_ch, freq=freq_q, gain=gain_q)
         
         sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch)
         num_sigma = cfg["num_sigma"]
         
         self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma),maxv=int(self.soccfg['gens'][qub_ch]['maxv']/2))        
-        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex")
+        self.set_pulse_registers(ch=qub_ch, phase=phase_q, style="arb", waveform="ex")
 
         
         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
@@ -80,9 +80,17 @@ class T2_sequence(AveragerProgram):
         self.trigger(adcs=self.ro_chs,
                     pins=[0],
                     adc_trig_offset=offset)
-        
+        ####THIS DOES NOT WORK AT ALL
+        #calculate phase for the ramsey
+        gen_ch = self.cfg["cav_channel"]
+        qub_ch = self.cfg["qub_channel"]
+        phase_q = self.deg2reg(self.cfg["qub_phase"], gen_ch=qub_ch)
+        detuned_phase = self.cfg['qub_delay_t2'] * (self.cfg["qub_freq"]+self.cfg['artificial_detuning']) + phase_q
+        reg_ch = self.deg2reg(detuned_phase, gen_ch=qub_ch)
         #Sends measurement pulse
         self.pulse(ch=self.cfg["qub_channel"],t=ex_time_t2)
+        #update phase for ramsey
+        self.set_pulse_registers(ch=self.cfg["qub_channel"], phase = reg_ch, style="arb", waveform="ex")
         self.pulse(ch=self.cfg["qub_channel"],t=ex_time_fixed)
         self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
         self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
@@ -195,6 +203,7 @@ def meas_T2(soc,soccfg,instruments,settings):
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
         'qub_freq'        : (exp_settings['qub_freq']+exp_settings['detuning'])/1e6,
+        'artificial_detuning' : exp_settings['artificial_detuning']/1e6,
         'qub_gain'        : exp_settings['qub_gain'],
         'qub_sigma'       : q_pulse['sigma'],
         'qub_delay_fixed' : q_pulse['delay'],
