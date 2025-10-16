@@ -74,7 +74,7 @@ class T1_sequence(AveragerProgram):
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
         if self.cfg["phase_reset"]:
-            self.reset_phase(gen_ch = [self.cfg['cav_channel'], self.cfg['qub_channel']], t=0)
+            self.reset_phase(gen_ch = [self.cfg['qub_channel']], t=0)
         else:
             pass
         

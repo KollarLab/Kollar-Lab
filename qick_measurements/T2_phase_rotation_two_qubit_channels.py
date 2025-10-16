@@ -87,10 +87,12 @@ class T2_sequence(AveragerProgram):
         qub_ch_D1  = cfg["qub_channel_D1"]
         qub_ch_D2  = cfg["qub_channel_D2"]
 
+
         if cfg["phase_reset"]:
-            self.reset_phase(gen_ch = [cav_ch, qub_ch_D1, qub_ch_D2], t=0)
+            self.reset_phase(gen_ch = [qub_ch_D1, qub_ch_D2], t=0)
         else:
             pass
+
         
         # Choose which channel is pulse 1 and pulse 2
         order = cfg["pulse_order"]  # tuple/list like ("D1","D2"), ("D1","D1"), ("D2","D1")
@@ -115,28 +117,63 @@ class T2_sequence(AveragerProgram):
         base1_reg = self.deg2reg(base_phase_deg[order[0]], gen_ch=ch1)
         base2_reg = self.deg2reg(base_phase_deg[order[1]], gen_ch=ch2)
         
-        # Timing – 2nd pulse starts immediately after 1st ends (plus optional tiny gap)
+        # Measurement Timing
         offset    = self.us2cycles(cfg["adc_trig_offset"], gen_ch=cav_ch)
         meas_time = self.us2cycles(cfg["meas_time"],       gen_ch=cav_ch)
+        
 
         # Place the 2nd pulse at a fixed offset before measurement; 1st is placed len1 (+ gap) earlier.
         gap   = cfg.get("gap", 0.0)  # default 0 us
-        gap_cyc  = self.us2cycles(gap, gen_ch=ch2)
+        gap_cyc  = self.us2cycles(gap, gen_ch=ch1)
 
-        # end time of 2nd pulse is at (meas_time - qub_delay_fixed), like before
-        # we schedule by start times:
+        # schedule by start times:
         t2_start = meas_time - self.us2cycles(cfg["qub_delay_fixed"], gen_ch=ch2) - len_cyc[order[1]]
-        t1_start = t2_start - gap_cyc - len_cyc[order[0]]  # immediate: gap_cyc=0 -> adjacent pulses
+        
+        # Two sweep modes:
+        mode = cfg.get("sweep_mode")
+        
+        if mode == 'phase':
+            # 1st pulse immediately before 2nd plus optional gap
+            #t1_start = t2_start - gap_cyc - len_cyc[order[0]]  # immediate: gap_cyc=0 -> adjacent pulses
+            t1_start = t2_start - gap_cyc
 
-        # Phase rotation for 2nd pulse: φ 
-        phase2_deg  = float(cfg.get("phase2_deg", 0.0))  # degrees, set per sweep point
-        phase2_reg  = self.deg2reg(phase2_deg, gen_ch=ch2)
+            # Phase rotation for 2nd pulse: φ 
+            phase2_deg  = float(cfg.get("phase2_deg", 0.0))  # degrees, set per sweep point
+            phase2_reg  = self.deg2reg(phase2_deg, gen_ch=ch2)
+            
+        elif mode == 'interval':
+            # Sweep the interval between the STARTS of pulse 1 and pulse 2.
+            # tau is in microseconds; we translate to cycles and shift pulse 1 back.
+            tau_us   = float(cfg.get("tau_us", 0.0))               ### NEW/CHANGED
+            tau_cyc  = self.us2cycles(tau_us, gen_ch=ch1)
+            t1_start = t2_start - tau_cyc
+            
+            # Allow a fixed user-set extra phase on pulse #2 (deg -> reg)
+            phase2_deg = float(cfg.get("phase2_deg", 0.0))
+            phase2_reg = self.deg2reg(phase2_deg, gen_ch=ch2)
+            
+        else:
+            raise ValueError(f"Unsupported sweep_mode: {mode}")
 
 
         #Sets off the ADC
         self.trigger(adcs=self.ro_chs,
                     pins=[0],
                     adc_trig_offset=offset)
+        
+# =============================================================================
+#         # ---- reset phases just before the pulses ----
+#         # 3 cycles min; use a small safety margin (e.g. 8 cycles)
+#         fabric_margin = 8  # cycles
+#         t1_reset = max(0, t1_start - fabric_margin)
+#         t2_reset = max(0, t2_start - fabric_margin)
+#         
+#         if t1_start == t2_start:
+#             self.reset_phase(gen_ch=[ch1, ch2], t=t1_reset)
+#         else:
+#             self.reset_phase(gen_ch=[ch1,ch2], t=t1_reset)
+#             self.reset_phase(gen_ch=[ch1,ch2], t=t2_reset)
+# =============================================================================
         
         # π/2 #1 on chosen channel
         self.set_pulse_registers(ch=ch1, style="arb", waveform=wf1, phase=base1_reg)
@@ -221,11 +258,20 @@ def get_phase_rotation_settings():
     settings['qub_sigma_D2'] = 0.02e-6
     settings['num_sigma_D2'] = 4
     
-    #Sweep parameters    
+    # --- Sweep controls ---
+    settings['sweep_mode'] = 'phase'   ###: 'phase' or 'interval'
+    
+    # for 'phase' mode    
     settings['spacing']    = 'Linear'
     settings['phase2_min_deg']  = -180.0
     settings['phase2_max_deg']  =  +180.0
     settings['phase2_points']   =  73  
+    
+    # for 'interval' mode (units: microseconds)
+    settings['phase2_deg']      = 0.0   # fixed extra phase for the 2nd pulse (deg)
+    settings['tau_min_us']      = 0.0
+    settings['tau_max_us']      = 2.0
+    settings['tau_points']      = 51 
 
 
     settings['gap']              = 0.0            # immediate by default
@@ -291,8 +337,12 @@ def meas_phase_rotation(soc,soccfg,instruments,settings):
         
         'readout_length'  : m_pulse['meas_window'],
         'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
+        
+        'sweep_mode'      : exp_settings['sweep_mode'],
 
-        'phase2_deg'      : 0.0, # deg, updated in loop
+        'phase2_deg'      : exp_settings.get('phase2_deg', 0.0), # can be assigned in the driver for 'interval' mode, otherwise default to zero; updated in the 'phase' mode
+        'tau_us'          : 0.0, # us, updated in loop
+        
         'qub_delay_fixed' : exp_globals['qub_delay_fixed'], # minimum delay between 2nd pi/2 pulse and measurement pulse, us
         'pulse_order'     : exp_settings['pulse_order'], # ('D1','D2'), ('D1','D1'), ('D2','D1'), etc.
         'gap'             : exp_settings['gap'], # us, physical time gap between the two pi/2 pulses
@@ -311,24 +361,40 @@ def meas_phase_rotation(soc,soccfg,instruments,settings):
     meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
     total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
     
-    # Build phase sweep (degrees)
-    if exp_settings['spacing'] == 'Log':
-        raise ValueError("Log spacing not meaningful for phase; use Linear.")
-    else:
-        phase_list = np.linspace(
+    # Choose sweep based on mode
+    sweep_mode = exp_settings['sweep_mode']
+    
+    if sweep_mode == 'phase':
+        if exp_settings['spacing'] == 'Log':
+            raise ValueError("Log spacing not meaningful for phase; use Linear.")
+        xvals = np.linspace(
             exp_settings['phase2_min_deg'],
             exp_settings['phase2_max_deg'],
             exp_settings['phase2_points']
         )
-    phases = np.round(phase_list, 6)
+        xvals = np.round(xvals, 3)
+        xlabel = 'Phase2 (deg)'
     
-    amp_int = np.zeros(len(phases))
-    amp_orig = np.zeros(len(phases))
+    elif sweep_mode == 'interval':
+        # tau in microseconds
+        if exp_settings['spacing'] == 'Log':
+            raise ValueError("Log spacing not meaningful for tau; use Linear.")
+        tau_list = np.linspace(
+            exp_settings['tau_min_us'],
+            exp_settings['tau_max_us'],
+            exp_settings['tau_points']
+        )
+        xvals  = np.round(tau_list, 3)
+        xlabel = 'τ (us)'
+    
+    else:
+        raise ValueError(f"Unsupported sweep_mode: {sweep_mode}")
 
     
-    ang_int = np.zeros(len(phases))
-    ang_orig = np.zeros(len(phases))
-
+    # Allocate arrays
+    N = len(xvals)
+    amp_int  = np.zeros(N); amp_orig = np.zeros(N)
+    ang_int  = np.zeros(N); ang_orig = np.zeros(N)
     
     
     
@@ -350,187 +416,63 @@ def meas_phase_rotation(soc,soccfg,instruments,settings):
     
     tstart = time.time()
     
-    for pind, phi in enumerate(phases):
-        
-        print(f'Phase2 (deg): {phi}')
-        config['phase2_deg'] = float(phi)
-        
-        prog = T2_sequence(soccfg,config)
+    for index, x in enumerate(xvals):
+        if sweep_mode == 'phase':
+            config['phase2_deg'] = float(x)
+        else:  # 'interval'
+            config['tau_us'] = float(x)
+    
+        prog = T2_sequence(soccfg, config)
         holder = prog.acquire(soc, load_pulses=True, progress=False)
         I_sig = holder[0][0][0]
         Q_sig = holder[1][0][0]
-        
-              
-#        I_final, Q_final   = [np.mean(I_window), np.mean(Q_window)] #<I>, <Q> for signal trace
-        
-        I_final = I_sig-I_back #compute <I_net> in the data window
-        Q_final = Q_sig-Q_back
-        
-#        amps[tind] = np.sqrt(I_full**2+Q_full**2)
-#        angles[tind] = np.arctan2(Q_full,I_full)*180/np.pi
-#        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
-#        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
-        
-        
-
-        amp_int[pind] = np.sqrt(I_final**2 + Q_final**2)
-        ang_int[pind] = np.arctan2(Q_final, I_final)*180/np.pi
-
-        amp_orig[pind] = np.sqrt(I_sig**2 + Q_sig**2)
-        ang_orig[pind] = np.arctan2(Q_sig, I_sig)*180/np.pi
-        
+    
+        I_final = I_sig - I_back
+        Q_final = Q_sig - Q_back
+    
+        amp_int[index]  = np.sqrt(I_final**2 + Q_final**2)
+        ang_int[index]  = np.degrees(np.arctan2(Q_final, I_final))
+        amp_orig[index] = np.sqrt(I_sig**2 + Q_sig**2)
+        ang_orig[index] = np.degrees(np.arctan2(Q_sig, I_sig))
+    
         if first_it:
             tstop = time.time()
-            estimate_time(tstart, tstop, len(phases))
-            
-                
-            first_it = False  
-            
-        #_______________________________________#
+            estimate_time(tstart, tstop, N)
+            first_it = False
     
+        # live plot
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
-        plt.subplot(121)
-        plt.plot(phases, amp_int)
-        plt.suptitle('Live phase rotation data (no fit)')#, {} pi pulses'.format(exp_settings['pulse_count']))
-        plt.xlabel('Phase2 (deg)')
-        plt.ylabel('Amplitude')
-        plt.subplot(122)
-        plt.plot(phases, ang_int)
-        plt.xlabel('Phase2 (deg)')
-        plt.ylabel('Phase (deg)')
-        fig.canvas.draw()
-        fig.canvas.flush_events()
-
-        # plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
-        # userfuncs.SaveFull(saveDir, filename, ['taus', 'amp_int', 'ang_int'], locals(), expsettings=settings, instruments=instruments)
-
-    #last save at the end    
-    plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
-    userfuncs.SaveFull(saveDir, filename, ['phases', 'amp_int', 'ang_int'], locals(), expsettings=settings, instruments=instruments)
+        plt.subplot(121); plt.plot(xvals, amp_int)
+        plt.suptitle('Live sweep (no fit)')
+        plt.xlabel(xlabel); plt.ylabel('Amplitude')
+        plt.subplot(122); plt.plot(xvals, ang_int)
+        plt.xlabel(xlabel); plt.ylabel('Phase (deg)')
+        fig.canvas.draw(); fig.canvas.flush_events()
     
     
-    # if exp_settings['debug']:
-
-    #     config['readout_length'] = 3
-    #     config['adc_trig_offset'] = m_pulse['emp_delay'] + m_pulse['meas_pos'] + exp_settings['debug_time']
-   
-    #     total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
-
-    #     amp_intd = np.zeros(len(phases))
-    #     ang_intd = np.zeros(len(phases))
-    #     ampsd    = np.zeros((len(phases),total_samples))
-    #     anglesd  = np.zeros((len(phases),total_samples))      
-   
-    #     if exp_settings['subtract_background']:
-    #         #Acquire background trace
-    # #            qubitgen.freq=3.8e9
-    # #            time.sleep(0.1)
-    #         print('Starting Background Trace')
-    #         bprog = CavitySweep(soccfg,config)
-    #         holder = bprog.acquire_decimated(soc, load_pulses=True, progress=False)
-    #         print('Background Trace Complete')
-    #         I_full_bd = holder[0][0]
-    #         Q_full_bd = holder[0][1]
-    #         I_window_bd = I_full_bd[meas_start:meas_end]
-    #         Q_window_bd = Q_full_bd[meas_start:meas_end]     
-    #     else:
-    #         I_window_bd, Q_window_bd, I_full_bd, Q_full_bd = 0,0,0,0
-            
-    #     I_backd, Q_backd = [np.mean(I_window_bd), np.mean(Q_window_bd)]
-        
-    #     first_it = True
-   
-    #     for tind in indices:
-            
-    #         tau = taus[tind]
-    #         print('Tau: {}'.format(tau))
-            
-    #         config['qub_delay_t2'] = tau*1e6
-    #         prog = T2_sequence(soccfg,config)
-    #         holder = prog.acquire_decimated(soc, load_pulses=True, progress=False)
-    #         I_fulld = holder[0][0]
-    #         Q_fulld = holder[0][1]
-    #         I_windowd = I_fulld[meas_start:meas_end]
-    #         Q_windowd = Q_fulld[meas_start:meas_end]
-            
-    #         ##No background subtraction here!!!!
-    #         I_sigd, Q_sigd   = [np.mean(I_windowd), np.mean(Q_windowd)] #<I>, <Q> for signal trace
-            
-    #         I_finald = I_sigd-I_backd #compute <I_net> in the data window
-    #         Q_finald = Q_sigd-Q_backd
-   
-    #         ampsd[tind] = np.sqrt((I_fulld-I_full_bd)**2+(Q_fulld-Q_full_bd)**2)
-    #         anglesd[tind] = np.arctan2((Q_fulld-Q_full_bd), (I_fulld-I_full_bd))*180/np.pi
-    #         amp_intd[tind] = np.sqrt(I_finald**2+Q_finald**2)
-    #         ang_intd[tind] = np.arctan2(Q_finald, I_finald)*180/np.pi
-
-    #         if first_it:
-    #             tstop = time.time()
-    #             estimate_time(tstart, tstop, len(taus))
-                
-    #             xaxis = np.linspace(0,len(I_fulld)-1,len(I_fulld))
-
-    #             for x in range(0,len(xaxis)):
-    #                 xaxis[x] = prog.cycles2us(xaxis[x],ro_ch=0)
-                    
-    #             first_it = False
-
-    #         fig = plt.figure(3, figsize=(13,8))
-    #         plt.clf()
-    #         plt.subplot(121)
-    #         plt.plot(taus*1e6, amp_intd)
-    #         plt.xlabel('Tau (us)')
-    #         plt.ylabel('Amplitude')  
-    #         plt.subplot(122)
-    #         plt.plot(taus*1e6, ang_intd)
-    #         plt.xlabel('Tau (us)')
-    #         plt.ylabel('Phase')  
-    #         plt.suptitle('Live T2 data debug (no fit)\n'+filename)
-    #         fig.canvas.draw()
-    #         fig.canvas.flush_events()
-    #         plt.savefig(os.path.join(saveDir, filename+'_debug_no_fit.png'), dpi = 150)
-        
-    #         fig2 = plt.figure(4,figsize=(13,8))
-    #         plt.clf()
-        
-    #         ax = plt.subplot(121)
-    #         general_colormap_subplot(ax, xaxis*1e6, taus*1e6, ampsd, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
-    #         ax = plt.subplot(122)
-    #         general_colormap_subplot(ax, xaxis*1e6, taus*1e6, anglesd, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
-    #         plt.savefig(os.path.join(saveDir, filename+'_debug_fulldata.png'), dpi = 150)
+        #last save at the end    
+        plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
+        userfuncs.SaveFull(saveDir, filename, ['xvals','amp_int','ang_int','amp_orig','ang_orig','sweep_mode','xlabel'], locals(), expsettings=settings, instruments=instruments)
+    
+    
+    
 
 
     t2 = time.time()
     
     print('Elapsed time: {}'.format(t2-tstart))
     
-    # T2_guess     = exp_settings['T2_guess']
-    # amp_guess    = max(amp_int)-min(amp_int)
-    # offset_guess = np.mean(amp_int[-10:])
-    # freq_guess   = exp_settings['detuning'] # No detuning mode, always does this
-    # phi_guess    = 0
-    
-    # fit_guess = [T2_guess, amp_guess, offset_guess, freq_guess, phi_guess]
-    # T2, amp, offset, freq, phi, fit_xvals, fit_yvals = fit_T2(taus, amp_int, fit_guess)
-    # fig3 = plt.figure(3)
-    # plt.clf()
-    # plt.plot(taus*1e6, amp_int)
-    # plt.plot(fit_xvals*1e6, fit_yvals)
-    # plt.title('T2:{}us freq:{}MHz. \n {}'.format(np.round(T2*1e6,3), np.round(freq/1e6, 3),  filename)) # {} pi pulses, exp_settings['pulse_count'],
-    # plt.xlabel('Time (us)')
-    # plt.ylabel('Amplitude')
-    # fig3.canvas.draw()
-    # fig3.canvas.flush_events()
-    # plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
 
-    userfuncs.SaveFull(saveDir, filename, ['phases','ang_int', 'amp_int', 'amp_orig','ang_orig'],
+    userfuncs.SaveFull(saveDir, filename, ['xvals','amp_int','ang_int','amp_orig','ang_orig','sweep_mode','xlabel'],
                          locals(), expsettings=settings, instruments=instruments)
     
     
     if exp_globals['LO']:
         pass
         #logen.output = 0
+        
+    return prog
 
     
 
