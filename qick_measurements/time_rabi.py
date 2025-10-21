@@ -152,8 +152,13 @@ def time_Rabi_sweep(soc,soccfg,instruments,settings):
         'num_sigma'       : q_pulse['num_sigma'],
         'length'          : 0.1, #Placeholder
         
-        'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'] + m_pulse['post_buffer'],
-        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'] - m_pulse['init_buffer'],
+        'readout_length'  : m_pulse['meas_window'],
+        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
+        
+# =============================================================================
+#         'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'] + m_pulse['post_buffer'],
+#         'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'] - m_pulse['init_buffer'],
+# =============================================================================
 
 
         'relax_delay'     : exp_globals['relax_delay'],
@@ -161,7 +166,7 @@ def time_Rabi_sweep(soc,soccfg,instruments,settings):
         'soft_avgs'       : exp_settings['soft_avgs']
         }
 
-    hpts = (exp_settings["hold_start"]+exp_settings["hold_step"]*np.arange(exp_settings["hold_points"]))*1e6
+    hpts = (exp_settings["hold_start"]+exp_settings["hold_step"]*np.arange(exp_settings["hold_points"]))*1e6 #converts s to us
 
     prog = RabiSequence(soccfg, config)
     meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
@@ -184,7 +189,7 @@ def time_Rabi_sweep(soc,soccfg,instruments,settings):
     first_it = True
 
     for h in range(0,len(hpts)):
-        print("Current Hold Time: " + str(hpts[h]) + ", Max Gain: " + str(hpts[-1]))
+        print("Current Hold Time: " + str(hpts[h]) + ", Max Hold Time: " + str(hpts[-1]))
         config["length"] = hpts[h]
 
         total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
