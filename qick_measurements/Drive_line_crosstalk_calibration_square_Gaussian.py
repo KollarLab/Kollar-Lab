@@ -154,6 +154,8 @@ class T2_sequence(AveragerProgram):
             # Signed τ in µs → cycles (can be negative)
             tau_us  = float(cfg.get("tau_us", 0.0))
             tau_cyc = self.us2cycles(tau_us, gen_ch=ch1)
+            
+            #print(tau_cyc)
         
             # Full durations (flat-top total = 2*edge + hold)
             L1 = len_cyc[order[0]]  # pulse #1 total length in cycles
@@ -161,20 +163,18 @@ class T2_sequence(AveragerProgram):
         
             # Decide which pulse ENDS later given τ:
             # End2 - End1 = (t2_start + L2) - (t1_start + L1) = τ + (L2 - L1)
-            ends2_later = (tau_cyc + (L2 - L1)) >= 0
+            ends2_later = (tau_cyc + (L2 - L1)) >= 0 # >0 means pulse 2 ends later than pulse 1 (L2 - L1 is usually 0)
         
-            # Fixed gap (cycles) from END of the later-Ending pulse to the measurement
-            gap_end2meas_cyc = self.us2cycles(cfg["qub_delay_fixed"], gen_ch=cav_ch)
         
             if ends2_later:
-                # Anchor pulse #2: its END sits gap before meas_time
-                t2_end   = meas_time - gap_end2meas_cyc
+                # Anchor pulse #2: its END sits right before meas_time
+                t2_end   = meas_time
                 t2_start = t2_end - L2
                 # τ = t2_start - t1_start  →  t1_start = t2_start - τ
                 t1_start = t2_start - tau_cyc
             else:
-                # Anchor pulse #1: its END sits gap before meas_time
-                t1_end   = meas_time - gap_end2meas_cyc
+                # Anchor pulse #1: its END sits right before meas_time
+                t1_end   = meas_time
                 t1_start = t1_end - L1
                 # τ = t2_start - t1_start  →  t2_start = t1_start + τ
                 t2_start = t1_start + tau_cyc

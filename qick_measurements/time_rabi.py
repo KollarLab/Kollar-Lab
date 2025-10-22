@@ -43,7 +43,7 @@ class RabiSequence(AveragerProgram):
         self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
         
         freq_q  = self.freq2reg(cfg["qub_freq"],gen_ch=qub_ch)
-        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=gen_ch)
+        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=qub_ch)
         gain_q  = cfg["qub_gain"]
         
         self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)#, mode = "oneshot")
@@ -169,9 +169,12 @@ def time_Rabi_sweep(soc,soccfg,instruments,settings):
     hpts = (exp_settings["hold_start"]+exp_settings["hold_step"]*np.arange(exp_settings["hold_points"]))*1e6 #converts s to us
 
     prog = RabiSequence(soccfg, config)
-    meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
-    meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
-    total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
+    
+# ============================================================================= old code with limits on readout length and # of ramps
+#     meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
+#     meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
+#     total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
+# =============================================================================
    
 
     # powerdat = np.zeros((len(gpts), len(fpts)))
@@ -179,8 +182,11 @@ def time_Rabi_sweep(soc,soccfg,instruments,settings):
     
     amp_int = np.zeros(len(hpts))
     ang_int = np.zeros(len(hpts))
-    amps    = np.zeros((len(hpts),total_samples))
-    angles  = np.zeros((len(hpts),total_samples))
+    
+# ============================================================================= also from the old code
+#     amps    = np.zeros((len(hpts),total_samples))
+#     angles  = np.zeros((len(hpts),total_samples))
+# =============================================================================
 
     #drive_powers_lin = 10**(powers/10) ?
     #drive_amps_lin = np.sqrt(drive_powers_lin)
@@ -189,38 +195,57 @@ def time_Rabi_sweep(soc,soccfg,instruments,settings):
     first_it = True
 
     for h in range(0,len(hpts)):
-        print("Current Hold Time: " + str(hpts[h]) + ", Max Hold Time: " + str(hpts[-1]))
+        print("Current Hold Time (us): " + str(hpts[h]) + ", Max Hold Time (us): " + str(hpts[-1]))
         config["length"] = hpts[h]
-
-        total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
         
-        prog = RabiSequence(soccfg,config)
-        
-        #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
-        holder = prog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
-        I_full = holder[0][0]
-        Q_full = holder[0][1]
-        I_window = I_full[meas_start:meas_end]
-        Q_window = Q_full[meas_start:meas_end]
-       
-        I_final = np.mean(I_window)
-        Q_final = np.mean(Q_window)
+        prog = RabiSequence(soccfg, config)
 
-        amps[h] = np.sqrt(I_full**2+Q_full**2)
-        angles[h] = np.arctan2(Q_full,I_full)*180/np.pi
-        amp_int[h] = np.sqrt(I_final**2+Q_final**2)
-        ang_int[h] = np.arctan2(Q_final, I_final)*180/np.pi
+        # Integrated (scalar) I/Q, same as your T2 driver
+        holder = prog.acquire(soc, load_pulses=True, progress=False)
+        I_sig = holder[0][0][0]   # I, ro_ch 0, avg 0
+        Q_sig = holder[1][0][0]   # Q, ro_ch 0, avg 0
+        
+        amp_int[h] = np.sqrt(I_sig**2 + Q_sig**2)
+        ang_int[h] = np.degrees(np.arctan2(Q_sig, I_sig))
         
         if first_it:
-            xaxis = np.linspace(0,len(I_full)-1,len(I_full))
-            
             tstop = time.time()
             estimate_time(tstart, tstop, len(hpts))
-
-            for x in range(0,len(xaxis)):
-                xaxis[x] = prog.cycles2us(xaxis[x],ro_ch=0)
-                
             first_it = False
+
+# ============================================================================= from old code
+#         total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
+#         
+#         prog = RabiSequence(soccfg,config)
+#         
+#         #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
+#         holder = prog.acquire_decimated(soc, load_pulses=True, progress=False, debug=False)
+#         I_full = holder[0][0]
+#         Q_full = holder[0][1]
+#         I_window = I_full[meas_start:meas_end]
+#         Q_window = Q_full[meas_start:meas_end]
+#        
+#         I_final = np.mean(I_window)
+#         Q_final = np.mean(Q_window)
+# 
+#         amps[h] = np.sqrt(I_full**2+Q_full**2)
+#         angles[h] = np.arctan2(Q_full,I_full)*180/np.pi
+#         amp_int[h] = np.sqrt(I_final**2+Q_final**2)
+#         ang_int[h] = np.arctan2(Q_final, I_final)*180/np.pi
+# =============================================================================
+        
+# ============================================================================= old code
+#         if first_it:
+#             xaxis = np.linspace(0,len(I_full)-1,len(I_full))
+#             
+#             tstop = time.time()
+#             estimate_time(tstart, tstop, len(hpts))
+# 
+#             for x in range(0,len(xaxis)):
+#                 xaxis[x] = prog.cycles2us(xaxis[x],ro_ch=0)
+#                 
+#             first_it = False
+# =============================================================================
             
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
@@ -237,14 +262,18 @@ def time_Rabi_sweep(soc,soccfg,instruments,settings):
         fig.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_live.png'), dpi = 150)
     
-        fig2 = plt.figure(2,figsize=(13,8))
-        plt.clf()
+# ============================================================================= old code
+#         fig2 = plt.figure(2,figsize=(13,8))
+#         plt.clf()
+#     
+#         ax = plt.subplot(1,1,1)
+#         general_colormap_subplot(ax, xaxis, hpts, amps, ['Time (us)', 'Hold Time (us)'], 'Raw data\n'+filename)
+# =============================================================================
     
-        ax = plt.subplot(1,1,1)
-        general_colormap_subplot(ax, xaxis, hpts, amps, ['Time (us)', 'Hold Time (us)'], 'Raw data\n'+filename)
-    
-        plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-        userfuncs.SaveFull(saveDir, filename, ['hpts','xaxis', 'amps', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
+# ============================================================================= old code
+#         plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
+# =============================================================================
+        userfuncs.SaveFull(saveDir, filename, ['hpts', 'amp_int', 'ang_int'], locals(), expsettings=settings, instruments=instruments)
 
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
