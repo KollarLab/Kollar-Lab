@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Feb  1 10:16:54 2023
+Created on Wed Feb  1 10:29:54 2023
 
 @author: kollarlab
 """
@@ -139,7 +139,7 @@ class T2_sequence(AveragerProgram):
         gap_cyc  = self.us2cycles(gap, gen_ch=ch1)
 
         # schedule by start times:
-        t2_start = meas_time - self.us2cycles(cfg["qub_delay_fixed"], gen_ch=ch2) - len_cyc[order[1]]
+        t2_start = meas_time - self.us2cycles(100, gen_ch=ch2) # hardcoded
         
         # Three sweep modes:
         mode = cfg.get("sweep_mode")
@@ -171,13 +171,13 @@ class T2_sequence(AveragerProgram):
         
             if ends2_later:
                 # Anchor pulse #2: its END sits right before meas_time
-                t2_end   = meas_time
+                t2_end = meas_time + self.us2cycles(30, gen_ch=ch2)
                 t2_start = t2_end - L2
                 # τ = t2_start - t1_start  →  t1_start = t2_start - τ
                 t1_start = t2_start - tau_cyc
             else:
                 # Anchor pulse #1: its END sits right before meas_time
-                t1_end   = meas_time
+                t1_end = meas_time + self.us2cycles(30, gen_ch=ch1)
                 t1_start = t1_end - L1
                 # τ = t2_start - t1_start  →  t2_start = t1_start + τ
                 t2_start = t1_start + tau_cyc

@@ -15,6 +15,15 @@ import os
 # from utility.plotting_tools import simplescan_plot
 from utility.measurement_helpers import estimate_time
 from utility.plotting_tools import general_colormap_subplot
+
+# --- NEW: for fitting ---
+import warnings
+try:
+    from scipy.optimize import curve_fit
+    _HAS_SCIPY = True
+except Exception:
+    _HAS_SCIPY = False
+
       
 class RabiSequence(AveragerProgram):
     def initialize(self):
@@ -112,6 +121,133 @@ def get_time_Rabi_settings():
     
     return settings
 
+# --- NEW: cosine model + robust initial guesses ---
+def _cos_model(t, A, omega, phi, C):
+    # A*cos(omega*t + phi) + C
+    return A*np.cos(omega*t + phi) + C
+
+def _guess_cos_params(t_us, y):
+    """
+    Make robust initial guesses for A, omega, phi, C.
+    t_us is in microseconds; omega will be in rad/us.
+    """
+    t = np.asarray(t_us)
+    y = np.asarray(y)
+
+    # Offset and amplitude guesses
+    C0 = np.nanmean(y)
+    A0 = 0.5*(np.nanmax(y) - np.nanmin(y))
+    if not np.isfinite(A0) or A0 == 0:
+        A0 = 1.0
+
+    # Detrend for frequency guess
+    yd = y - C0
+
+    # Frequency guess via FFT peak (in cycles/us), then to rad/us
+    # Use even spacing assumption (true here)
+    if len(t) > 1:
+        dt = np.nanmedian(np.diff(t))
+        if not np.isfinite(dt) or dt <= 0:
+            dt = (t[-1]-t[0])/max(1, (len(t)-1))
+    else:
+        dt = 1.0
+
+    # Zero-pad a bit for frequency resolution
+    n = len(yd)
+    nfft = int(2**np.ceil(np.log2(max(8, n*4))))
+    # real FFT freqs in cycles/us
+    freqs = np.fft.rfftfreq(nfft, d=dt)
+    spec = np.abs(np.fft.rfft((yd if np.all(np.isfinite(yd)) else np.zeros_like(yd)), n=nfft))
+
+    # ignore DC for frequency guess
+    if len(spec) > 2:
+        spec[0] = 0.0
+
+    k = int(np.nanargmax(spec)) if len(spec) > 0 else 1
+    f0_cyc_per_us = max(freqs[k], 1e-6)  # avoid zero
+    omega0 = 2*np.pi*f0_cyc_per_us      # rad/us
+
+    # Phase guess from first point
+    # If y(0) ~ A*cos(phi)+C -> phi ~= arccos((y0 - C)/A) (pick a sign)
+    y0 = y[0]
+    ratio = np.clip((y0 - C0)/max(A0, 1e-9), -1.0, 1.0)
+    phi0 = np.arccos(ratio)  # crude; optimizer will refine
+
+    return A0, omega0, phi0, C0
+
+def fit_cosine(hpts_us, amp):
+    """
+    Fit A*cos(omega*t + phi) + C to (t, amp).
+    Returns dict with params and covariance if available.
+    """
+    t = np.asarray(hpts_us, float)
+    y = np.asarray(amp, float)
+
+    # Clean NaNs/Infs
+    m = np.isfinite(t) & np.isfinite(y)
+    t = t[m]; y = y[m]
+
+    if len(t) < 4:
+        raise RuntimeError("Not enough points to fit.")
+
+    p0 = _guess_cos_params(t, y)
+
+    if _HAS_SCIPY:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            popt, pcov = curve_fit(_cos_model, t, y, p0=p0, maxfev=20000)
+        A, omega, phi, C = popt
+        # --- enforce A >= 0 convention ---
+        if A < 0:
+            A = -A
+            phi += np.pi
+        
+        # Wrap phase to [-π, π] for neatness
+        phi = (phi + np.pi) % (2*np.pi) - np.pi
+        
+        return {
+            "A": A,
+            "omega": omega,
+            "phi": phi,
+            "C": C,
+            "f_MHz": (omega / (2 * np.pi)),            # frequency in MHz
+            "T_us": (2 * np.pi / abs(omega)) if omega != 0 else np.inf,
+            "popt": np.array([A, omega, phi, C]),
+            "pcov": pcov,
+            "used_scipy": True,
+        }
+    
+    else:
+        # Fallback: linearize w.r.t cos/sin for a first pass, then refine with simple GN steps
+        # y = B*cos(ωt) + D*sin(ωt) + C, with ω from guess
+        A0, omega0, phi0, C0 = p0
+        for _ in range(3):  # refine ω a bit
+            X = np.column_stack([np.cos(omega0*t), np.sin(omega0*t), np.ones_like(t)])
+            coeffs, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
+            B, D, C_lin = coeffs
+            # convert to A/phi
+            A_lin = np.hypot(B, D)
+            phi_lin = np.arctan2(-D, B)  # because B*cos + D*sin == A*cos(ωt+phi) with phi = atan2(-D,B)
+            # crude ω update via phase unwrapping around max slope point
+            # (kept simple to avoid heavy code—good enough as fallback)
+            omega0 = omega0  # keep initial; the linear pass already does most heavy lifting
+            A0, C0, phi0 = A_lin, C_lin, phi_lin
+            
+        # --- enforce A >= 0 convention ---
+        if A0 < 0:
+            A0 = -A0
+            phi0 += np.pi
+        phi0 = (phi0 + np.pi) % (2*np.pi) - np.pi
+
+        return {
+            "A": A0, "omega": omega0, "phi": phi0, "C": C0,
+            "f_MHz": (omega0/(2*np.pi)),
+            "T_us": (2*np.pi/omega0) if omega0!=0 else np.inf,
+            "popt": np.array([A0, omega0, phi0, C0]),
+            "pcov": None, "used_scipy": False
+        }
+
+
 def time_Rabi_sweep(soc,soccfg,instruments,settings):
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
@@ -195,7 +331,7 @@ def time_Rabi_sweep(soc,soccfg,instruments,settings):
     first_it = True
 
     for h in range(0,len(hpts)):
-        print("Current Hold Time (us): " + str(hpts[h]) + ", Max Hold Time (us): " + str(hpts[-1]))
+        print("Current Hold Time (us): " + str(np.round(hpts[h], 3)) + ", Max Hold Time (us): " + str(np.round(hpts[-1], 3)))
         config["length"] = hpts[h]
         
         prog = RabiSequence(soccfg, config)
@@ -257,26 +393,101 @@ def time_Rabi_sweep(soc,soccfg,instruments,settings):
         plt.plot(hpts, ang_int)
         plt.xlabel('Hold Time (us)')
         plt.ylabel('Phase')  
-        plt.title('Live Rabi data \n'+filename)
+        plt.suptitle('Live Rabi data \n'+filename)
         fig.canvas.draw()
         fig.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_live.png'), dpi = 150)
     
-# ============================================================================= old code
-#         fig2 = plt.figure(2,figsize=(13,8))
-#         plt.clf()
-#     
-#         ax = plt.subplot(1,1,1)
-#         general_colormap_subplot(ax, xaxis, hpts, amps, ['Time (us)', 'Hold Time (us)'], 'Raw data\n'+filename)
-# =============================================================================
-    
-# ============================================================================= old code
-#         plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-# =============================================================================
+
         userfuncs.SaveFull(saveDir, filename, ['hpts', 'amp_int', 'ang_int'], locals(), expsettings=settings, instruments=instruments)
 
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
+    
+    # --- NEW: Fit A*cos(Ω t + φ) + C to (hpts, amp_int) ---
+    try:
+        fitres = fit_cosine(hpts, amp_int)  # hpts is in microseconds already
+        A, omega, phi, C = fitres["A"], fitres["omega"], fitres["phi"], fitres["C"]
+        fMHz, T_us = fitres["f_MHz"], fitres["T_us"]
+        
+        # --- NEW: find first peak (earliest local maximum within scan) ---
+        # Normalize sign of omega for robust timing
+        omega_eff = abs(omega)
+        phi_eff = phi if omega >= 0 else -phi
+        
+        tmin = float(np.min(hpts))
+        tmax = float(np.max(hpts))
+        
+        # For A>=0, maxima at cos(...) = +1  -> angle = 2πk
+        # For A<0,  maxima at cos(...) = -1  -> angle = π + 2πk
+        if A >= 0:
+            # t_k = (-phi_eff + 2πk)/omega_eff
+            base = 0.0
+        else:
+            # t_k = (-phi_eff + π + 2πk)/omega_eff
+            base = np.pi
+        
+        # Small helper to get k from a target t
+        def k_from_t(t_target):
+            return np.ceil((omega_eff*t_target + phi_eff - base) / (2*np.pi))
+        
+        k0 = int(k_from_t(tmin))
+        # Generate a small set of candidate peaks around the start
+        ks = np.arange(k0-1, k0+4)  # a few candidates is enough
+        t_candidates = ( -phi_eff + (base + 2*np.pi*ks) ) / omega_eff
+        
+        # Keep only those inside the scan window
+        t_candidates = t_candidates[(t_candidates >= tmin) & (t_candidates <= tmax)]
+        if len(t_candidates) == 0:
+            # Fallback: take argmax of the smooth fit curve near start
+            tfit_dense = np.linspace(tmin, tmax, 2001)
+            yfit_dense = _cos_model(tfit_dense, A, omega, phi, C)
+            t_first_peak = float(tfit_dense[np.argmax(yfit_dense)])
+        else:
+            t_first_peak = float(np.min(t_candidates))
+        
+        y_first_peak = float(_cos_model(t_first_peak, A, omega, phi, C))
+
+    
+        # High-resolution fit curve for plotting
+        tfit = np.linspace(np.min(hpts), np.max(hpts), 1000)
+        yfit = _cos_model(tfit, A, omega, phi, C)
+    
+        # Plot measured amplitudes + fit
+        fig_fit = plt.figure(2, figsize=(10,6))
+        plt.clf()
+        plt.plot(hpts, amp_int, 'o', label='Data')
+        plt.plot(tfit, yfit, '-', label='Fit')
+        # --- NEW: mark first peak ---
+        plt.axvline(t_first_peak, linestyle='--', alpha=0.7, label=f'First peak ≈ {t_first_peak:.4g} μs')
+        plt.plot([t_first_peak], [y_first_peak], 's', label='Peak point')
+        
+        plt.xlabel('Hold Time (us)')
+        plt.ylabel('Amplitude')
+        title_str = (f'Rabi fit: A*cos(Ω t + φ) + C\n'
+                     f'A={A:.3g}, Ω={fMHz:.4g} MHz, φ={phi*180/np.pi:.2g} degrees, C={C:.4g}  |  '
+                     f'T={T_us:.4g} μs')
+        plt.suptitle(filename)
+        plt.title(title_str)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
+    
+        # Optional: print a concise line to console
+        print(title_str)
+    
+        # Save fitted parameters as well
+        userfuncs.SaveFull(
+            saveDir, filename+'_fit',
+            ['A','omega','phi','C','fMHz','T_us'],
+            locals(),
+            expsettings=settings,
+            instruments=instruments
+        )
+    
+    except Exception as e:
+        print(f"[WARN] Rabi cosine fit failed: {e}")
+
         
 
 

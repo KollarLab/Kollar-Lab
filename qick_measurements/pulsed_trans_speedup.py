@@ -7,6 +7,8 @@ import userfuncs
 from utility.plotting_tools import simplescan_plot
 from utility.measurement_helpers import estimate_time
 import time
+from scipy.optimize import curve_fit
+
 
 class CavitySweep(AveragerProgram):
     def initialize(self):
@@ -75,6 +77,15 @@ def get_trans_settings(): #Default settings dictionary
     settings['averages'] = 1e3
     
     return settings
+
+def lorentzian_peak(x, A, f0, gamma, offset):
+    """Peak: offset + A * (gamma/2)^2 / ((x-f0)^2 + (gamma/2)^2)"""
+    return offset + A * (0.5*gamma)**2 / ((x - f0)**2 + (0.5*gamma)**2)
+
+def lorentzian_dip(x, A, f0, gamma, offset):
+    """Dip: offset - A * (gamma/2)^2 / ((x-f0)^2 + (gamma/2)^2)"""
+    return offset - A * (0.5*gamma)**2 / ((x - f0)**2 + (0.5*gamma)**2)
+
 
 def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
     exp_globals  = settings['exp_globals']
@@ -184,6 +195,59 @@ def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
         userfuncs.SaveFull(saveDir, filename, ['gpts','fpts', 'powerdat', 'phasedat','Is','Qs','full_data', 'single_data'],
                              locals(), expsettings=settings, instruments={})
     
+    # === Fig. 2: Last-trace transmission magnitude + Lorentzian fit ===
+    x = fpts / 1e9                         # GHz
+    y = powerdat[-1]                       # normalized magnitude for last gain
+    hanger = bool(exp_globals.get('hanger', False))
+    
+    # Choose model depending on hanger (dip vs. peak)
+    model = lorentzian_dip if hanger else lorentzian_peak
+    
+    # ---- Initial parameter guesses ----
+    offset0 = np.median(y)
+    idx0 = np.argmin(y) if hanger else np.argmax(y)
+    f0_0 = x[idx0]
+    step = np.mean(np.diff(x)) if len(x) > 1 else 0.001
+    gamma0 = max(5 * step, 0.001)
+    A0 = max((offset0 - y[idx0]) if hanger else (y[idx0] - offset0), 1e-6)
+    
+    p0 = [A0, f0_0, gamma0, offset0]
+    bounds = ([0, x.min(), 0, -np.inf], [np.inf, x.max(), np.inf, np.inf])
+    
+    try:
+        popt, pcov = curve_fit(model, x, y, p0=p0, bounds=bounds, maxfev=10000)
+    except Exception:
+        popt, pcov = p0, None
+    
+    A, f0, gamma, offset = popt
+    FWHM_MHz = (2.0 * gamma) * 1e3
+    
+    # ---- Plot (Figure 2) ----
+    fig2, ax2 = plt.subplots(figsize=(7, 4.5), num=2, clear=True)
+    fig2.suptitle(filename, fontsize=11, y=0.98)  # file name as suptitle
+    
+    ax2.plot(x, y, 'o', ms=4, label='Data (last gain)')
+    xf = np.linspace(x.min(), x.max(), 1000)
+    ax2.plot(xf, model(xf, *popt), '-', lw=2, label='Lorentzian fit')
+    
+    ax2.set_xlabel('Frequency (GHz)')
+    ax2.set_ylabel('Normalized |S21| (a.u.)')
+    ax2.legend()
+    ax2.grid(alpha=0.3)
+    
+    kind = 'dip' if hanger else 'peak'
+    ax2.set_title(
+        f"Lorentzian {kind} fit: "
+        f"$f_0$ = {f0:.7f} GHz,  FWHM = {FWHM_MHz:.2f} MHz,  offset = {offset:.4g}",
+        fontsize=10
+    )
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.savefig(os.path.join(saveDir, filename + '_lasttrace_lorentz_fit.png'), dpi=150)
+
+
+
+
     if exp_globals['LO']:
         pass
         #logen.output = 0
