@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Dec 17 12:02:58 2020
+Created on Tue Nov  4 13:29:40 2025
 
 @author: Kollarlab
 """
@@ -22,16 +22,16 @@ def get_default_settings():
     settings = {}
     autoscan_settings = {}
     #Save location
-    settings['scanname']    = 'beta_calibration_Scan'
+    settings['scanname']    = 'beta_phase_calibration_Scan'
     settings['meas_type']   = 'spec_beta_calibration_scan'
     #settings['project_dir'] = r'Z:\Data'
     
     #Sweep parameter
 #    settings['CAV_Attenuation'] = 30
-    settings['amplitude_start'] = 0.001
-    settings['amplitude_stop']  = 0.001
-    settings['amplitude_pts']   = 11
-    settings['qubit_num'] = 1
+    settings['phase_start'] = 0.001
+    settings['phase_stop']  = 0.001
+    settings['phase_pts']   = 11
+    settings['FBL_num'] = 1
     
     settings['RFport'] = 3
     settings['Mport'] = 2
@@ -69,9 +69,9 @@ def get_default_settings():
     
     return fullsettings
 
-def vna_spec_beta_calibration_scan(instruments, settings):
+def vna_spec_beta_phase_calibration_scan(instruments, settings):
     '''
-    vna_spec_beta_calibration_scan _summary_
+    vna_spec_beta_phase_calibration_scan _summary_
 
     :param instruments: _description_
     :type instruments: _type_
@@ -115,13 +115,17 @@ def vna_spec_beta_calibration_scan(instruments, settings):
     intermediate_flux_pair = flux_pair - flux_offsets
     voltage_pair = f2v@intermediate_flux_pair
 
-    qubit_num = exp_settings['spec']['qubit_num']
+    FBL_num = exp_settings['spec']['FBL_num']
 
-    #Create a modulation amplitude array
-    start_amplitude  = exp_settings['spec']['amplitude_start']
-    stop_amplitude   = exp_settings['spec']['amplitude_stop']
-    amplitude_points = exp_settings['spec']['amplitude_pts']
-    amplitudes = np.linspace(start_amplitude, stop_amplitude, amplitude_points)
+    #Create a modulation phase array
+    start_phase  = exp_settings['spec']['phase_start']
+    stop_phase   = exp_settings['spec']['phase_stop']
+    phase_points = exp_settings['spec']['phase_pts']
+    phis = np.linspace(start_phase, stop_phase, phase_points)
+    
+    #Assigning modulation amplitude for both channels
+    amplitude_1 = exp_settings['spec']['amplitude_1']
+    amplitude_2 = exp_settings['spec']['amplitude_2']
     
     spec_set['CAVpower'] = spec_set['CAVpower'] + CAV_Attenuation
     spec_set['RFpower']  = spec_set['RFpower']  + Qbit_Attenuation
@@ -131,18 +135,18 @@ def vna_spec_beta_calibration_scan(instruments, settings):
     else:
         autoscan_set['RFpower'] = autoscan_set['RFpower'] + CAV_Attenuation
     
-    #set amplitude sweep
+    #set phase sweep
     max_voltage = 4
     if np.amax(np.abs(voltage_pair)) > max_voltage:
         raise ValueError('max voltage too large!')
     else:
         exp_settings['voltages'] = voltage_pair
     
-    trans_mags   = np.zeros((len(amplitudes), autoscan_set['freq_points']))
-    trans_phases = np.zeros((len(amplitudes), autoscan_set['freq_points']))
+    trans_mags   = np.zeros((len(phis), autoscan_set['freq_points']))
+    trans_phases = np.zeros((len(phis), autoscan_set['freq_points']))
     
-    mags   = np.zeros((len(amplitudes), spec_set['freq_points']))
-    phases = np.zeros((len(amplitudes), spec_set['freq_points']))
+    mags   = np.zeros((len(phis), spec_set['freq_points']))
+    phases = np.zeros((len(phis), spec_set['freq_points']))
     
     if Dual_gen.Ch1_output == 0:
         Dual_gen.Ch1_dc_voltage_ramp(0)
@@ -166,16 +170,16 @@ def vna_spec_beta_calibration_scan(instruments, settings):
         back_settings['RFpower'] = 0
         back_data = vna.trans_meas(back_settings)
         
-    for aind in range(len(amplitudes)):
+    for pind in range(len(phis)):
 
-        if aind == 0:
+        if pind == 0:
             print('dc_offset_1: {} V'.format(-np.round(voltage_pair[0], 4)))
             print('dc_offset_2: {} V'.format(np.round(voltage_pair[1], 4)))
-            print('you are modulating on FBL {}'.format(qubit_num))
+            print('you are sweeping phase on FBL {}'.format(FBL_num))
 
         print('')
-        print('Progress: ' + str(aind+1) + '/' + str(len(amplitudes)))                            
-        print('Current amplitude {}, Ending amplitude {}'.format(str(np.round(amplitudes[aind],3)),str(amplitudes[-1])))
+        print('Progress: ' + str(pind+1) + '/' + str(len(phis)))                            
+        print('Current phase {}, Ending phase {}'.format(str(np.round(phis[pind],1)),str(np.round(phis[-1],1))))
         print('')
 
         time.sleep(0.1)
@@ -187,60 +191,66 @@ def vna_spec_beta_calibration_scan(instruments, settings):
         print('trans')
         trans_data  = vna.trans_meas(autoscan_set)
         trans_freqs = trans_data['xaxis']
-        trans_mags[aind]   = trans_data['mag']
-        trans_phases[aind] = trans_data['phase']
+        trans_mags[pind]   = trans_data['mag']
+        trans_phases[pind] = trans_data['phase']
         
         if background_subtract:
-            trans_mags[aind] = trans_mags[aind] - back_data['mag']
+            trans_mags[pind] = trans_mags[pind] - back_data['mag']
         else:
-            trans_mags[aind] = trans_mags[aind]
+            trans_mags[pind] = trans_mags[pind]
 
         hanger = exp_globals['hanger']
         if hanger:
-            spec_set['CAVfreq'] = trans_freqs[np.argmin(trans_mags[aind])] 
+            spec_set['CAVfreq'] = trans_freqs[np.argmin(trans_mags[pind])] 
         else:
-            spec_set['CAVfreq'] = trans_freqs[np.argmax(trans_mags[aind])]
+            spec_set['CAVfreq'] = trans_freqs[np.argmax(trans_mags[pind])]
 
         print('spec, CAV power: {}, cav freq: {}'.format(spec_set['CAVpower'], spec_set['CAVfreq']))
 
         #Turn on modulation after finding the cavity (only for the first time, afterwards it leaves the modulation on)
 
-        if qubit_num == 1:
-            Dual_gen.Ch1_sin_gen(amplitudes[aind], exp_settings['spec']['modulation_frequency'], phase=0, offset=-voltage_pair[0]) #notice the minus sign here
+        if FBL_num == 1:
+            Dual_gen.Ch1_sin_gen(amplitude_1, exp_settings['spec']['modulation_frequency'], phase=phis[pind], offset=-voltage_pair[0]) #notice the minus sign here
+            Dual_gen.Ch2_sin_gen(amplitude_2, exp_settings['spec']['modulation_frequency'], phase=0, offset=voltage_pair[1])
+            Dual_gen.phase_sync()
+            time.sleep(0.1)
         else:
-            Dual_gen.Ch2_sin_gen(amplitudes[aind], exp_settings['spec']['modulation_frequency'], phase=0, offset=voltage_pair[1])
+            Dual_gen.Ch1_sin_gen(amplitude_1, exp_settings['spec']['modulation_frequency'], phase=0, offset=-voltage_pair[0]) #notice the minus sign here
+            Dual_gen.Ch2_sin_gen(amplitude_2, exp_settings['spec']['modulation_frequency'], phase=phis[pind], offset=voltage_pair[1])
+            Dual_gen.phase_sync()
+            time.sleep(0.1)
         
 
         data = vna.spec_meas(spec_set)
         
         vna.autoscale()
         
-        mags[aind]   = data['mag']
-        phases[aind] = data['phase']
+        mags[pind]   = data['mag']
+        phases[pind] = data['phase']
 
         freqs = data['xaxis']  
         
-        if aind==0:
+        if pind==0:
             tstop=time.time()
-            estimate_time(tstart, tstop, len(amplitudes))
+            estimate_time(tstart, tstop, len(phis))
             
         transdata = {}
         transdata['xaxis'] = trans_freqs/1e9
-        transdata['mags'] = trans_mags[0:aind+1,:]
-        transdata['phases'] = trans_phases[0:aind+1,:]
+        transdata['mags'] = trans_mags[0:pind+1,:]
+        transdata['phases'] = trans_phases[0:pind+1,:]
         
         specdata = {}
         specdata['xaxis'] = freqs/1e9
-        specdata['mags'] = mags[0:aind+1,:]
-        specdata['phases'] = phases[0:aind+1,:]
+        specdata['mags'] = mags[0:pind+1,:]
+        specdata['phases'] = phases[0:pind+1,:]
         
         singledata = {}
         singledata['xaxis'] = freqs/1e9
         singledata['mag'] = data['mag'] 
         singledata['phase'] = data['phase']
         
-        trans_labels = ['Freq (GHz)','Amplitude (Vpp)']
-        spec_labels  = ['Freq (GHz)','Amplitude (Vpp)']
+        trans_labels = ['Freq (GHz)','phi (degrees)']
+        spec_labels  = ['Freq (GHz)','phi (degrees)']
         
         #modify the spec data to subtract the offset in amp and phase
         #and then plot the modified version
@@ -249,19 +259,21 @@ def vna_spec_beta_calibration_scan(instruments, settings):
         specplotdata['mags']   = specdata['mags']
         specplotdata['phases'] = specdata['phases']
         
-        mat = np.copy(specplotdata['mags'])
-        for ind in range(0, mat.shape[0]):
-            mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
-        specplotdata['mags'] = mat
+# =============================================================================
+#         mat = np.copy(specplotdata['mags'])
+#         for ind in range(0, mat.shape[0]):
+#             mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
+#         specplotdata['mags'] = mat
+#         
+#         mat = np.copy(specplotdata['phases'])
+#         for ind in range(0, mat.shape[0]):
+#             mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
+#         specplotdata['phases'] = mat
+# =============================================================================
         
-        mat = np.copy(specplotdata['phases'])
-        for ind in range(0, mat.shape[0]):
-            mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
-        specplotdata['phases'] = mat
-        
-        plots.autoscan_plot(transdata, specplotdata, singledata, amplitudes[0:aind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
+        plots.autoscan_plot(transdata, specplotdata, singledata, phis[0:pind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
             
-        userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'flux_pair', 'voltage_pair', 'amplitudes',
+        userfuncs.SaveFull(saveDir, filename, ['transdata', 'specdata', 'singledata', 'flux_pair', 'voltage_pair', 'phis',
                                        'filename', 'trans_labels', 'spec_labels'], 
                                        locals(), expsettings=settings, instruments=instruments)
         plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)
@@ -276,7 +288,7 @@ def vna_spec_beta_calibration_scan(instruments, settings):
     Dual_gen.Ch1_output = 0
     Dual_gen.Ch2_output = 0
     
-    data = {'saveDir': saveDir, 'filename': filename, 'transdata':transdata, 'specdata':specdata, 'amplitudes':amplitudes}
+    data = {'saveDir': saveDir, 'filename': filename, 'transdata':transdata, 'specdata':specdata, 'phis':phis}
 
     return data
 
