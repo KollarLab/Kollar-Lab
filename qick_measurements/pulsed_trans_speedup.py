@@ -231,7 +231,7 @@ def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
     ax2.plot(xf, model(xf, *popt), '-', lw=2, label='Lorentzian fit')
     
     ax2.set_xlabel('Frequency (GHz)')
-    ax2.set_ylabel('Normalized |S21| (a.u.)')
+    ax2.set_ylabel('Gain normalized |S21| (a.u.)')
     ax2.legend()
     ax2.grid(alpha=0.3)
     

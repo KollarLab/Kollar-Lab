@@ -52,7 +52,7 @@ class Quasi_CW(NDAveragerProgram):
         
         # Configure qubit DAC
         freq_q  = self.freq2reg(cfg["freq_start"],gen_ch=qub_ch)
-        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=gen_ch)
+        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=qub_ch)
         gain_q  = cfg["qub_gain"]
         
         self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
@@ -78,9 +78,10 @@ class Quasi_CW(NDAveragerProgram):
         self.synci(200)   
     
     def body(self):
-        
-        #self.reset_phase(gen_ch = self.cfg['cav_channel'], t=0)
-        #self.reset_phase(gen_ch = self.cfg['qub_channel'], t=0)
+# =============================================================================
+#         qub_ch = self.cfg["qub_channel"]
+#         self.reset_phase(gen_ch = [qub_ch], t=0)
+# =============================================================================
         
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
@@ -296,23 +297,41 @@ def quasi_cw(soc,soccfg,instruments,settings):
     fig, (ax1, ax2) = plt.subplots(2, 1, num=1, figsize=(7, 7), sharex=True)
     fig.suptitle(filename)  # file name as suptitle
     
-    # Subplot 1: magnitude + fit
-    ax1.plot(x, y, '.', label='Data')
-    ax1.plot(x_fine, y_fit, '-', label='Lorentzian fit')
-    ax1.set_ylabel('Amplitude')
-    peak_or_dip = 'Peak' if is_peak else 'Dip'
-    ax1.set_title(f'Lorentzian {peak_or_dip} — f0 = {f0_GHz:.6f} GHz, FWHM = {FWHM_MHz:.2f} MHz')
-    ax1.legend(loc='best')
-    ax1.grid()
+    if exp_settings['fit'] == True:
     
-    # Subplot 2: phase
-    ax2.plot(x, phase_deg, '.')
-    ax2.set_xlabel('Frequency (GHz)')
-    ax2.set_ylabel('Phase (deg)')
-    ax2.grid()
-    
-    fig.tight_layout(rect=[0, 0, 1, 0.95])  # leave space for suptitle
-    plt.savefig(os.path.join(saveDir, filename+'_mag_phase_lorentz.png'), dpi=150)
+        # Subplot 1: magnitude + fit
+        ax1.plot(x, y, '.', label='Data')
+        ax1.plot(x_fine, y_fit, '-', label='Lorentzian fit')
+        ax1.set_ylabel('Amplitude')
+        peak_or_dip = 'Peak' if is_peak else 'Dip'
+        ax1.set_title(f'Lorentzian {peak_or_dip} — f0 = {f0_GHz:.6f} GHz, FWHM = {FWHM_MHz:.2f} MHz')
+        ax1.legend(loc='best')
+        ax1.grid()
+        
+        # Subplot 2: phase
+        ax2.plot(x, phase_deg, '.')
+        ax2.set_xlabel('Frequency (GHz)')
+        ax2.set_ylabel('Phase (deg)')
+        ax2.grid()
+        
+        fig.tight_layout(rect=[0, 0, 1, 0.95])  # leave space for suptitle
+        plt.savefig(os.path.join(saveDir, filename+'_mag_phase_lorentz.png'), dpi=150)
+        
+    else:
+        # Subplot 1: magnitude + fit
+        ax1.plot(x, y, label='Data')
+        ax1.set_ylabel('Amplitude')
+        #ax1.legend(loc='best')
+        ax1.grid()
+        
+        # Subplot 2: phase
+        ax2.plot(x, phase_deg, '.')
+        ax2.set_xlabel('Frequency (GHz)')
+        ax2.set_ylabel('Phase (deg)')
+        ax2.grid()
+        
+        fig.tight_layout(rect=[0, 0, 1, 0.95])  # leave space for suptitle
+        plt.savefig(os.path.join(saveDir, filename+'_mag_phase.png'), dpi=150)
     # =====================================================================
 
     
