@@ -13,6 +13,13 @@ import time
 import matplotlib.pyplot as plt
 import userfuncs
 from utility.plotting_tools import simplescan_plot
+
+# Optional: use SciPy for a non-linear fit if available
+try:
+    from scipy.optimize import curve_fit
+except Exception:
+    curve_fit = None
+
       
 #Heavily considering getting rid of the initial and post buffers for the speedup classes...
 #Don't see the use when we can't acquire_decimated` anyway.
@@ -45,7 +52,7 @@ class Quasi_CW(NDAveragerProgram):
         
         # Configure qubit DAC
         freq_q  = self.freq2reg(cfg["freq_start"],gen_ch=qub_ch)
-        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=gen_ch)
+        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=qub_ch)
         gain_q  = cfg["qub_gain"]
         
         self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
@@ -71,9 +78,10 @@ class Quasi_CW(NDAveragerProgram):
         self.synci(200)   
     
     def body(self):
-        
-        #self.reset_phase(gen_ch = self.cfg['cav_channel'], t=0)
-        #self.reset_phase(gen_ch = self.cfg['qub_channel'], t=0)
+# =============================================================================
+#         qub_ch = self.cfg["qub_channel"]
+#         self.reset_phase(gen_ch = [qub_ch], t=0)
+# =============================================================================
         
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
@@ -202,34 +210,132 @@ def quasi_cw(soc,soccfg,instruments,settings):
     
     powerdat = np.sqrt(Is**2 + Qs**2)
     phasedat = np.arctan2(Qs,Is)*180/np.pi
-
-    full_data = {}
-
-    full_data['xaxis']  = freqs/1e9
-    full_data['mags']   = powerdat
-    full_data['phases'] = phasedat
-    full_data['Is']     = Is
-    full_data['Qs']     = Qs
-
-    fig1 = plt.figure(1)
-    plt.clf()
-    plt.plot(freqs/1e9, powerdat)
-    plt.title('Mag {}'.format(filename))
-    plt.xlabel('Frequency (GHz)')
-    plt.ylabel('Amplitude')
-    fig1.canvas.draw()
-    fig1.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'_mag.png'), dpi=150)
     
-    fig2 = plt.figure(2)
-    plt.clf()
-    plt.plot(freqs/1e9, phasedat)
-    plt.title('Phase {}'.format(filename))
-    plt.xlabel('Frequency (GHz)')
-    plt.ylabel('Phase (Degrees)')
-    fig1.canvas.draw()
-    fig1.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'_phase.png'), dpi=150)
+    full_data = {} 
+    full_data['xaxis'] = freqs/1e9 
+    full_data['mags'] = powerdat 
+    full_data['phases'] = phasedat 
+    full_data['Is'] = Is 
+    full_data['Qs'] = Qs
+    
+    # ================= One-figure Lorentzian fit + mag/phase subplots =================
+    
+    is_peak = bool(exp_globals.get('hanger', True))  # True => peak, False => dip
+    
+    # Data in GHz for x
+    x = freqs / 1e9
+    y = powerdat.copy()  # magnitude
+    phase_deg = phasedat # already degrees
+    
+    # --- robust baseline guess from edges ---
+    n = max(1, len(x)//10)
+    edge_vals = np.concatenate([y[:n], y[-n:]]) if len(y) >= 2*n else y
+    baseline0 = float(np.median(edge_vals))
+    
+    # Peak vs dip handling (use "peakified" data to find extremum)
+    y_work = y if is_peak else (-y)
+    imax = int(np.argmax(y_work))
+    x0_0 = float(x[imax])
+    
+    # Initial amplitude (allow negative if dip)
+    A0 = float(y[imax] - baseline0) if is_peak else float(-(y[imax] - baseline0))
+    if A0 == 0:
+        A0 = (np.max(y) - np.min(y)) * (1.0 if is_peak else -1.0)
+    
+    # Rough gamma (HWHM) from crossings; fallback to fraction of span
+    def _gamma_guess(x, y, imax, baseline):
+        target = baseline + 0.5*(y[imax] - baseline)
+        left = None
+        for i in range(imax, 0, -1):
+            if (y[i-1]-target) * (y[i]-target) <= 0:
+                t = (target - y[i-1]) / (y[i] - y[i-1] + 1e-18)
+                left = x[i-1] + t*(x[i]-x[i-1])
+                break
+        right = None
+        for i in range(imax, len(x)-1):
+            if (y[i]-target) * (y[i+1]-target) <= 0:
+                t = (target - y[i]) / (y[i+1] - y[i] + 1e-18)
+                right = x[i] + t*(x[i+1]-x[i])
+                break
+        if left is not None and right is not None and right > left:
+            fwhm = right - left
+            return float(max(fwhm/2.0, 1e-9))  # gamma = FWHM/2
+        span = max(1e-6, (np.max(x)-np.min(x)))
+        return 0.05 * span
+    
+    gamma0 = _gamma_guess(x, y, imax, baseline0)
+    
+    # Lorentzian model: baseline + A / (1 + ((x - x0)/gamma)^2)
+    def lorentz(xv, baseline, A, x0, gamma):
+        gamma = np.clip(gamma, 1e-12, None)
+        return baseline + A / (1.0 + ((xv - x0)/gamma)**2)
+    
+    # Fit parameters
+    if curve_fit is not None and len(x) >= 4:
+        try:
+            p0 = [baseline0, A0, x0_0, max(gamma0, 1e-6)]
+            bounds = ([-np.inf, -np.inf, np.min(x)-1.0, 1e-9],
+                      [ np.inf,  np.inf, np.max(x)+1.0, 1.0])  # gamma up to 1 GHz span
+            popt, _ = curve_fit(lorentz, x, y, p0=p0, bounds=bounds, maxfev=10000)
+            baseline_fit, A_fit, x0_fit, gamma_fit = [float(v) for v in popt]
+        except Exception:
+            baseline_fit, A_fit, x0_fit, gamma_fit = baseline0, A0, x0_0, max(gamma0, 1e-6)
+    else:
+        baseline_fit, A_fit, x0_fit, gamma_fit = baseline0, A0, x0_0, max(gamma0, 1e-6)
+    
+    # Fitted curve
+    x_fine = np.linspace(np.min(x), np.max(x), 1000)
+    y_fit = lorentz(x_fine, baseline_fit, A_fit, x0_fit, gamma_fit)
+    
+    # Reportables
+    f0_GHz   = x0_fit
+    FWHM_MHz = (2.0 * gamma_fit) * 1e3  # GHz -> MHz
+    
+    # ------------------- Plot: one figure, two subplots -------------------
+    fig, (ax1, ax2) = plt.subplots(2, 1, num=1, figsize=(7, 7), sharex=True)
+    fig.clf()
+    fig, (ax1, ax2) = plt.subplots(2, 1, num=1, figsize=(7, 7), sharex=True)
+    fig.suptitle(filename)  # file name as suptitle
+    
+    if exp_settings['fit'] == True:
+    
+        # Subplot 1: magnitude + fit
+        ax1.plot(x, y, '.', label='Data')
+        ax1.plot(x_fine, y_fit, '-', label='Lorentzian fit')
+        ax1.set_ylabel('Amplitude')
+        peak_or_dip = 'Peak' if is_peak else 'Dip'
+        ax1.set_title(f'Lorentzian {peak_or_dip} — f0 = {f0_GHz:.6f} GHz, FWHM = {FWHM_MHz:.2f} MHz')
+        ax1.legend(loc='best')
+        ax1.grid()
+        
+        # Subplot 2: phase
+        ax2.plot(x, phase_deg, '.')
+        ax2.set_xlabel('Frequency (GHz)')
+        ax2.set_ylabel('Phase (deg)')
+        ax2.grid()
+        
+        fig.tight_layout(rect=[0, 0, 1, 0.95])  # leave space for suptitle
+        plt.savefig(os.path.join(saveDir, filename+'_mag_phase_lorentz.png'), dpi=150)
+        
+    else:
+        # Subplot 1: magnitude + fit
+        ax1.plot(x, y, label='Data')
+        ax1.set_ylabel('Amplitude')
+        #ax1.legend(loc='best')
+        ax1.grid()
+        
+        # Subplot 2: phase
+        ax2.plot(x, phase_deg, '.')
+        ax2.set_xlabel('Frequency (GHz)')
+        ax2.set_ylabel('Phase (deg)')
+        ax2.grid()
+        
+        fig.tight_layout(rect=[0, 0, 1, 0.95])  # leave space for suptitle
+        plt.savefig(os.path.join(saveDir, filename+'_mag_phase.png'), dpi=150)
+    # =====================================================================
+
+    
+    
     
     userfuncs.SaveFull(saveDir, filename, ['freqs','full_data','filename'],
     locals(), expsettings=settings, instruments={})

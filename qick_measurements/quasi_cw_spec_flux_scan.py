@@ -90,7 +90,7 @@ class Quasi_CW(NDAveragerProgram):
         
         # Configure qubit DAC
         freq_q  = self.freq2reg(cfg["freq_start"],gen_ch=qub_ch)
-        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=gen_ch)
+        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=qub_ch)
         gain_q  = cfg["qub_gain"]
         
         self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)

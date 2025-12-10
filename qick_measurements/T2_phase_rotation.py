@@ -48,13 +48,15 @@ class T2_sequence(AveragerProgram):
         phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=qub_ch)
         gain_q  = cfg["qub_gain"]
         
-        self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
+        self.default_pulse_registers(ch=qub_ch, freq=freq_q, gain=gain_q) #removed the phase settings here to avoid the conflict with later phase settings
         
         sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch)
         num_sigma = cfg["num_sigma"]
         
         self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma),maxv=int(self.soccfg['gens'][qub_ch]['maxv']/2))        
-        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex")
+        #self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex")
+        base_phase_reg = self.deg2reg(self.cfg["qub_phase"], gen_ch=qub_ch)
+        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex", phase=base_phase_reg)
 
         
         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
@@ -74,17 +76,38 @@ class T2_sequence(AveragerProgram):
         
         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
         meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
+
         ex_time_fixed = meas_time - self.us2cycles(self.cfg['qub_delay_fixed'],gen_ch=self.cfg["qub_channel"]) - int(num_sigma*sigma)
         ex_time_t2 = ex_time_fixed - self.us2cycles(self.cfg['qub_delay_t2'],gen_ch=self.cfg["qub_channel"]) - int(num_sigma*sigma)
+
+        qub_ch = self.cfg["qub_channel"]
+
+        # Base phase (deg -> reg)
+        base_phase_reg = self.deg2reg(self.cfg["qub_phase"], gen_ch=qub_ch)
+
+        # Virtual detuning phase rotation φ = 360° * f_rot * τ
+        # Note: qub_delay_t2 is in microseconds (per your config usage), so convert to seconds:
+        tau_s = self.cfg['qub_delay_t2'] * 1e-6
+        f_rot = float(self.cfg.get('virt_detuning', 0.0))*1e6  # Hz
+        phase_rot_deg = 360.0 * f_rot * tau_s
+        phase_rot_reg = self.deg2reg(phase_rot_deg, gen_ch=qub_ch)
+
         #Sets off the ADC
         self.trigger(adcs=self.ro_chs,
                     pins=[0],
                     adc_trig_offset=offset)
         
+        # 1st π/2 pulse at base phase
+        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex", phase=base_phase_reg)
+        self.pulse(ch=qub_ch, t=ex_time_t2)
+
+        # 2nd π/2 pulse with phase rotated by 2π f_rot τ
+        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex", phase=base_phase_reg + phase_rot_reg)
+        self.pulse(ch=qub_ch, t=ex_time_fixed)
+        
         #Sends measurement pulse
-        self.pulse(ch=self.cfg["qub_channel"],t=ex_time_t2)
-        self.pulse(ch=self.cfg["qub_channel"],t=ex_time_fixed)
         self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
+        
         self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
         self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
@@ -194,7 +217,8 @@ def meas_T2(soc,soccfg,instruments,settings):
         
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
-        'qub_freq'        : (exp_settings['qub_freq']+exp_settings['detuning'])/1e6,
+        'qub_freq'        : (exp_settings['qub_freq'])/1e6,
+        'virt_detuning'   : exp_settings['detuning']/1e6, # MHz, used for phase rotation of the 2nd pi/2 pulse
         'qub_gain'        : exp_settings['qub_gain'],
         'qub_sigma'       : q_pulse['sigma'],
         'qub_delay_fixed' : q_pulse['delay'],

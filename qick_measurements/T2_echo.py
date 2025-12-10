@@ -55,7 +55,7 @@ class T2_echo_sequence(AveragerProgram):
         self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
         
         freq_q  = self.freq2reg(cfg["qub_freq"],gen_ch=qub_ch)
-        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=gen_ch)
+        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=qub_ch)
         gain_q  = cfg["qub_gain"]
         
         self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
@@ -78,7 +78,7 @@ class T2_echo_sequence(AveragerProgram):
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
         
         if self.cfg['phase_reset']:
-            self.reset_phase(gen_ch = [self.cfg['cav_channel'], self.cfg['qub_channel']], t=0)
+            self.reset_phase(gen_ch = [self.cfg['qub_channel']], t=0)
         else:
             pass
         
