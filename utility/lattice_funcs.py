@@ -376,7 +376,7 @@ def kerr_fit_poly(data_trans, data_transoe, data_spec, RF_atten, index=False, pl
                    'sk_freqs' : sk_freqs, 'self_Kerr_GHz_mW' : popt_sk[0], 'full_sk_fit' : popt_sk}
     return output_dict
 
-def kerr_fit_temp(data_trans, data_transoe, data_spec, RF_atten, index=False, plot=True):
+def kerr_fit_temp(data_trans, data_transoe, data_spec, RF_atten, index=False, plot=True): #This is the final version for analysis
     '''
     kerr_fit _summary_
 
