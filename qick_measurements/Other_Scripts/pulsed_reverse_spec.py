@@ -1,13 +1,96 @@
-from qick.averager_program import AveragerProgram
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Sep 23 11:40:36 2025
+
+@author: KollarLab
+"""
+
+from qick.averager_program import QickSweep, NDAveragerProgram, AveragerProgram
 
 import numpy as np
 import os
+import time
 import matplotlib.pyplot as plt
 import userfuncs
 from utility.plotting_tools import simplescan_plot
 from utility.measurement_helpers import estimate_time
-import time
-from scipy.optimize import curve_fit
+
+class Reverse_Spec_Sweep(AveragerProgram):
+    '''
+    T1_sequence _summary_
+
+    :param AveragerProgram: _description_
+    :type AveragerProgram: _type_
+    '''    
+    def initialize(self):
+        '''
+        initialize _summary_
+        '''        
+        cfg=self.cfg   
+        gen_ch = cfg["cav_channel"]
+        qub_ch = cfg["qub_channel"]
+
+        # set the nyquist zone
+        # Implement an if statement here to catch? 
+        self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"])
+        self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"])
+        
+        # configure the readout lengths and downconversion frequencies (ensuring it is an available DAC frequency)
+        
+        readout = self.us2cycles(cfg["readout_length"],ro_ch=cfg["ro_channels"][0])
+        for ch in cfg["ro_channels"]:
+            self.declare_readout(ch=ch, length=readout,
+                                 freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
+
+        # convert frequency to DAC freqency (ensuring it is an available ADC frequency)
+        freq_c  = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
+        phase_c = self.deg2reg(cfg["cav_phase"], gen_ch=gen_ch)
+        gain_c  = cfg["meas_gain"]
+        
+        self.default_pulse_registers(ch=gen_ch, freq=freq_c, phase=phase_c, gain=gain_c)
+        self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
+        
+        freq_q  = self.freq2reg(cfg["qub_freq"],gen_ch=qub_ch)
+        phase_q = self.deg2reg(cfg["qub_phase"], gen_ch=gen_ch)
+        gain_q  = cfg["qub_gain"]
+        
+        self.default_pulse_registers(ch=qub_ch, phase=phase_q, freq=freq_q, gain=gain_q)
+        
+        sigma = self.us2cycles(cfg["qub_sigma"],gen_ch=qub_ch)
+        num_sigma = cfg["num_sigma"]
+        
+        self.add_gauss(ch=qub_ch, name="ex", sigma=sigma,length=int(sigma*num_sigma))        
+        self.set_pulse_registers(ch=qub_ch, style="arb", waveform="ex")
+
+        # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
+        # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
+        self.synci(200)   
+    
+    def body(self):
+        #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
+        #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
+        if self.cfg["phase_reset"]:
+            self.reset_phase(gen_ch = [self.cfg['cav_channel'], self.cfg['qub_channel']], t=0)
+        else:
+            pass
+        
+        sigma = self.us2cycles(self.cfg["qub_sigma"])
+        num_sigma = self.cfg["num_sigma"]
+        
+        offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
+        meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
+        ex_time = meas_time - self.us2cycles(self.cfg['qub_delay'],gen_ch=self.cfg["qub_channel"]) - int(num_sigma*sigma)
+        
+        #Sets off the ADC
+        self.trigger(adcs=self.ro_chs,
+                    pins=[0],
+                    adc_trig_offset=offset)
+        
+        #Sends measurement pulse
+        self.pulse(ch=self.cfg["qub_channel"],t=ex_time)
+        self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
+        self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
+        self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
 
 class CavitySweep(AveragerProgram):
@@ -57,11 +140,15 @@ class CavitySweep(AveragerProgram):
         self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
         self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
-def get_trans_settings(): #Default settings dictionary
+def get_reverse_spec_settings(): #Default settings dictionary
     settings = {}
     
-    settings['scanname'] = 'initial_power_scan_q4'
-    settings['meas_type'] = 'PulsedTrans'
+    settings['scanname'] = 'Reverse_Spec_q1'
+    settings['meas_type'] = 'Reverse_Spec'
+    
+    #Qubit settings:
+    settings['qub_freq'] = 4e9
+    settings['qub_gain'] = 1000
     
     #Sweep parameters
     settings['freq_start']   = 7e9 
@@ -78,19 +165,11 @@ def get_trans_settings(): #Default settings dictionary
     
     return settings
 
-def lorentzian_peak(x, A, f0, gamma, offset):
-    """Peak: offset + A * (gamma/2)^2 / ((x-f0)^2 + (gamma/2)^2)"""
-    return offset + A * (0.5*gamma)**2 / ((x - f0)**2 + (0.5*gamma)**2)
-
-def lorentzian_dip(x, A, f0, gamma, offset):
-    """Dip: offset - A * (gamma/2)^2 / ((x-f0)^2 + (gamma/2)^2)"""
-    return offset - A * (0.5*gamma)**2 / ((x - f0)**2 + (0.5*gamma)**2)
-
-
-def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
+def pulsed_reverse_spec(soc,soccfg,instruments,settings): #Main measurement function
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
+    q_pulse      = exp_globals['qubit_pulse']
     
     #if exp_globals['LO']: # Ignore for now, we no longer use an external LO
     if False:
@@ -106,14 +185,23 @@ def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
 
     config = {
         'cav_channel'     : exp_globals['cav_channel'],
+        'qub_channel'     : exp_globals['qub_channel'],
         'ro_channels'     : exp_globals['ro_channels'],
 
         'nqz_c'           : 1, #irrelevant setting
         'cav_phase'       : m_pulse['cav_phase'], #degrees
         'meas_window'     : m_pulse['meas_window'], #us
         'meas_time'       : m_pulse['meas_pos'], #us
-        'meas_gain'       : 500, #Placeholder, gets overwritten in sweep
+        'meas_gain'       : exp_settings['meas_gain'], #can be placeholder or actually used
         'cav_freq'        : 100, #Placeholder
+        
+        'nqz_q'           : 2,
+        'qub_phase'       : q_pulse['qub_phase'],
+        'qub_freq'        : exp_settings['qub_freq']/1e6,
+        'qub_gain'         : exp_settings['qub_gain'], #can be placeholder or actually used
+        'qub_sigma'        : q_pulse['sigma'],
+        'qub_delay'        : 0, #Placeholder
+        'num_sigma'       : q_pulse['num_sigma'],
         
         'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'], #us
         'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'], #us
@@ -121,7 +209,11 @@ def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
 
         'relax_delay'     : exp_globals['relax_delay'], #us
         'reps'            : exp_settings['reps'],
-        'soft_avgs'       : exp_settings['soft_avgs']
+        'soft_avgs'       : exp_settings['soft_avgs'],
+        
+        'phase_reset'     : exp_settings['phase_reset'],
+        
+        'sweep_device'    : exp_settings['sweep_device'] #tells us if we power sweep cavity or qubit
         }
 
     fpts = exp_settings["freq_start"]+exp_settings["freq_step"]*np.arange(exp_settings["freq_points"]) # Defines frequency sweep
@@ -143,20 +235,28 @@ def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
     for g in range(0,len(gpts)): # Loop through gain values
         print("Current Gain: " + str(gpts[g]) + ", Max Gain: " + str(gpts[-1]))
         
-        config["meas_gain"] = gpts[g] 
+        if config['sweep_device'] == 'cavity':
+            config["meas_gain"] = gpts[g]
+        elif config['sweep_device'] == 'qubit':
+            config["qub_gain"] = gpts[g]
         
         for f in range(0,len(fpts)): # Loop through freq values
+        # TODO: Add the pi pre pulse here to get reverse spec
             board_freq = (fpts[f] - exp_globals['LO_freq']*exp_globals['LO'])/1e6
             config["cav_freq"] = board_freq
             config['cav_phase'] = phases[f] # Current solution for the phase wrapping
-            prog = CavitySweep(soccfg,config)
-
+            prog = Reverse_Spec_Sweep(soccfg,config)
+            
+            # meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
+            # meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
+            # total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
+            
             trans_I, trans_Q = prog.acquire(soc,load_pulses=True,progress=False) #Transmission data acquisition occurs here
 
             mag = np.sqrt(trans_I[0][0]**2 + trans_Q[0][0]**2)
             phase = np.arctan2(trans_Q[0][0], trans_I[0][0])*180/np.pi
 
-            powerdat[g,f] = mag/gpts[g] #bring in the normalization
+            powerdat[g,f] = mag#/gpts[g] #Taken out normalization for now
             phasedat[g,f] = phase
             Is[g,f] = trans_I[0][0]
             Qs[g,f] = trans_Q[0][0]
@@ -195,64 +295,8 @@ def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
         userfuncs.SaveFull(saveDir, filename, ['gpts','fpts', 'powerdat', 'phasedat','Is','Qs','full_data', 'single_data'],
                              locals(), expsettings=settings, instruments={})
     
-    # === Fig. 2: Last-trace transmission magnitude + Lorentzian fit ===
-    x = fpts / 1e9                         # GHz
-    y = powerdat[-1]                       # normalized magnitude for last gain
-    hanger = bool(exp_globals.get('hanger', False))
-    
-    # Choose model depending on hanger (dip vs. peak)
-    model = lorentzian_dip if hanger else lorentzian_peak
-    
-    # ---- Initial parameter guesses ----
-    offset0 = np.median(y)
-    idx0 = np.argmin(y) if hanger else np.argmax(y)
-    f0_0 = x[idx0]
-    step = np.mean(np.diff(x)) if len(x) > 1 else 0.001
-    gamma0 = max(5 * step, 0.001)
-    A0 = max((offset0 - y[idx0]) if hanger else (y[idx0] - offset0), 1e-6)
-    
-    p0 = [A0, f0_0, gamma0, offset0]
-    bounds = ([0, x.min(), 0, -np.inf], [np.inf, x.max(), np.inf, np.inf])
-    
-    try:
-        popt, pcov = curve_fit(model, x, y, p0=p0, bounds=bounds, maxfev=10000)
-    except Exception:
-        popt, pcov = p0, None
-    
-    A, f0, gamma, offset = popt
-    FWHM_MHz = (2.0 * gamma) * 1e3
-    
-    # ---- Plot (Figure 2) ----
-    fig2, ax2 = plt.subplots(figsize=(7, 4.5), num=2, clear=True)
-    fig2.suptitle(filename, fontsize=11, y=0.98)  # file name as suptitle
-    
-    ax2.plot(x, y, 'o', ms=4, label='Data (last gain)')
-    xf = np.linspace(x.min(), x.max(), 1000)
-    ax2.plot(xf, model(xf, *popt), '-', lw=2, label='Lorentzian fit')
-    
-    ax2.set_xlabel('Frequency (GHz)')
-    ax2.set_ylabel('Gain normalized |S21| (a.u.)')
-    ax2.legend()
-    ax2.grid(alpha=0.3)
-    
-    kind = 'dip' if hanger else 'peak'
-    ax2.set_title(
-        f"Lorentzian {kind} fit: "
-        f"$f_0$ = {f0:.7f} GHz,  FWHM = {FWHM_MHz:.2f} MHz,  offset = {offset:.4g}",
-        fontsize=10
-    )
-    
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.savefig(os.path.join(saveDir, filename + '_lasttrace_lorentz_fit.png'), dpi=150)
-
-
-
-
     if exp_globals['LO']:
         pass
         #logen.output = 0
         
     return full_data
-
-
-

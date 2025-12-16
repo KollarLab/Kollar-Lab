@@ -188,7 +188,7 @@ class SCPIinst(Module):
     def __init__(self, address, commands, errcmd, reset = True, baud_rate=115200):
         
         self.init = True
-        rm = pyvisa.ResourceManager()
+        rm = pyvisa.ResourceManager('@py')
         self.inst = rm.open_resource(address)
         try:
             self.inst.baud_rate = baud_rate
