@@ -6,7 +6,7 @@ exp_globals['LO_freq']  = 6e9
 exp_globals['LO_power'] = 22
 
 #Channel config
-exp_globals['cav_channel']   = 2
+exp_globals['cav_channel']   = 5
 exp_globals['qub_channel'] = 6
 exp_globals['ro_channels']   = [0]
 

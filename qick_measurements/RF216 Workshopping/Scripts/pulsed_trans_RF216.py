@@ -1,4 +1,4 @@
-from qick.averager_program import AveragerProgram
+from qick.asm_v2 import AveragerProgramV2
 
 import numpy as np
 import os
@@ -8,52 +8,48 @@ from utility.plotting_tools import simplescan_plot
 from utility.measurement_helpers import estimate_time
 import time
 
-class CavitySweep(AveragerProgram):
-    def initialize(self):
-        cfg=self.cfg   
-        gen_ch = cfg["cav_channel"]
+class CavitySweep(AveragerProgramV2):
+    def _initialize(self, cfg):
 
-        # set the nyquist zone
-        # Implement an if statement here to catch? 
-        self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"])
+        ro_ch = cfg['ro_channel']
+        gen_ch = cfg['cav_channel']
+        self.declare_gen(ch=gen_ch, nqz=cfg['nqz_c'], mixer_freq=cfg['mixer_freq'], ro_ch=ro_ch)
+        #for ro_ch in cfg["ro_channels"]:
+        self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
+        self.add_readoutconfig(ch=ro_ch, name="myro",
+                           freq=cfg['cav_freq'],
+                           gen_ch=gen_ch,
+                           outsel='product')
+        self.add_pulse(ch=gen_ch, name="mypulse", ro_ch=ro_ch,
+                       style="const",
+                       freq=cfg['cav_freq'],
+                       length= cfg["meas_window"],
+                       phase=cfg['cav_phase'],
+                       gain=cfg['meas_gain'],
+                      )
+        self.send_readoutconfig(ch=ro_ch, name="myro", t=0)
         
-        # configure the readout lengths and downconversion frequencies (ensuring it is an available DAC frequency)
+    def _body(self, cfg):
+        # #self.reset_phase(gen_ch=self.cfg['cav_channel'],t=0)
         
-        readout = self.us2cycles(cfg["readout_length"],ro_ch=cfg["ro_channels"][0])
-        for ch in cfg["ro_channels"]:
-            self.declare_readout(ch=ch, length=readout,
-                                 freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
-
-        # convert frequency to DAC freqency (ensuring it is an available ADC frequency)
-        freq = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
-        phase = self.deg2reg(cfg["cav_phase"], gen_ch=gen_ch)
-        gain = cfg["meas_gain"]
-        self.default_pulse_registers(ch=gen_ch, freq=freq, phase=phase, gain=gain)
-
+        # #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
+        # #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
+        # offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
+        # meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
+        # #Sets off the ADC
+        # self.trigger(adcs=self.ro_chs,
+        #             pins=[0],
+        #             adc_trig_offset=offset)
         
-        self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
-
+        # #Sends measurement pulse
+        # self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
+        # self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
+        # self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
         
-        # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
-        # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
-        self.synci(200)   
-    
-    def body(self):
-        #self.reset_phase(gen_ch=self.cfg['cav_channel'],t=0)
-        
-        #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
-        #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
-        offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
-        meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
-        #Sets off the ADC
-        self.trigger(adcs=self.ro_chs,
-                    pins=[0],
-                    adc_trig_offset=offset)
-        
-        #Sends measurement pulse
-        self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
-        self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
-        self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
+        self.pulse(ch=self.cfg['cav_channel'], name="mypulse", t=self.cfg["meas_time"])
+        self.trigger(ros=[self.cfg['ro_channel']], pins=[0], t=self.cfg['adc_trig_offset'])#, mr=True)
+        self.wait_auto()
+        self.delay(self.cfg["relax_delay"])
 
 def get_trans_settings():
     settings = {}
@@ -81,42 +77,46 @@ def pulsed_trans(soc,soccfg,instruments,settings):
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
     
-    #if exp_globals['LO']:
-    if False:
-        logen = instruments['LO']
-        
-        logen.freq   = exp_globals['LO_freq']
-        logen.power  = exp_globals['LO_power']
-        logen.output = 1
+
+
 
     stamp    = userfuncs.timestamp()
     saveDir  = userfuncs.saveDir(settings)
     filename = exp_settings['scanname'] + '_' + stamp
 
     config = {
-        'cav_channel'     : exp_globals['cav_channel'],
-        'ro_channels'     : exp_globals['ro_channels'],
+        'cav_channel'     : exp_globals['cav_channel']['ID'],
+        'ro_channel'     : exp_globals['ro_channel']['ID'],
 
-        'nqz_c'           : 1,
+        'nqz_c'           : 2,
         'cav_phase'       : m_pulse['cav_phase'],
         'meas_window'     : m_pulse['meas_window'],
         'meas_time'       : m_pulse['meas_pos'],
-        'meas_gain'       : 500, #Placeholder, gets overwritten in sweep
-        'cav_freq'        : 100, #Placeholder
+        'meas_gain'       : 1.0, #Placeholder, gets overwritten in sweep
+        'cav_freq'        : 6000, #Placeholder, MHz
+        'mixer_freq'      : 6000, #Placeholder, MHz 
+        
+        'ramp_len'        :5e-3, #Placeholder, us
+        'flat_len'        :0.50, #Placeholder, us
         
         'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'] + m_pulse['post_buffer'],
         'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'] - m_pulse['init_buffer'],
 
 
-        'relax_delay'     : exp_globals['relax_delay'],
-        'reps'            : exp_settings['reps'],
-        'soft_avgs'       : exp_settings['soft_avgs']
+        'relax_delay'     : exp_globals['relax_delay']
         }
+
+    cav_ch = exp_globals['cav_channel']
+    ro_ch  = exp_globals['ro_channel']
+    # Set attenuator on DAC.
+    soc.rfb_set_gen_rf(cav_ch['ID'], cav_ch['Atten_1'], cav_ch['Atten_2'])
+    # Set attenuator on ADC.
+    soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
 
     fpts = exp_settings["freq_start"]+exp_settings["freq_step"]*np.arange(exp_settings["freq_points"])
     gpts = exp_settings["gain_start"]+exp_settings["gain_step"]*np.arange(exp_settings["gain_points"])
 
-    prog = CavitySweep(soccfg,config)
+    prog = CavitySweep(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
     meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
     meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
    
@@ -141,20 +141,33 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         Qs  = np.zeros((len(fpts), total_samples))
         
         for f in range(0,len(fpts)):
-            board_freq = (fpts[f] - exp_globals['LO_freq']*exp_globals['LO'])/1e6
+            board_freq = fpts[f]/1e6
             config["cav_freq"] = board_freq
-            prog = CavitySweep(soccfg,config)
+            config["mixer_freq"] = board_freq + exp_settings['mixer_detuning']/1e6
+            prog = CavitySweep(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
             #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
-            holder = prog.acquire_decimated(soc, load_pulses=True, progress=False)
+            if exp_settings['filter']:
+                soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bandpass', bw=0.5)
+                soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=0.5)
+            
+            holder = prog.acquire_decimated(soc, rounds = exp_settings['rounds'], load_pulses=True, progress=False)
+            
+            iq = holder[0]
+            
+            I_full = iq[:,0]
+            Q_full = iq[:,1]
             
             
-            I_full = holder[0][0]
-            Q_full = holder[0][1]
+            # I_full = holder[0][0]
+            # Q_full = holder[0][1]
             I_window = I_full[meas_start:meas_end]
             Q_window = Q_full[meas_start:meas_end]
            
             I_final = np.mean(I_window)
             Q_final = np.mean(Q_window)
+            
+            # print(I_full)
+            # print(I_full.shape)
 
             Is[f,:]   = I_full
             Qs[f,:] = Q_full

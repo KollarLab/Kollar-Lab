@@ -2,6 +2,7 @@ import Pyro4
 
 from qick.qick_asm import QickConfig
 import pyvisa
+# from qick.rfboard import RFQickSoc216V1
 #from kollar_instruments.SGS import SGS100A
 
 #rm = pyvisa.ResourceManager()
@@ -21,9 +22,10 @@ import pyvisa
 Pyro4.config.SERIALIZER="pickle"
 Pyro4.config.PICKLE_PROTOCOL_VERSION=4
 
-ns = Pyro4.locateNS(host="192.168.10.138", port=8888) #Pyro4.locateNS(host="10.0.0.18", port=8888) #pynq2 is not in box
-soc = Pyro4.Proxy(ns.lookup("myqick"))
+ns = Pyro4.locateNS(host="192.168.10.142", port=8888) #Pyro4.locateNS(host="10.0.0.18", port=8888) #pynq2 is not in box
+soc = Pyro4.Proxy(ns.lookup("myqick")) #bitfile = r"C:\Users\BF2-meas\Documents\GitHub\Kollar-Lab\qick_measurements\RF216 Workshopping\qick_216_rfb.bit")
 
-soccfg = QickConfig(soc.get_cfg())
+soccfg = QickConfig(soc.get_cfg()) #r"C:\Users\BF2-meas\Documents\GitHub\Kollar-Lab\qick_measurements\RF216 Workshopping\qick_216_rfb.bit")
 
 print(soccfg)
+
