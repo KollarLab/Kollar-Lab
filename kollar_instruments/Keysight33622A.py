@@ -203,6 +203,10 @@ class Keysight33622A(SCPIinst):
 
         src = f"SOURce{ch}"
 
+        # ARB reconstruction filter: keep ON (STEP or NORM) if you want 1 GS/s
+        self.inst.write(f"{src}:FUNCtion:ARBitrary:FILTer NORM")  # or STEP
+
+
         # Clear volatile ARB memory for that source (optional but helps avoid name collisions)
         # (Command is global DATA:VOLatile:CLEar; many setups accept per-source prefix too.)
         self.inst.write(f"{src}:DATA:VOLatile:CLEar")
