@@ -105,7 +105,7 @@ class Keysight33622A(SCPIinst):
         return np.deg2rad(x)
 
     @staticmethod
-    def _pick_arb_length(Fs, f1, f2, n_min=32, n_max=65536, tol_cycles=1e-9):
+    def _pick_arb_length(Fs, f1, f2, n_min=2000, n_max=65536, tol_cycles=1e-9):
         """
         Pick an ARB length N such that:
             (f1 * N / Fs) and (f2 * N / Fs) are (close to) integers.
