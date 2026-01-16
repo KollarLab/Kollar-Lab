@@ -39,7 +39,7 @@ class Keysight33622A(SCPIinst):
         self.Ch2_output = 0
 
         # for live ARB preview figures
-        self._arb_preview = {}
+        object.__setattr__(self, "_arb_preview", {})
 
         if reset:
             self.reset()
