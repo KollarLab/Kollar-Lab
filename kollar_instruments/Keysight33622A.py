@@ -168,6 +168,9 @@ class Keysight33622A(SCPIinst):
         ph1 = self._deg_to_rad(float(phase_1))
         ph2 = self._deg_to_rad(float(phase_2))
 
+        src = f"SOURce{ch}"
+
+
         if A1 < 0 or A2 < 0:
             raise ValueError("amplitude_1 and amplitude_2 must be >= 0")
         if f1 <= 0 or f2 <= 0:
@@ -197,23 +200,23 @@ class Keysight33622A(SCPIinst):
                 y_norm = y_norm / maxabs  # avoid clipping in the ARB DAC
                 # NOTE: This renormalization will slightly change effective A1/A2 ratio if clipping would occur.
 
-        # Format points for SCPI ASCII list
-        # Keep a reasonable precision; too many digits makes transfers slower.
-        points_str = ",".join(f"{v:.8f}" for v in y_norm)
+        # Convert normalized [-1,1] -> int16 DAC codes [-32767,32767]
+        dac = np.clip(y_norm, -1.0, 1.0)
+        dac = np.round(dac * 32767).astype(np.int16)
 
-        src = f"SOURce{ch}"
+        # IEEE definite-length binary block: #<n><len><data>
+        payload = dac.tobytes(order="C")
+        len_str = str(len(payload))
+        header = f"#{len(len_str)}{len_str}".encode("ascii")
 
-        # ARB reconstruction filter: keep ON (STEP or NORM) if you want 1 GS/s
-        self.inst.write(f"{src}:FUNCtion:ARBitrary:FILTer NORM")  # or STEP
+        cmd = f"{src}:DATA:ARBitrary:DAC {name},".encode("ascii")
 
-
-        # Clear volatile ARB memory for that source (optional but helps avoid name collisions)
-        # (Command is global DATA:VOLatile:CLEar; many setups accept per-source prefix too.)
+        # Clear volatile for this source, then send binary block
         self.inst.write(f"{src}:DATA:VOLatile:CLEar")
 
-        # Download data to volatile memory
-        # Keysight supports: DATA:ARB <name>,<p1>,<p2>,...,<pN>
-        self.inst.write(f"{src}:DATA:ARB {name},{points_str}")
+        # IMPORTANT: must use write_raw so the binary bytes aren’t mangled
+        self.inst.write_raw(cmd + header + payload)
+
 
         # Select ARB and sample rate
         self.inst.write(f'{src}:FUNCtion:ARB "{name}"')
@@ -256,7 +259,7 @@ class Keysight33622A(SCPIinst):
             amplitude_1=amplitude_1, frequency_1=frequency_1, phase_1=phase_1,
             amplitude_2=amplitude_2, frequency_2=frequency_2, phase_2=phase_2,
             Fs=1e9,
-            name="DUAL_SINE_CH1",
+            name="DUALSINECH1",
         )
 
     def Ch2_arb_dual_sine(self, offset, amplitude_1, frequency_1, phase_1, amplitude_2, frequency_2, phase_2):
@@ -274,7 +277,7 @@ class Keysight33622A(SCPIinst):
             amplitude_1=amplitude_1, frequency_1=frequency_1, phase_1=phase_1,
             amplitude_2=amplitude_2, frequency_2=frequency_2, phase_2=phase_2,
             Fs=1e9,
-            name="DUAL_SINE_CH2",
+            name="DUALSINECH2",
         )
 
     def arb_sync(self):
