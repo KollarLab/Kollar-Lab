@@ -145,33 +145,41 @@ class Keysight33622A(SCPIinst):
         max_fft_mhz: float = 200.0,
     ):
         """
-        Spyder live-refresh: one figure per channel, reused every call.
-        Top: time record. Bottom: FFT magnitude.
+        Live-refresh a single preview figure per channel.
+        Robust to SCPIinst.__getattr__ interception (doesn't rely on hasattr()).
         """
         import matplotlib.pyplot as plt
+
+        # ---- robust attribute init: bypass SCPIinst.__getattr__ ----
+        try:
+            arb_preview = object.__getattribute__(self, "_arb_preview")
+        except AttributeError:
+            object.__setattr__(self, "_arb_preview", {})
+            arb_preview = object.__getattribute__(self, "_arb_preview")
 
         key = f"ch{ch}"
         N = len(y_norm)
 
-        # time subset
+        # Prepare plotted time subset
         nplot = min(N, int(max_time_points))
         x_time = t[:nplot] * 1e9
         y_time = y_norm[:nplot]
 
-        # FFT (preview only)
+        # FFT for preview
         w = np.hanning(N)
         Y = np.fft.rfft(y_norm * w)
         f = np.fft.rfftfreq(N, d=1.0 / Fs)
         mag = 20.0 * np.log10(np.maximum(np.abs(Y), 1e-15))
 
+        # Limit FFT display range
         f_mhz = f / 1e6
         if max_fft_mhz is not None:
             m = f_mhz <= float(max_fft_mhz)
             f_mhz = f_mhz[m]
             mag = mag[m]
 
-        # create once
-        if key not in self._arb_preview:
+        # ---------- Create figure first time ----------
+        if key not in arb_preview:
             plt.ion()
             fig = plt.figure(figsize=(10, 7))
             try:
@@ -192,7 +200,7 @@ class Keysight33622A(SCPIinst):
             ax2.set_ylabel("Magnitude (dB, arb)")
             ax2.grid(True)
 
-            self._arb_preview[key] = {
+            arb_preview[key] = {
                 "fig": fig,
                 "ax1": ax1,
                 "ax2": ax2,
@@ -200,8 +208,8 @@ class Keysight33622A(SCPIinst):
                 "line_fft": line_fft,
             }
 
-        # update
-        d = self._arb_preview[key]
+        # ---------- Update existing ----------
+        d = arb_preview[key]
 
         d["line_time"].set_data(x_time, y_time)
         d["ax1"].relim()
@@ -220,6 +228,7 @@ class Keysight33622A(SCPIinst):
         d["fig"].canvas.draw()
         d["fig"].canvas.flush_events()
 
+
     def _upload_arb_dual_sine(
         self,
         ch: int,
@@ -232,7 +241,7 @@ class Keysight33622A(SCPIinst):
         phase_2: float,
         Fs: float = 1e9,
         name: str = None,
-        n_min: int = 32,
+        n_min: int = 2000,
         n_max: int = 65536,
         tol_cycles: float = 1e-9,
         plot: bool = False,
@@ -339,7 +348,7 @@ class Keysight33622A(SCPIinst):
     # -------------------------------------------------------------------------
     def Ch1_arb_dual_sine(
         self, offset, amplitude_1, frequency_1, phase_1, amplitude_2, frequency_2, phase_2,
-        plot=False, plot_fft_mhz=200.0, arb_filter="NORM", n_min=32
+        plot=False, plot_fft_mhz=200.0, arb_filter="NORM", n_min=2000
     ):
         return self._upload_arb_dual_sine(
             ch=1,
@@ -356,7 +365,7 @@ class Keysight33622A(SCPIinst):
 
     def Ch2_arb_dual_sine(
         self, offset, amplitude_1, frequency_1, phase_1, amplitude_2, frequency_2, phase_2,
-        plot=False, plot_fft_mhz=200.0, arb_filter="NORM", n_min=32
+        plot=False, plot_fft_mhz=200.0, arb_filter="NORM", n_min=2000
     ):
         return self._upload_arb_dual_sine(
             ch=2,

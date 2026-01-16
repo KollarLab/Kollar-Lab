@@ -326,6 +326,12 @@ def get_fm_and_detuning_settings():
     # Optional debug fields (ignored by core measurement; kept for consistency)
     settings['debug']      = False
     settings['debug_time'] = 5
+    
+    settings["arb_plot"] = True          # live preview per row
+    settings["arb_plot_fft_mhz"] = 200.0 # FFT x-axis limit in MHz
+    settings["arb_filter"] = "NORM"      # smoother output
+    settings["arb_n_min"] = 32           # or 2200 if you want long records
+
 
     return settings
 
@@ -549,19 +555,34 @@ def fm_and_detuning_scan(soc, soccfg, instruments, settings):
             beta2_tone2, phi2p_tone2
         )
 
-        # Program external generator ONCE per f1 row using ARB dual-sine on each channel
+        plot_this_row = bool(exp_settings.get("arb_plot", False))
+        plot_fft_mhz  = float(exp_settings.get("arb_plot_fft_mhz", 200.0))
+        arb_filter    = exp_settings.get("arb_filter", "NORM")
+        arb_n_min     = int(exp_settings.get("arb_n_min", 32))
+        
         Dual_gen.Ch1_arb_dual_sine(
             offset=exp_settings['dc_offset_voltage_1'],
             amplitude_1=Vpp1_t1, frequency_1=f1, phase_1=phi_V1_t1_deg,
-            amplitude_2=Vpp1_t2, frequency_2=f2, phase_2=phi_V1_t2_deg
+            amplitude_2=Vpp1_t2, frequency_2=f2, phase_2=phi_V1_t2_deg,
+            plot=plot_this_row,
+            plot_fft_mhz=plot_fft_mhz,
+            arb_filter=arb_filter,
+            n_min=arb_n_min,
         )
+        
         Dual_gen.Ch2_arb_dual_sine(
             offset=exp_settings['dc_offset_voltage_2'],
             amplitude_1=Vpp2_t1, frequency_1=f1, phase_1=phi_V2_t1_deg,
-            amplitude_2=Vpp2_t2, frequency_2=f2, phase_2=phi_V2_t2_deg
+            amplitude_2=Vpp2_t2, frequency_2=f2, phase_2=phi_V2_t2_deg,
+            plot=plot_this_row,
+            plot_fft_mhz=plot_fft_mhz,
+            arb_filter=arb_filter,
+            n_min=arb_n_min,
         )
+        
         Dual_gen.arb_sync()
         time.sleep(0.1)
+
 
         for ix, det_MHz in enumerate(det_list):
             # store tone settings (same for all det columns)
