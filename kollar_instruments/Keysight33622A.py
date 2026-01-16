@@ -177,7 +177,7 @@ class Keysight33622A(SCPIinst):
             raise ValueError("frequency_1 and frequency_2 must be > 0")
 
         # Choose ARB length N so the record repeats seamlessly
-        N, err = self._pick_arb_length(Fs, f1, f2, n_min=8, n_max=n_max, tol_cycles=tol_cycles)
+        N, err = self._pick_arb_length(Fs, f1, f2, n_min=2200, n_max=n_max, tol_cycles=tol_cycles)
 
         # Time axis
         t = np.arange(N, dtype=np.float64) / Fs
