@@ -181,7 +181,9 @@ class Keysight33622A(SCPIinst):
         # ---------- Create figure first time ----------
         if key not in arb_preview:
             plt.ion()
-            fig = plt.figure(figsize=(10, 7))
+            fig = plt.figure(num=100 + ch, figsize=(10, 7))
+            fig.clf()
+
             try:
                 fig.canvas.manager.set_window_title(f"ARB Preview CH{ch}")
             except Exception:
