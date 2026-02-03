@@ -203,11 +203,11 @@ def quasi_cw(soc,soccfg,instruments,settings):
     soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
     
     if exp_settings['filter']:
-        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=1.0)
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=1.0)
+        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
+        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
         
         center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
-        soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bandpass', bw=1.0)
+        soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bandpass', bw=exp_globals['qub_channel']['BW'])
         
 
     prog = Quasi_CW(soccfg,reps = exp_settings['reps'], final_delay = None, final_wait = 0, cfg = config)

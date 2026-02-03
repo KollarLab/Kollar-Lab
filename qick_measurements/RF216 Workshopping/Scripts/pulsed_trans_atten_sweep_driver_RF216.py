@@ -1,4 +1,4 @@
-from pulsed_trans_RF216 import pulsed_trans, get_trans_settings
+from pulsed_trans_atten_sweep_RF216 import pulsed_trans, get_trans_settings
 
 
 instruments = {}
@@ -12,10 +12,11 @@ cav_center = 4e9
 span = 10e6 
 freq_points = 51
 
-settings['gain_start']     = 1
-settings['gain_step']      = 0.1
-settings['gain_points']    = 1
+settings['atten_start']     = 1
+settings['atten_step']      = 0.1
+settings['atten_points']    = 1
 
+settings['meas_gain'] = 0.5
 
 #ADC settings
 settings['reps']      = 1

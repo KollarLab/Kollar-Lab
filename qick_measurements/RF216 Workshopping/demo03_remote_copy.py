@@ -39,29 +39,41 @@ class LoopbackProgram(AveragerProgramV2):
                       )
         self.send_readoutconfig(ch=cfg['ro_ch'], name="myro", t=0)
     def _body(self, cfg):
-        #self.delay_auto()
+        self.delay_auto()
         self.pulse(ch=cfg['gen_ch'], name="mypulse", t=0)
         self.trigger(ros=[cfg['ro_ch']], pins=[0], t=cfg['trig_time'], mr=True)
         self.wait_auto()
-        self.delay(self.cfg["relax_delay"])
+        # self.delay(self.cfg["relax_delay"])
         #self.sync_all(self.us2cycles(self.cfg["relax_delay"]))
 
         
-        
 
 config = {'gen_ch': GEN_CH,
-          'ro_ch': RO_CH,
-          'mixer_freq': 4200,
-          'freq': 4500,
-          'nqz': 1,
-          'trig_time': 0.0,
-          'ro_len': 3.0,
-          'flat_len': 1.0,
-          'ramp_len': 1.0,
-          'phase': 0,
-          'gain': 1.0,
-          'relax_delay' : 0.5
-         }
+      'ro_ch': RO_CH,
+      'mixer_freq': 4000,
+      'freq': 4200,
+      'nqz': 1,
+      'trig_time': 0.0,
+      'ro_len': 3.0,
+      'flat_len': 2.0,
+      'ramp_len': 1.0,
+      'phase': 90,
+      'gain': 1.0
+     }
+
+# config = {'gen_ch': GEN_CH,
+#           'ro_ch': RO_CH,
+#           'mixer_freq': 4200,
+#           'freq': 4500,
+#           'nqz': 1,
+#           'trig_time': 0.0,
+#           'ro_len': 3.0,
+#           'flat_len': 1.0,
+#           'ramp_len': 1.0,
+#           'phase': 0,
+#           'gain': 1.0,
+#           'relax_delay' : 0.5
+#          }
 
 prog = LoopbackProgram(soccfg, reps=1, final_delay = None, final_wait=0, cfg=config)
 
@@ -71,9 +83,9 @@ soc.rfb_set_ro_filter(config['ro_ch'], fc=freq/1000, ftype='bandpass', bw=1.0)
 
 
 # Set attenuator on DAC.
-soc.rfb_set_gen_rf(config['gen_ch'], 20, 20)
+soc.rfb_set_gen_rf(config['gen_ch'], 0, 10)
 # Set attenuator on ADC.
-soc.rfb_set_ro_rf(config['ro_ch'], 10)
+soc.rfb_set_ro_rf(config['ro_ch'], 25)
 
 iq_list = prog.acquire_decimated(soc, rounds=10,progress=False)
 

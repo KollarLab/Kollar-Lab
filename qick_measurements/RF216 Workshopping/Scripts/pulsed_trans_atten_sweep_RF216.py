@@ -92,7 +92,8 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         'cav_phase'       : m_pulse['cav_phase'],
         'meas_window'     : m_pulse['meas_window'],
         'meas_time'       : m_pulse['meas_pos'],
-        'meas_gain'       : 1.0, #Placeholder, gets overwritten in sweep
+        'meas_gain'       : exp_settings['meas_gain'],
+        'meas_atten'      : 1.0, #Placeholder, overidden in sweep
         'cav_freq'        : 6000, #Placeholder, MHz
         'mixer_freq'      : 6000, #Placeholder, MHz 
         
@@ -115,26 +116,29 @@ def pulsed_trans(soc,soccfg,instruments,settings):
 
 
     fpts = exp_settings["freq_start"]+exp_settings["freq_step"]*np.arange(exp_settings["freq_points"])
-    gpts = exp_settings["gain_start"]+exp_settings["gain_step"]*np.arange(exp_settings["gain_points"])
+    #gpts = exp_settings["gain_start"]+exp_settings["gain_step"]*np.arange(exp_settings["gain_points"])
+    apts = exp_settings["atten_start"]+exp_settings["atten_step"]*np.arange(exp_settings["atten_points"])
 
     prog = CavitySweep(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
     meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
     meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
    
 
-    powerdat = np.zeros((len(gpts), len(fpts)))
-    normdat  = np.zeros((len(gpts), len(fpts)))
-    phasedat = np.zeros((len(gpts), len(fpts)))
+    powerdat = np.zeros((len(apts), len(fpts)))
+    normdat  = np.zeros((len(apts), len(fpts)))
+    phasedat = np.zeros((len(apts), len(fpts)))
 
     #drive_powers_lin = 10**(powers/10) ?
     #drive_amps_lin = np.sqrt(drive_powers_lin)
     
     tstart = time.time()
 
-    for g in range(0,len(gpts)):
-        print("Current Gain: " + str(gpts[g]) + ", Max Gain: " + str(gpts[-1]))
+    for g in range(0,len(apts)):
+        print("Current Attenuation: " + str(apts[g]) + ", Max Attenuation: " + str(apts[-1]))
         
-        config["meas_gain"] = gpts[g]
+        config["meas_atten"] = apts[g]
+        
+        soc.rfb_set_gen_rf(cav_ch['ID'], apts[g]/2, apts[g]/2)#Set attenuation in sweep
 
         total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
 
@@ -178,7 +182,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         
         if g == 0:
             tstop = time.time()
-            estimate_time(tstart, tstop, len(gpts))
+            estimate_time(tstart, tstop, len(apts))
 
             xaxis = np.linspace(0,len(I_full)-1,len(I_full))
 
@@ -201,7 +205,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         single_data['mag']   = powerdat[g]
         single_data['phase'] = phasedat[g]
 
-        yaxis  = gpts[0:g+1] #- CAV_Attenuation
+        yaxis  = apts[0:g+1] #- CAV_Attenuation
         labels = ['Freq (GHz)', 'Gain (DAC a.u.)']
 
         
@@ -219,7 +223,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         single_time['Q'] = Q_full
 
         time_labels = ['Time (us)', 'Freq (GHz)']
-        identifier = 'Gain: {}a.u.'.format(gpts[g])#-CAV_Attenuation)
+        identifier = 'Atten: {}a.u.'.format(apts[g])#-CAV_Attenuation)
 
         simplescan_plot(full_time, single_time, fpts/1e9, 
                         'Raw_time_traces\n'+filename, 

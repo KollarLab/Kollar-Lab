@@ -24,7 +24,7 @@ settings['cav_gain'] = 0.1
 
 settings['qub_freq']  = 5e9
 settings['qub_mixer_detuning'] = -250
-settings['qub_gain']  = 0.5
+#settings['qub_gain']  = 0.5 #Set in experiment_globals as piGain instead
 
 settings['Tau_min']    = 200e-9
 settings['Tau_max']    = 40e-6
