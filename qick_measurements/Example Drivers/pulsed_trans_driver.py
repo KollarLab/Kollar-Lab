@@ -1,8 +1,8 @@
-from pulsed_trans import pulsed_trans, get_trans_settings
+from qick_measurements.pulsed_trans import pulsed_trans, get_trans_settings
 
 
 instruments = {}
-instruments['LO'] = logen
+# instruments['LO'] = logen
 
 
 settings = get_trans_settings()

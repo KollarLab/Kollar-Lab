@@ -4,6 +4,7 @@ Spyder 5:
 
 2. **IMPORTANT** When a new instance of Spyder 5 is launched, the default behavior is for individual files to store variables in individual namespaces. If a variable is defined in one file, the other files won't be able to access it, which breaks our measurement scripts. To turn it back on check the box in the pathway below: 
 Tools -> Preferences -> Run -> Run in console namespace instead of an empty one
+(UPDATE for Spyder 6: Run -> Run configuration per file -> Custom configuration -> Run in console namespace instead of an empty one)
 
 3. How to change Spyder's default to make figures in a separate window: 
 Tools -> Preferences -> iPython Console -> Graphics -> Change backend from Inline to Automatic
