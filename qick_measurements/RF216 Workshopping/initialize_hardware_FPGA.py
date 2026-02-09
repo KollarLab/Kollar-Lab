@@ -17,6 +17,13 @@ import pyvisa
 #extgen.Ref.Source = 'INT'
 #extgen.Ref.Frequency = 10e6
 
+# SRS2 = DC205('ASRL4::INSTR', reset = False) #Connected to DC2 I think, should be flux qubit
+# SRS2.Output = 'On'
+# SRS2.Range = '10 V'
+
+# SRS3 = DC205('ASRL5::INSTR', reset = False) #connected to DC1 I think, should be transmon
+# SRS3.Output = 'On'
+# SRS3.Range = '10 V'
 
 Pyro4.config.SERIALIZER="pickle"
 Pyro4.config.PICKLE_PROTOCOL_VERSION=4

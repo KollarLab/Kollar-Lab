@@ -73,10 +73,11 @@ class T1_sequence(AveragerProgramV2):
         num_sigma = cfg["num_sigma"]
         
         pulse_len = cfg['hold_length'] + int(num_sigma*sigma)
-
+        
         offset = cfg["adc_trig_offset"]
         meas_time = self.cfg["meas_time"]
         ex_time = meas_time - cfg['qub_delay'] - pulse_len
+        
         
         
         
@@ -204,11 +205,11 @@ def meas_T1(soc,soccfg,instruments,settings):
         'cav_freq'        : (exp_settings['cav_freq'])/1e6,
         'cav_mixer_freq'  : (exp_settings['cav_freq'] + exp_settings['cav_mixer_detuning'])/1e6,
         
-        'nqz_q'           : 1,
+        'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
         
         'qub_freq'        : exp_settings['qub_freq']/1e6,
-        'qub_gain'        : exp_globals['piGain'],
+        'qub_gain'        : q_pulse['piGain'],
         'qub_mixer_freq'  : (exp_settings['qub_freq']+exp_settings['qub_mixer_detuning'])/1e6,
 
         'qub_sigma'       : q_pulse['sigma'],
@@ -234,10 +235,21 @@ def meas_T1(soc,soccfg,instruments,settings):
     # Set attenuator on ADC.
     soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
     
-    if exp_settings['filter']:
+    if exp_settings['filter']: # Fix filter logic, currently can never lock into 'not_qubit' pathway since first if will always be True.
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW']) 
+        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
         soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bandpass', bw=exp_globals['qub_channel']['BW'])
+    elif exp_settings['filter'] == 'not_qubit':
+        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
+        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+        
+        center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
+        soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bypass')
+    else:
+        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+        center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
+        soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bypass')
         
     prog = T1_sequence(soccfg,reps = exp_settings['reps'], final_delay = None, final_wait = 0, cfg = config)#Wait this uses reps instead of rounds????
 
@@ -283,7 +295,6 @@ def meas_T1(soc,soccfg,instruments,settings):
         
         tau = taus[tind]
         print('Tau: {}'.format(tau))
-        
         config['qub_delay'] = tau*1e6
         prog = T1_sequence(soccfg,reps = exp_settings['reps'], final_delay = None, final_wait = 0, cfg = config)
         holder = prog.acquire(soc, rounds = exp_settings['rounds'], load_pulses=True, progress=False)

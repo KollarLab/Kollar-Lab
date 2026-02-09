@@ -179,12 +179,24 @@ def hold_time_sweep(soc,soccfg,instruments,settings):
     soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
     
     if exp_settings['filter']:
+        print('Are you on the default path?')
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
         soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
         
         soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bandpass', bw=exp_globals['qub_channel']['BW'])
+    elif exp_settings['filter'] == 'not_qubit':
+        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
+        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
         
-
+        center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
+        soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bypass')
+    else:
+        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+        
+        center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
+        soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bypass')
+        
     prog = HoldTimeSweep(soccfg,reps = exp_settings['reps'], final_delay = None, final_wait = 0, cfg = config)
     rep_period = config['adc_trig_offset'] + config['readout_length'] + config['relax_delay']
     

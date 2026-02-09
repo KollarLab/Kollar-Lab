@@ -189,7 +189,7 @@ def quasi_cw(soc,soccfg,instruments,settings):
 
 
         'relax_delay'     : exp_globals['relax_delay'],
-        # 'reps'            : exp_settings['reps'],
+        'reps'            : exp_settings['reps'],
         # 'soft_avgs'       : exp_settings['soft_avgs']
         }
 
@@ -208,8 +208,19 @@ def quasi_cw(soc,soccfg,instruments,settings):
         
         center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
         soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bandpass', bw=exp_globals['qub_channel']['BW'])
+    elif exp_settings['filter'] == 'not_qubit':
+        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
+        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
         
-
+        center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
+        soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bypass')
+    else:
+        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+        
+        center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
+        soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bypass')
+        
     prog = Quasi_CW(soccfg,reps = exp_settings['reps'], final_delay = None, final_wait = 0, cfg = config)
     rep_period = config['adc_trig_offset'] + config['readout_length'] + config['relax_delay']
     
@@ -221,8 +232,8 @@ def quasi_cw(soc,soccfg,instruments,settings):
     t_i = time.time()
     
     
-    iq_list = prog.acquire(soc, rounds = exp_settings['rounds'], load_pulses=True, progress=False)
-    
+    iq_list = prog.acquire(soc, reps = exp_settings['reps'], rounds = exp_settings['rounds'], load_pulses=True, progress=False)
+    #iq_list = prog.acquire(soc, reps = exp_settings['reps'], load_pulses=True, progress=False)
     
     iq = iq_list[0][0]
     

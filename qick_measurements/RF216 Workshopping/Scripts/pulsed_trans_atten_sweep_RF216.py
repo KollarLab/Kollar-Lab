@@ -46,8 +46,8 @@ class CavitySweep(AveragerProgramV2):
         # self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
         # self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
-        self.pulse(ch=self.cfg['cav_channel'], name="mypulse", t=0)#self.cfg["meas_time"])
-        self.trigger(ros=[self.cfg['ro_channel']], pins=[0], t=0)#self.cfg['adc_trig_offset'])
+        self.pulse(ch=self.cfg['cav_channel'], name="mypulse", t=self.cfg["meas_time"])
+        self.trigger(ros=[self.cfg['ro_channel']], pins=[0], t=self.cfg['adc_trig_offset'])
         self.wait_auto()
         self.delay(self.cfg["relax_delay"])
 
@@ -93,7 +93,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         'meas_window'     : m_pulse['meas_window'],
         'meas_time'       : m_pulse['meas_pos'],
         'meas_gain'       : exp_settings['meas_gain'],
-        'meas_atten'      : 1.0, #Placeholder, overidden in sweep
+        'meas_atten'      : 0.0, #Placeholder, overidden in sweep
         'cav_freq'        : 6000, #Placeholder, MHz
         'mixer_freq'      : 6000, #Placeholder, MHz 
         
@@ -110,7 +110,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
     cav_ch = exp_globals['cav_channel']
     ro_ch  = exp_globals['ro_channel']
     # Set attenuator on DAC.
-    soc.rfb_set_gen_rf(cav_ch['ID'], cav_ch['Atten_1'], cav_ch['Atten_2'])
+    #soc.rfb_set_gen_rf(cav_ch['ID'], cav_ch['Atten_1'], cav_ch['Atten_2'])
     # Set attenuator on ADC.
     soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
 
@@ -119,11 +119,10 @@ def pulsed_trans(soc,soccfg,instruments,settings):
     #gpts = exp_settings["gain_start"]+exp_settings["gain_step"]*np.arange(exp_settings["gain_points"])
     apts = exp_settings["atten_start"]+exp_settings["atten_step"]*np.arange(exp_settings["atten_points"])
 
-    prog = CavitySweep(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
-    meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
-    meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
+    # prog = CavitySweep(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
+    # meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
+    # meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
    
-
     powerdat = np.zeros((len(apts), len(fpts)))
     normdat  = np.zeros((len(apts), len(fpts)))
     phasedat = np.zeros((len(apts), len(fpts)))
@@ -139,7 +138,11 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         config["meas_atten"] = apts[g]
         
         soc.rfb_set_gen_rf(cav_ch['ID'], apts[g]/2, apts[g]/2)#Set attenuation in sweep
-
+        
+        prog = CavitySweep(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
+        meas_start = prog.us2cycles(m_pulse["init_buffer"],ro_ch=0)
+        meas_end = meas_start+prog.us2cycles(m_pulse["meas_window"],ro_ch=0)
+        
         total_samples = prog.us2cycles(config['readout_length'],ro_ch=0)
 
         Is  = np.zeros((len(fpts), total_samples))
@@ -233,7 +236,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
                         IQdata = True)
         plt.savefig(os.path.join(saveDir, filename+'_RawTimeTraces.png'), dpi = 150)
 
-        userfuncs.SaveFull(saveDir, filename, ['gpts','fpts', 'powerdat', 'phasedat','xaxis','full_data', 'single_data', 'full_time', 'single_time'],
+        userfuncs.SaveFull(saveDir, filename, ['apts','fpts', 'powerdat', 'phasedat','xaxis','full_data', 'single_data', 'full_time', 'single_time'],
                              locals(), expsettings=settings, instruments={})
     
     # if exp_globals['LO']:

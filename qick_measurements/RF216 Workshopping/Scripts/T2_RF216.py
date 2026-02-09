@@ -19,14 +19,14 @@ from utility.measurement_helpers import estimate_time
 
 class T2_sequence(AveragerProgramV2):
     def _initialize(self,cfg): 
-        ro_ch  = cfg['ro_channel']
-        gen_ch = cfg["cav_channel"]
-        qub_ch = cfg["qub_channel"]
+        ro_ch  = cfg['ro_channels']['ID']
+        gen_ch = cfg["cav_channel"]['ID']
+        qub_ch = cfg["qub_channel"]['ID']
 
         # set the nyquist zone
         # Implement an if statement here to catch? 
-        self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"], mixer_freq=cfg['cav_mixer_freq'],ro_ch=ro_ch)
-        self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
+        self.declare_gen(ch=cfg["cav_channel"]['ID'], nqz=cfg["nqz_c"], mixer_freq=cfg['cav_mixer_freq'],ro_ch=ro_ch)
+        self.declare_gen(ch=cfg["qub_channel"]['ID'], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
         
         self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
         
@@ -80,13 +80,13 @@ class T2_sequence(AveragerProgramV2):
         
         
         #Sets off the ADC
-        self.trigger(ros=[cfg['ro_channel']],
+        self.trigger(ros=[cfg['ro_channels']['ID']],
                     pins=[0],
                     t=offset)
         
-        self.pulse(ch=cfg["qub_channel"],name='qub_pulse',t=ex_time_t2)
-        self.pulse(ch=cfg["qub_channel"],name='qub_pulse',t=ex_time_fixed)
-        self.pulse(ch=cfg["cav_channel"],name='cav_pulse',t=meas_time)
+        self.pulse(ch=cfg["qub_channel"]['ID'],name='qub_pulse',t=ex_time_t2)
+        self.pulse(ch=cfg["qub_channel"]['ID'],name='qub_pulse',t=ex_time_fixed)
+        self.pulse(ch=cfg["cav_channel"]['ID'],name='cav_pulse',t=meas_time)
         self.wait_auto()
         self.delay(self.cfg["relax_delay"])
       
@@ -186,7 +186,7 @@ def meas_T2(soc,soccfg,instruments,settings):
     config = {
         'cav_channel'     : exp_globals['cav_channel'],
         'qub_channel'     : exp_globals['qub_channel'],
-        'ro_channels'     : exp_globals['ro_channels'],
+        'ro_channels'     : exp_globals['ro_channel'],
 
         'nqz_c'           : 2,
         'cav_phase'       : m_pulse['cav_phase'],
@@ -200,7 +200,7 @@ def meas_T2(soc,soccfg,instruments,settings):
         'qub_phase'       : q_pulse['qub_phase'],
         'qub_freq'        : (exp_settings['qub_freq']+exp_settings['detuning'])/1e6,
         'qub_mixer_freq'  : (exp_settings['qub_freq']+exp_settings['qub_mixer_detuning'])/1e6,
-        'qub_gain'        : exp_globals['piGain']/2,
+        'qub_gain'        : q_pulse['piGain']/2,
         
         'qub_sigma'       : q_pulse['sigma'],
         'qub_delay_fixed' : q_pulse['delay'],
@@ -227,9 +227,12 @@ def meas_T2(soc,soccfg,instruments,settings):
     soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
     
     if exp_settings['filter']:
-        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW']) 
-        soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bandpass', bw=exp_globals['qub_channel']['BW'])
+        print(config['cav_channel']['ID'])
+        print(config['cav_freq'])
+        print(exp_globals['cav_channel']['BW'])
+        soc.rfb_set_gen_filter(config['cav_channel']['ID'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
+        soc.rfb_set_ro_filter(config['ro_channels']['ID'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW']) 
+        soc.rfb_set_gen_filter(config['qub_channel']['ID'], fc=config['qub_freq']/1000, ftype='bandpass', bw=exp_globals['qub_channel']['BW'])
 
 
 #    prog = T2_sequence(soccfg,config)

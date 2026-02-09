@@ -12,24 +12,28 @@ instruments = {}
 
 
 settings = get_T2_settings()
-settings['scanname'] = 'T2_test_6'
+settings['scanname'] = 'flux_qubit_T2_test'
 
-settings['cav_freq']  = 7.31266e9 
-settings['cav_mixer_detuning'] = -250
-settings['cav_gain'] = 1.0
+offset=-0.0035
+SRS2.voltage_ramp(0.093+offset)
+SRS3.voltage_ramp(0.21)
 
-settings['qub_freq']  = 5.87781e9
+settings['cav_freq']  = 6.10174e9#6.1014e9
+settings['cav_mixer_detuning'] = 200
+settings['cav_gain'] = 0.5
+
+settings['qub_freq']  = 3.411e9
 settings['qub_mixer_detuning'] = -250
 #settings['qub_gain']  = 1.0 #Set in experiment_globals as piGain instead
 
 settings['Tau_min']    = 100e-9
-settings['Tau_max']    = 1e-6
+settings['Tau_max']    = 3e-6
 settings['Tau_points'] = 26
 settings['T2_guess']   = 1e-6
-settings['detuning']   = 4e6
+settings['detuning']   = 2e6
 
 #ADC settings
-settings['reps']       = 1000
+settings['reps']       = 400000
 settings['rounds']  = 1
 
 settings['phase_reset'] = False #Not currently implemented

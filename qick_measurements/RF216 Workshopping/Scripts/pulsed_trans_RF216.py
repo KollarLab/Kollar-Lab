@@ -46,8 +46,8 @@ class CavitySweep(AveragerProgramV2):
         # self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
         # self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
-        self.pulse(ch=self.cfg['cav_channel'], name="mypulse", t=0)#self.cfg["meas_time"])
-        self.trigger(ros=[self.cfg['ro_channel']], pins=[0], t=0)#self.cfg['adc_trig_offset'])
+        self.pulse(ch=self.cfg['cav_channel'], name="mypulse", t=self.cfg["meas_time"])
+        self.trigger(ros=[self.cfg['ro_channel']], pins=[0], t=self.cfg['adc_trig_offset'])
         self.wait_auto()
         self.delay(self.cfg["relax_delay"])
 
@@ -76,6 +76,8 @@ def pulsed_trans(soc,soccfg,instruments,settings):
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
+    
+    # print(m_pulse)
     
 
 

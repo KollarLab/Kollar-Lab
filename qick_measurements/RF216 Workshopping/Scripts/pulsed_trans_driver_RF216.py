@@ -6,11 +6,15 @@ instruments = {}
 
 
 settings = get_trans_settings()
-settings['scanname']  = 'Loopback_Check'
- 
-cav_center = 4e9 
-span = 10e6 
-freq_points = 51
+settings['scanname']  = 'Random_6GHz'
+settings['meas_type']   = 'pulsed_trans'
+
+SRS2.voltage_ramp(0.5)
+SRS3.voltage_ramp(0.)
+
+cav_center = 6e9 
+span = 100e6 
+freq_points = 10
 
 settings['gain_start']     = 1
 settings['gain_step']      = 0.1
@@ -19,15 +23,14 @@ settings['gain_points']    = 1
 
 #ADC settings
 settings['reps']      = 1
-settings['rounds']  = 1
+settings['rounds']  = 10
 
 settings['freq_start']      = cav_center-span/2 
 settings['freq_step']       = span/(freq_points-1)
 settings['freq_points']     = freq_points 
 settings['mixer_detuning']  = 200e6
 
-settings['filter'] = False
-
+settings['filter'] = True
 
 #settings['nqz_c'] = 2
 
@@ -39,6 +42,5 @@ fullsettings['exp_globals'] = exp_globals
 fullsettings['exp_settings'] = settings
 
 full_data = pulsed_trans(soc,soccfg,instruments,fullsettings)
-
 
 

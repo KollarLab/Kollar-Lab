@@ -11,26 +11,29 @@ instruments = {}
 
 
 settings = get_hold_time_settings()
-settings['scanname'] = 'Zach_qubit_hi_pow'
+settings['scanname'] = 'flux_qubit_hold_sweep'
 
-settings['cav_freq']  = 5e9 #7.8392e9
-settings['cav_mixer_detuning'] = -250
-settings['cav_gain'] = 0.2
+offset=-0.0035
+SRS2.voltage_ramp(0.093+offset)
+SRS3.voltage_ramp(0.21)
 
-settings['qub_freq']  = 5e9
+settings['cav_freq']  = 6.1013e9 #7.8392e9
+settings['cav_mixer_detuning'] = 200
+settings['cav_gain'] = 0.5
+
+settings['qub_freq']  = 3.5e9
 settings['qub_mixer_detuning'] = -250
 settings['qub_gain']     = 0.5
 
-
-settings['filter'] = True
+settings['filter'] = 'not_qubit'
 
 #Sweep Parameters
-settings['hold_start']      = 0.1
-settings['hold_stop']       = 4
-settings['hold_points']     = 20 
+settings['hold_start']      = 0.01#0.01
+settings['hold_stop']       = 0.2#0.1
+settings['hold_points']     = 30 
 
 #ADC settings
-settings['reps']      = 500
+settings['reps']      = 80000
 settings['rounds']  = 1
 
 

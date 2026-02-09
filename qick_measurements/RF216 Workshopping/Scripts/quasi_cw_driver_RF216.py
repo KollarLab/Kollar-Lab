@@ -11,24 +11,27 @@ instruments = {}
 
 
 settings = get_quasi_cw_settings()
-settings['scanname'] = 'Zach_qubit_hi_pow'
+settings['scanname'] = 'finding_flux_qubit_no_amp'
+offset=-0.0035
+SRS2.voltage_ramp(0.093+offset)
+SRS3.voltage_ramp(0.21)
 
-settings['cav_freq']  = 5e9 #7.8392e9
-settings['cav_mixer_detuning'] = -250
+settings['cav_freq'] = 6.1013e9#6.10208e9 
+settings['cav_mixer_detuning'] = 200
 settings['qub_mixer_detuning'] = -250
-settings['cav_gain'] = 0.1
+settings['cav_gain'] = 0.5
 
 settings['fit'] = False
 
-qub_center = 5e9
+qub_center = 3.418e9#3.411e9#
 span = 50e6 
 freq_points = 51
 
-settings['qub_gain']     = 0.5
+settings['qub_gain']     = 0.005
 settings['quasi_CW_len'] = 10 #us
 
 
-settings['filter'] = True
+settings['filter'] = 'not_qubit'
 
 #Sweep Parameters
 settings['freq_start']      = qub_center-span/2
@@ -36,8 +39,8 @@ settings['freq_stop']       = qub_center+span/2
 settings['freq_points']     = freq_points 
 
 #ADC settings
-settings['reps']      = 1
-settings['rounds']  = 500
+settings['reps']      = 500000
+settings['rounds']  =1
 
 
 fullsettings = {}
