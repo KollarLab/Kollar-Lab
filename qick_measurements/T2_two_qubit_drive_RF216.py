@@ -401,7 +401,7 @@ def meas_T2(soc,soccfg,instruments,settings):
         plt.clf()
         plt.subplot(121)
         plt.plot(taus, amp_int)
-        plt.suptitle(f'{filename}\nLive T2 data (no fit)')
+        plt.suptitle('Live T2 data (no fit)\nf{filename}')
         plt.xlabel('Tau (us)')
         plt.ylabel('Amplitude')
         plt.subplot(122)
