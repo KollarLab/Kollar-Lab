@@ -189,50 +189,52 @@ class T2_sequence(AveragerProgram):
         self.sync_all(self.us2cycles(cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
 
 
-class CavitySweep(AveragerProgram):
-    def initialize(self):
-        cfg=self.cfg   
-        gen_ch = cfg["cav_channel"]
-
-        # set the nyquist zone
-        # Implement an if statement here to catch? 
-        self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"])
-        
-        # configure the readout lengths and downconversion frequencies (ensuring it is an available DAC frequency)
-        
-        readout = self.us2cycles(cfg["readout_length"],ro_ch=cfg["ro_channels"][0])
-        for ch in cfg["ro_channels"]:
-            self.declare_readout(ch=ch, length=readout,
-                                 freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
-
-        # convert frequency to DAC freqency (ensuring it is an available ADC frequency)
-        freq = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
-        phase = self.deg2reg(cfg["cav_phase"], gen_ch=gen_ch)
-        gain = cfg["meas_gain"]
-        self.default_pulse_registers(ch=gen_ch, freq=freq, phase=phase, gain=gain)
-
-        
-        self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
-
-        
-        # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
-        # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
-        self.synci(200)   
-    
-    def body(self):
-        #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
-        #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
-        offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
-        meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
-        #Sets off the ADC
-        self.trigger(adcs=self.ro_chs,
-                    pins=[0],
-                    adc_trig_offset=offset)
-        
-        #Sends measurement pulse
-        self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
-        self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
-        self.sync_all(self.us2cycles(self.cfg["relax_delay"]))
+# =============================================================================
+# class CavitySweep(AveragerProgram):
+#     def initialize(self):
+#         cfg=self.cfg   
+#         gen_ch = cfg["cav_channel"]
+# 
+#         # set the nyquist zone
+#         # Implement an if statement here to catch? 
+#         self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"])
+#         
+#         # configure the readout lengths and downconversion frequencies (ensuring it is an available DAC frequency)
+#         
+#         readout = self.us2cycles(cfg["readout_length"],ro_ch=cfg["ro_channels"][0])
+#         for ch in cfg["ro_channels"]:
+#             self.declare_readout(ch=ch, length=readout,
+#                                  freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
+# 
+#         # convert frequency to DAC freqency (ensuring it is an available ADC frequency)
+#         freq = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
+#         phase = self.deg2reg(cfg["cav_phase"], gen_ch=gen_ch)
+#         gain = cfg["meas_gain"]
+#         self.default_pulse_registers(ch=gen_ch, freq=freq, phase=phase, gain=gain)
+# 
+#         
+#         self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
+# 
+#         
+#         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
+#         # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
+#         self.synci(200)   
+#     
+#     def body(self):
+#         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
+#         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
+#         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
+#         meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
+#         #Sets off the ADC
+#         self.trigger(adcs=self.ro_chs,
+#                     pins=[0],
+#                     adc_trig_offset=offset)
+#         
+#         #Sends measurement pulse
+#         self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
+#         self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
+#         self.sync_all(self.us2cycles(self.cfg["relax_delay"]))
+# =============================================================================
 
 def get_phase_rotation_settings():
     settings = {}
@@ -401,18 +403,20 @@ def meas_phase_rotation(soc,soccfg,instruments,settings):
     
     first_it = True
     
-    if exp_settings['subtract_background']:
-        #Acquire background trace
-#            qubitgen.freq=3.8e9
-#            time.sleep(0.1)
-        print('Starting Background Trace')
-        bprog = CavitySweep(soccfg,config)
-        holder = bprog.acquire(soc, load_pulses=True, progress=False)
-        print('Background Trace Complete')
-        I_back = holder[0][0][0]
-        Q_back = holder[1][0][0]
-    else:
-        I_back, Q_back = 0,0
+# =============================================================================
+#     if exp_settings['subtract_background']:
+#         #Acquire background trace
+# #            qubitgen.freq=3.8e9
+# #            time.sleep(0.1)
+#         print('Starting Background Trace')
+#         bprog = CavitySweep(soccfg,config)
+#         holder = bprog.acquire(soc, load_pulses=True, progress=False)
+#         print('Background Trace Complete')
+#         I_back = holder[0][0][0]
+#         Q_back = holder[1][0][0]
+#     else:
+# =============================================================================
+    I_back, Q_back = 0,0
     
     tstart = time.time()
     
