@@ -58,14 +58,14 @@ class T2_sequence(AveragerProgramV2):
                        freq=cfg["qub_freq"],
                        length=cfg.get("hold_length_D1", 0.0),
                        phase=cfg["qub_phase_D1"],
-                       gain=cfg["qub_gain_D1"]/2) # cutting the gain in half for pi/2 pulse
+                       gain=cfg["qub_gain_D1"])
         
         self.add_pulse(ch=qub_ch_D2, name="ex1_D2", ro_ch=ro_ch,
                        style="flat_top", envelope="env_D2",
                        freq=cfg["qub_freq"],
                        length=cfg.get("hold_length_D2", 0.0),
                        phase=cfg["qub_phase_D2"],
-                       gain=cfg["qub_gain_D2"]/2)
+                       gain=cfg["qub_gain_D2"])
         
         # pulse #2
         self.add_pulse(ch=qub_ch_D1, name="ex2_D1", ro_ch=ro_ch,
@@ -73,14 +73,14 @@ class T2_sequence(AveragerProgramV2):
                        freq=cfg["qub_freq"],
                        length=cfg.get("hold_length_D1", 0.0),
                        phase=cfg.get("qub_phase2_D1", cfg["qub_phase_D1"]), #find the definition of qub_phase2_Dx later
-                       gain=cfg["qub_gain_D1"]/2)
+                       gain=cfg["qub_gain_D1"])
         
         self.add_pulse(ch=qub_ch_D2, name="ex2_D2", ro_ch=ro_ch,
                        style="flat_top", envelope="env_D2",
                        freq=cfg["qub_freq"],
                        length=cfg.get("hold_length_D2", 0.0),
                        phase=cfg.get("qub_phase2_D2", cfg["qub_phase_D2"]),
-                       gain=cfg["qub_gain_D2"]/2)
+                       gain=cfg["qub_gain_D2"])
 
 
         
@@ -130,7 +130,6 @@ class T2_sequence(AveragerProgramV2):
         mode = cfg.get("sweep_mode", "phase")
 
         len1 = pulse_len(order[0])  # <-- add this
-        # len2 already computed
         
         if mode == "phase":
             # start-to-start gap (fixed)
@@ -144,8 +143,31 @@ class T2_sequence(AveragerProgramV2):
         else:
             raise ValueError(f"Unsupported sweep_mode: {mode}")
 
-            
-        len1 = pulse_len(order[0])
+        # ---------------------------------------------------------
+        # SAFEGUARD: ensure BOTH pulses end before cav_pulse starts
+        # (keep at least qub_delay_fixed margin before measurement)
+        # ---------------------------------------------------------
+        end1 = t1_start + len1
+        end2 = t2_start + len2
+
+        latest_end = max(end1, end2)
+
+        # Require all qubit activity ends before (meas_time - qub_delay_fixed)
+        latest_allowed_end = float(meas_time) - float(cfg.get("qub_delay_fixed", 0.0))
+
+        if latest_end > latest_allowed_end:
+            shift_earlier = latest_end - latest_allowed_end
+            t1_start -= shift_earlier
+            t2_start -= shift_earlier
+
+        # Optional: fail early if we shifted before t=0
+        earliest_start = min(t1_start, t2_start)
+        if earliest_start < 0:
+            raise ValueError(
+                f"Cannot safely schedule pulses: earliest_start={earliest_start:.6f} us < 0 after safeguard.\n"
+                f"Increase meas_time/meas_pos, or reduce pulse lengths, or reduce required qub_delay_fixed."
+            )
+
 
         if order[0] == order[1]:
             # same channel: must be sequential (no overlap)
@@ -176,50 +198,6 @@ class T2_sequence(AveragerProgramV2):
 
       
 
-# class CavitySweep(AveragerProgram):
-#     def initialize(self):
-#         cfg=self.cfg   
-#         gen_ch = cfg["cav_channel"]
-
-#         # set the nyquist zone
-#         # Implement an if statement here to catch? 
-#         self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"])
-        
-#         # configure the readout lengths and downconversion frequencies (ensuring it is an available DAC frequency)
-        
-#         readout = self.us2cycles(cfg["readout_length"],ro_ch=cfg["ro_channels"][0])
-#         for ch in cfg["ro_channels"]:
-#             self.declare_readout(ch=ch, length=readout,
-#                                  freq=self.cfg["cav_freq"], gen_ch=cfg["cav_channel"])
-
-#         # convert frequency to DAC freqency (ensuring it is an available ADC frequency)
-#         freq = self.freq2reg(cfg["cav_freq"],gen_ch=gen_ch, ro_ch=cfg["ro_channels"][0])
-#         phase = self.deg2reg(cfg["cav_phase"], gen_ch=gen_ch)
-#         gain = cfg["meas_gain"]
-#         self.default_pulse_registers(ch=gen_ch, freq=freq, phase=phase, gain=gain)
-
-        
-#         self.set_pulse_registers(ch=gen_ch, style="const", length=self.us2cycles(self.cfg["meas_window"],gen_ch=gen_ch))
-
-        
-#         # give processor some time to configure pulses, I believe it sets the offset time 200 cycles into the future?
-#         # Try varying this and seeing if it moves. Also try putting a synci after the trigger in the body
-#         self.synci(200)   
-    
-#     def body(self):
-#         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
-#         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
-#         offset = self.us2cycles(self.cfg["adc_trig_offset"],gen_ch=self.cfg["cav_channel"])
-#         meas_time = self.us2cycles(self.cfg["meas_time"],gen_ch=self.cfg["cav_channel"])
-#         #Sets off the ADC
-#         self.trigger(adcs=self.ro_chs,
-#                     pins=[0],
-#                     adc_trig_offset=offset)
-        
-#         #Sends measurement pulse
-#         self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
-#         self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
-#         self.sync_all(self.us2cycles(self.cfg["relax_delay"]))
 
 def get_T2_settings():
     settings = {}
@@ -437,8 +415,6 @@ def meas_T2(soc,soccfg,instruments,settings):
             config["qub_phase_D2"] = base_phase_D2
         
             # pulse #2 phase should be phi2 on whichever channel pulse #2 uses
-            config["qub_phase2_D1"] = base_phase_D1  # default (won't be used unless pulse2 is on D1)
-            config["qub_phase2_D2"] = base_phase_D2  # default
         
             if order[1] == "D1":
                 config["qub_phase2_D1"] = phi2

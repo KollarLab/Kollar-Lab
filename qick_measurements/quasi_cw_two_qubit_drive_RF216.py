@@ -223,6 +223,13 @@ def quasi_cw(soc,soccfg,instruments,settings):
         center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
         soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bandpass', bw=qub_ch['BW'])
         
+    elif exp_settings['filter'] == 'no_ro_filter':
+        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
+        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+        
+        center_freq = (exp_settings['freq_start']+exp_settings['freq_stop'])/2e9
+        soc.rfb_set_gen_filter(config['qub_channel'], fc=center_freq, ftype='bypass')
+        
     elif exp_settings['filter'] == 'no_qubit_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
         soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])

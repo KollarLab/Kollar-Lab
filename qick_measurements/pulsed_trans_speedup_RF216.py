@@ -150,9 +150,26 @@ def pulsed_trans(soc,soccfg,instruments,settings):
             # but it mess up the phase data
             prog = CavitySweep(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
             #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
-            if exp_settings['filter']:
+            if exp_settings['filter'] == 'all_filter':
                 soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
                 soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+                
+            elif exp_settings['filter'] == 'cav_filter':
+                soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
+                soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bypass')
+                
+            elif exp_settings['filter'] == 'ro_filter':
+                soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bypass')
+                soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+                
+            elif exp_settings['filter'] == 'no_filter':
+                soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bypass')
+                soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bypass')    
+                
+            else:
+                print('Please select one option from:')
+                print('\'all_filter\', \'cav_filter\', \'ro_filter\', and\'no_filter\'')
+                return
             
             holder = prog.acquire(soc, reps = exp_settings['reps'], load_pulses=True, progress=False)
             #print(holder)
