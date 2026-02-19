@@ -31,7 +31,6 @@ class Quasi_CW(AveragerProgramV2):
         qub_ch = cfg["qub_channel"] # These are just channel ID, not the whole dict.
 
         # set the nyquist zone
-        # Implement an if statement here to catch? 
         self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"], mixer_freq=cfg['cav_mixer_freq'],ro_ch = ro_ch)
         self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
         
@@ -260,12 +259,12 @@ def quasi_cw(soc,soccfg,instruments,settings):
     t_i = time.time()
     
     
-    iq_list = prog.acquire(soc, reps = exp_settings['reps'], rounds = exp_settings['rounds'], load_pulses=True, progress=False)
+    iq_list = prog.acquire(soc, rounds = exp_settings['rounds'], load_pulses=True, progress=False)
     #iq_list = prog.acquire(soc, reps = exp_settings['reps'], load_pulses=True, progress=False)
     
     iq = iq_list[0][0]
     
-    print(iq.shape)
+    #print(iq.shape)
     
     
     Is = iq[:,0]

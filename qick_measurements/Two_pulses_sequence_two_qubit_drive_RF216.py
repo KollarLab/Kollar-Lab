@@ -445,7 +445,7 @@ def meas_T2(soc,soccfg,instruments,settings):
         prog = T2_sequence(soccfg, reps=exp_settings["reps"], final_delay=None, final_wait=0, cfg=config)
         holder = prog.acquire(soc, rounds=exp_settings["rounds"], load_pulses=True, progress=False)
     
-        # Read I/Q (your V2 format)
+        # Read I/Q 
         I_sig = holder[0][0][0]
         Q_sig = holder[0][0][1]
     

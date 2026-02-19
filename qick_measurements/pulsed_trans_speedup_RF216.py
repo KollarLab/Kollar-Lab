@@ -102,8 +102,8 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         'ramp_len'        :5e-3, #Placeholder, us
         'flat_len'        :0.50, #Placeholder, us
         
-        'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'] + m_pulse['post_buffer'],
-        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'] - m_pulse['init_buffer'],
+        'readout_length'  : m_pulse['meas_window'],
+        'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
 
 
         'relax_delay'     : exp_globals['relax_delay']
@@ -171,7 +171,7 @@ def pulsed_trans(soc,soccfg,instruments,settings):
                 print('\'all_filter\', \'cav_filter\', \'ro_filter\', and\'no_filter\'')
                 return
             
-            holder = prog.acquire(soc, reps = exp_settings['reps'], load_pulses=True, progress=False)
+            holder = prog.acquire(soc, rounds = exp_settings['rounds'], load_pulses=True, progress=False)
             #print(holder)
             iq = holder[0]
             

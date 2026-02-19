@@ -115,7 +115,7 @@ def pulsed_trans(soc,soccfg,instruments,settings): #Main measurement function
         'meas_gain'       : 500, #Placeholder, gets overwritten in sweep
         'cav_freq'        : 100, #Placeholder
         
-        'readout_length'  : m_pulse['init_buffer'] + m_pulse['meas_window'], #us
+        'readout_length'  : m_pulse['meas_window'], #us
         'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'], #us
 
 

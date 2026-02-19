@@ -85,8 +85,8 @@ def pulsed_trans(soc, soccfg, instruments, settings):
         'cav_freq': 6000,   # placeholder, MHz
         'mixer_freq': 6000, # placeholder, MHz
 
-        'readout_length': m_pulse['init_buffer'] + m_pulse['meas_window'] + m_pulse['post_buffer'],
-        'adc_trig_offset': m_pulse['emp_delay'] + m_pulse['meas_pos'] - m_pulse['init_buffer'],
+        'readout_length': m_pulse['meas_window'],
+        'adc_trig_offset': m_pulse['emp_delay'] + m_pulse['meas_pos'],
         'relax_delay': exp_globals['relax_delay']
     }
 
@@ -115,7 +115,7 @@ def pulsed_trans(soc, soccfg, instruments, settings):
         print(f"Current Attenuation: {apts[a]}, Max Attenuation: {apts[-1]}")
         config["meas_atten"] = apts[a]
 
-        # Set generator attenuation in sweep (split across two stages if that's your convention)
+        # Set generator attenuation in sweep
         soc.rfb_set_gen_rf(cav_ch['ID'], apts[a] / 2, apts[a] / 2)
 
         for f in range(len(fpts)):
