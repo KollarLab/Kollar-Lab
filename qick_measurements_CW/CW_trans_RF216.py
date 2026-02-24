@@ -65,7 +65,8 @@ class LoopbackProgramV2(AveragerProgramV2):
 
         self.pulse(ch=self.cfg['cav_channel'], name="CW_pulse", t=0.0)
         self.trigger(ros=[self.cfg['ro_channel']], pins=[0], t=self.cfg['adc_trig_offset'])
-        self.wait_auto()
+        self.delay_auto(t=4, gens=False, ros=True) #Set the reference time to the end of the last pulse/readout, plus the specified value.
+                                                     #You can select whether this accounts for pulses, readout windows, or both.
         #self.delay(self.cfg["relax_delay"]) # no delay needed here for CW measurements
     
 # =============================================================================
@@ -108,6 +109,8 @@ def CW_trans(soc, soccfg, instruments, settings):
     
     # suppresses the sum buffer overflow warning
     logging.getLogger("qick").setLevel(logging.ERROR)
+    
+    soc.reset_gens()
     
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 

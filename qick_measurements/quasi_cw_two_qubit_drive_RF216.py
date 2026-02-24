@@ -32,7 +32,12 @@ class Quasi_CW(AveragerProgramV2):
 
         # set the nyquist zone
         self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"], mixer_freq=cfg['cav_mixer_freq'],ro_ch = ro_ch)
-        self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
+        
+        if cfg.get('qub_mixer_freq_fixed') is not None:
+            self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq_fixed'])
+            
+        else:
+            self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
         
         self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
         
@@ -63,6 +68,7 @@ class Quasi_CW(AveragerProgramV2):
                length= cfg['quasi_CW_len'],
                phase=cfg['qub_phase'],
                gain=cfg['qub_gain'],
+               phrst=1
               )
         
         self.add_pulse(
@@ -108,9 +114,11 @@ class Quasi_CW(AveragerProgramV2):
         ex_time = meas_time - cfg['qub_delay'] - pulse_len
         
         
-        # Optional phase reset behavior
-        if cfg.get("phase_reset", False):
-            self.pulse(ch=cfg["qub_channel"], name="qub_phrst", t=0)
+# =============================================================================
+#         # Optional phase reset behavior
+#         if cfg.get("phase_reset", False):
+#             self.pulse(ch=cfg["qub_channel"], name="qub_phrst", t=0)
+# =============================================================================
         
         #Sets off the ADC
         self.trigger(ros=[cfg['ro_channel']],
@@ -122,11 +130,7 @@ class Quasi_CW(AveragerProgramV2):
         self.wait_auto()
         self.delay(self.cfg["relax_delay"])
         
-        # #Sends measurement pulse
-        # self.pulse(ch=self.cfg["qub_channel"],t=ex_time)
-        # self.pulse(ch=self.cfg["cav_channel"],t=meas_time)
-        # self.wait_all() #Tells TProc to wait until pulses are complete before sending out the next command
-        # self.sync_all(self.us2cycles(self.cfg["relax_delay"])) #Syncs to an offset time after the final pulse is sent
+
 
 
 def get_quasi_cw_settings():
@@ -189,6 +193,7 @@ def quasi_cw(soc,soccfg,instruments,settings):
         'freq_points'     : exp_settings['freq_points'],
         'qub_gain'        : exp_settings['qub_gain'],
         'qub_mixer_freq'  : (exp_settings['freq_start']+exp_settings['qub_mixer_detuning'])/1e6,
+        'qub_mixer_freq_fixed' : exp_settings['qub_mixer_freq_fixed']/1e6,      # this is useful for maintaining a fixed phase offset between two channels
 
         'qub_sigma'       : q_pulse['sigma'],
         'qub_delay'       : exp_globals['qub_delay_fixed'],

@@ -72,7 +72,8 @@ class CW_spec(AveragerProgramV2):
         #self.wait_auto()
         # DO NOT rely on wait_auto() here because wait_auto() often cannot advance the timeline the way you think during a sweep loop
         # since for periodic pulses, the generator is considered “running continuously” (it doesn’t have a finite end time)
-        self.delay_auto(cfg['adc_trig_offset'] + cfg['readout_length'] + 4.0)
+        self.delay_auto(t=4, gens=False, ros=True) #Set the reference time to the end of the last pulse/readout, plus the specified value.
+                                                     #You can select whether this accounts for pulses, readout windows, or both.
         #self.delay(self.cfg["relax_delay"])
         
 
@@ -115,6 +116,8 @@ def cw_spec(soc,soccfg,instruments,settings):
     
     # suppresses sum buffer overflow warning
     logging.getLogger("qick").setLevel(logging.ERROR)
+    
+    soc.reset_gens()
 
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
@@ -170,7 +173,8 @@ def cw_spec(soc,soccfg,instruments,settings):
             'rounds'          : exp_settings['rounds'],
             
             'cav_atten'       : exp_globals['cav_channel']['Atten_1'] + exp_globals['cav_channel']['Atten_2'],
-            'qub_atten'       : qub_ch['Atten_1'] + qub_ch['Atten_2']
+            'qub_atten'       : qub_ch['Atten_1'] + qub_ch['Atten_2'],
+            'relax_delay'     : exp_globals['relax_delay']
             }
         
         cav_ch = exp_globals['cav_channel']

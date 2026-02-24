@@ -27,8 +27,15 @@ class T2_sequence(AveragerProgramV2):
         # set the nyquist zone
         # Implement an if statement here to catch? 
         self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"], mixer_freq=cfg['cav_mixer_freq'],ro_ch=ro_ch)
-        self.declare_gen(ch=qub_ch_D1, nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
-        self.declare_gen(ch=qub_ch_D2, nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
+        
+        if cfg.get('qub_mixer_freq_fixed') is not None:
+            self.declare_gen(ch=qub_ch_D1, nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq_fixed'])
+            self.declare_gen(ch=qub_ch_D2, nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq_fixed'])
+            print(cfg['qub_mixer_freq_fixed'])
+            
+        else:
+            self.declare_gen(ch=qub_ch_D1, nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
+            self.declare_gen(ch=qub_ch_D2, nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
         
         self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
         
@@ -56,6 +63,7 @@ class T2_sequence(AveragerProgramV2):
         self.add_pulse(ch=qub_ch_D1, name="ex1_D1", ro_ch=ro_ch,
                        style="flat_top", envelope="env_D1",
                        freq=cfg["qub_freq"],
+                       phrst=1, # testing
                        length=cfg.get("hold_length_D1", 0.0),
                        phase=cfg["qub_phase_D1"],
                        gain=cfg["qub_gain_D1"])
@@ -63,6 +71,7 @@ class T2_sequence(AveragerProgramV2):
         self.add_pulse(ch=qub_ch_D2, name="ex1_D2", ro_ch=ro_ch,
                        style="flat_top", envelope="env_D2",
                        freq=cfg["qub_freq"],
+                       phrst=1, # testing
                        length=cfg.get("hold_length_D2", 0.0),
                        phase=cfg["qub_phase_D2"],
                        gain=cfg["qub_gain_D2"])
@@ -71,16 +80,18 @@ class T2_sequence(AveragerProgramV2):
         self.add_pulse(ch=qub_ch_D1, name="ex2_D1", ro_ch=ro_ch,
                        style="flat_top", envelope="env_D1",
                        freq=cfg["qub_freq"],
+                       phrst=1, # testing
                        length=cfg.get("hold_length_D1", 0.0),
                        phase=cfg.get("qub_phase2_D1", cfg["qub_phase_D1"]), #find the definition of qub_phase2_Dx later
-                       gain=cfg["qub_gain_D1"])
+                       gain=cfg.get("qub_gain2_D1", cfg["qub_gain_D1"]))
         
         self.add_pulse(ch=qub_ch_D2, name="ex2_D2", ro_ch=ro_ch,
                        style="flat_top", envelope="env_D2",
                        freq=cfg["qub_freq"],
+                       phrst=1, # testing
                        length=cfg.get("hold_length_D2", 0.0),
                        phase=cfg.get("qub_phase2_D2", cfg["qub_phase_D2"]),
-                       gain=cfg["qub_gain_D2"])
+                       gain=cfg.get("qub_gain2_D2", cfg["qub_gain_D2"]))
 
 
         
@@ -88,14 +99,16 @@ class T2_sequence(AveragerProgramV2):
         self.add_pulse(ch=qub_ch_D1, name="phrst_D1", ro_ch=ro_ch,
                        style="const",
                        freq=cfg["qub_freq"], phase=0, gain=0,
-                       length=0.015, phrst=1)
+                       length=0.010, phrst=1)
         
         self.add_pulse(ch=qub_ch_D2, name="phrst_D2", ro_ch=ro_ch,
                        style="const",
                        freq=cfg["qub_freq"], phase=0, gain=0,
-                       length=0.015, phrst=1)
+                       length=0.010, phrst=1)
         
         self.send_readoutconfig(ch=ro_ch, name="myro", t=0)
+        
+        #self.delay(0.6) # giving some time for pulse to be configured?
         
         
     
@@ -131,7 +144,7 @@ class T2_sequence(AveragerProgramV2):
 
         len1 = pulse_len(order[0])  # <-- add this
         
-        if mode == "phase":
+        if mode in ("phase", "gain"):
             # start-to-start gap (fixed)
             t1_start = t2_start - gap
         
@@ -178,10 +191,15 @@ class T2_sequence(AveragerProgramV2):
                 )
 
         
-        # optional phase reset
-        if cfg.get("phase_reset", False):
-            self.pulse(ch=cfg["qub_channel_D1"], name="phrst_D1", t=0)
-            self.pulse(ch=cfg["qub_channel_D2"], name="phrst_D2", t=0)
+# =============================================================================
+#         # optional phase reset
+#         if cfg.get("phase_reset", False):
+#             t_rst = 0.005 #us
+#             self.pulse(ch=cfg["qub_channel_D1"], name="phrst_D1", t=t_rst)
+#             self.pulse(ch=cfg["qub_channel_D2"], name="phrst_D2", t=t_rst)
+#             print('phase is reset')
+#             #self.delay_auto()
+# =============================================================================
         
         # trigger ADC
         self.trigger(ros=[cfg["ro_channel"]], pins=[0], t=cfg["adc_trig_offset"])
@@ -271,8 +289,12 @@ def meas_T2(soc,soccfg,instruments,settings):
         
         'qub_freq'        : exp_settings['qub_freq']/1e6,
         'qub_mixer_freq'  : (exp_settings['qub_freq']+exp_settings['qub_mixer_detuning'])/1e6,
+        'qub_mixer_freq_fixed' : exp_settings['qub_mixer_freq_fixed']/1e6,      # useful for fixing the mixer phase
         'qub_gain_D1'     : exp_settings['qub_gain_D1'],
         'qub_gain_D2'     : exp_settings['qub_gain_D2'],
+        'qub_gain2_D1'    : exp_settings['qub_gain_D1'], # by default the same, will get updated in the 'gain' mode
+        'qub_gain2_D2'    : exp_settings['qub_gain_D2'], # by default the same, will get updated in the 'gain' mode
+
         
         'qub_sigma_D1'    : exp_globals['qubit_pulse_D1']['sigma'],
         'num_sigma_D1'    : exp_globals['qubit_pulse_D1']['num_sigma'],
@@ -366,6 +388,14 @@ def meas_T2(soc,soccfg,instruments,settings):
                             exp_settings["tau_points"])
         xvals = np.round(xvals, 6)
         xlabel = "τ (us)"
+        
+    elif sweep_mode == "gain":
+        xvals = np.linspace(exp_settings["gain2_min"],
+                            exp_settings["gain2_max"],
+                            exp_settings["gain2_points"])
+        xvals = np.round(xvals, 5)
+        xlabel = "Pulse2 gain (arb)"
+
            
     else:
         raise ValueError(f"Unsupported sweep_mode: {sweep_mode}")
@@ -439,6 +469,36 @@ def meas_T2(soc,soccfg,instruments,settings):
                 config["qub_phase2_D1"] = phi2
             else:
                 config["qub_phase2_D2"] = phi2
+                
+        elif sweep_mode == "gain":
+            g2 = float(x)
+            order = tuple(config["pulse_order"])   # ("D1","D2"), etc.
+        
+            # keep phases fixed (use your existing "phase2_deg" relative offset)
+            phi1 = base_phase_D1 if order[0] == "D1" else base_phase_D2
+            dphi_fixed = float(exp_settings.get("phase2_deg", 0.0))
+            phi2 = phi1 + dphi_fixed
+        
+            # keep pulse1 phases at base
+            config["qub_phase_D1"] = base_phase_D1
+            config["qub_phase_D2"] = base_phase_D2
+        
+            # set pulse2 phase on whichever channel pulse2 uses
+            if order[1] == "D1":
+                config["qub_phase2_D1"] = phi2
+                
+            else:
+                config["qub_phase2_D2"] = phi2
+                
+        
+            # sweep only pulse2 gain on whichever channel pulse2 uses
+            if order[1] == "D1":
+                config["qub_gain2_D1"] = g2
+                
+            else:
+                config["qub_gain2_D2"] = g2
+                
+
                      
     
         # Build + acquire (rebuild per point, like script #1)

@@ -24,10 +24,7 @@ except Exception:
     _HAS_SCIPY = False
 
 
-      
-#Heavily considering getting rid of the initial and post buffers for the speedup classes...
-#Don't see the use when we can't acquire_decimated` anyway.
-
+     
 class HoldTimeSweep(AveragerProgramV2):
     def _initialize(self,cfg): 
         ro_ch  = cfg['ro_channel']
@@ -37,7 +34,12 @@ class HoldTimeSweep(AveragerProgramV2):
         # set the nyquist zone
         # Implement an if statement here to catch? 
         self.declare_gen(ch=cfg["cav_channel"], nqz=cfg["nqz_c"], mixer_freq=cfg['cav_mixer_freq'],ro_ch=ro_ch)
-        self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
+        
+        if cfg.get('qub_mixer_freq_fixed') is not None:
+            self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq_fixed'])
+            
+        else:
+            self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
         
         self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
         
@@ -67,6 +69,7 @@ class HoldTimeSweep(AveragerProgramV2):
                length= cfg['hold_length'],
                phase=cfg['qub_phase'],
                gain=cfg['qub_gain'],
+               phrst=1
               )
         
         self.add_pulse(
@@ -100,9 +103,11 @@ class HoldTimeSweep(AveragerProgramV2):
         if ex_time < 0:
             print("Warning: Time Error, ex_time<0. Desired pulse goes outside the bounds of reality.")
         
-        # Optional phase reset behavior
-        if cfg.get("phase_reset", False):
-            self.pulse(ch=cfg["qub_channel"], name="qub_phrst", t=0)
+# =============================================================================
+#         # Optional phase reset behavior
+#         if cfg.get("phase_reset", False):
+#             self.pulse(ch=cfg["qub_channel"], name="qub_phrst", t=0)
+# =============================================================================
             
         #Sets off the ADC
         self.trigger(ros=[cfg['ro_channel']],
@@ -315,6 +320,7 @@ def hold_time_sweep(soc,soccfg,instruments,settings):
         # 'freq_stop'       : exp_settings['freq_stop']/1e6,
         'qub_gain'        : exp_settings['qub_gain'],
         'qub_mixer_freq'  : (exp_settings['qub_freq']+exp_settings['qub_mixer_detuning'])/1e6,
+        'qub_mixer_freq_fixed' : exp_settings['qub_mixer_freq_fixed']/1e6,      # this is useful for maintaining a fixed phase offset between two channels
 
         'qub_sigma'       : q_pulse['sigma'],
         'qub_delay'       : exp_globals['qub_delay_fixed'],
