@@ -1,20 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Feb 24 15:13:12 2026
+Created on Tue Feb 26 11:11:12 2026
 
 @author: KollarLab
 """
 
-from qick.asm_v2 import AveragerProgramV2, QickSweep1D
+from qick.asm_v2 import AveragerProgramV2
 
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 import userfuncs
 import time
-
-from utility.userfits import fit_T2
-from utility.plotting_tools import general_colormap_subplot
 from utility.measurement_helpers import estimate_time
 
 class MeasurementSequence(AveragerProgramV2):
@@ -42,9 +39,6 @@ class MeasurementSequence(AveragerProgramV2):
                            freq=cfg['cav_freq'],
                            gen_ch=gen_ch,
                            outsel='product')
-        
-        # Add qubit spec frequency loop
-        self.add_loop("freq_sweep", cfg["det_points"])
         
         
         # Cavity pulse
@@ -87,7 +81,7 @@ class MeasurementSequence(AveragerProgramV2):
                        phrst=1, # testing
                        length=cfg.get("hold_length_D1", 0.0),
                        phase=cfg.get("qub_phase2_D1", cfg["qub_phase_D1"]), #find the definition of qub_phase2_Dx later
-                       gain=cfg.get("qub_gain_D1", cfg["qub_gain_D1"]))
+                       gain=cfg["qub_gain_D1"])
         
         self.add_pulse(ch=qub_ch_D2, name="ex2_D2", ro_ch=ro_ch,
                        style="flat_top", envelope="env_D2",
@@ -95,7 +89,7 @@ class MeasurementSequence(AveragerProgramV2):
                        phrst=1, # testing
                        length=cfg.get("hold_length_D2", 0.0),
                        phase=cfg.get("qub_phase2_D2", cfg["qub_phase_D2"]),
-                       gain=cfg.get("qub_gain_D2", cfg["qub_gain_D2"]))
+                       gain=cfg["qub_gain_D2"])
 
 
         
@@ -245,12 +239,12 @@ def ac_modulation_calculator(
 
 #-------------------------------------------------------------------------------------
       
-def get_fm_and_detuning_settings():
+def get_beta_and_fm_settings():
     
     settings = {}
     
-    settings['scanname']    = 'Search_for_EP_and_gyration_fm_and_spec_scan'
-    settings['meas_type']   = 'fm_and_spec_scan'
+    settings['scanname']    = 'Search_for_EP_and_gyration_beta_and_fm_scan'
+    settings['meas_type']   = 'beta_and_fm_scan'
     #settings['phase_reset'] = True   # 
 
     # -------- Cavity --------
@@ -263,9 +257,9 @@ def get_fm_and_detuning_settings():
     settings['qub_mixer_detuning'] = -250e6
     settings['qub_mixer_freq_fixed'] = 4.65e9
     settings["qub_gain_D1"]  = 0.15
-    settings['hold_time_D1_us'] = 0.1862
+    settings['hold_time_D1_us'] = 30
     settings["qub_gain_D2"]  = 0.7588
-    settings['hold_time_D2_us'] = 0.1846    
+    settings['hold_time_D2_us'] = 30    
 
     settings["phase2_deg"] = 0
 
@@ -292,18 +286,18 @@ def get_fm_and_detuning_settings():
 
     # Relative modulation phase φ2′ (φ1′ = 0 by construction in fm_and_detuning_scan)
     settings['phi2_prime_deg'] = 0.0        # deg
+    
+    # -------- beta sweep (rows, y-axis) --------
+    # Modulation strength in Hz
+    settings['beta_start']  = 0.5e6    # 0.5 MHz
+    settings['beta_end']    = 5.0e6    # 5 MHz
+    settings['beta_points'] = 41       # number of beta rows
 
-    # -------- fm sweep (rows, y-axis) --------
+    # -------- fm sweep (columns, x-axis) --------
     # Modulation frequency in Hz
     settings['fm_start']  = 0.5e6    # 0.5 MHz
     settings['fm_end']    = 5.0e6    # 5 MHz
-    settings['fm_points'] = 41       # number of fm rows
-
-    # -------- Detuning sweep (columns, x-axis) --------
-    # Detuning in MHz; actual qubit frequency = qub_freq + detuning
-    settings['det_min_MHz'] = -25.0
-    settings['det_max_MHz'] = +25.0
-    settings['det_points']  = 51
+    settings['fm_points'] = 41       # number of fm columns
 
     # -------- Acquisition --------
     settings['reps']   = 5000
@@ -313,20 +307,18 @@ def get_fm_and_detuning_settings():
 
     return settings
 
-def fm_and_detuning_scan(soc,soccfg,instruments,settings):
+def beta_and_fm_scan(soc,soccfg,instruments,settings):
     """
-    2D scan over modulation frequency fm and qubit detuning.
-    - y-axis: fm (MHz)
-    - x-axis: qubit pulse frequency (GHz) = qub_freq_D1_nominal + detuning
+    2D scan over modulation strength beta and frequency fm.
+    - y-axis: beta (MHz)
+    - x-axis: fm (MHz)
 
     Uses:
       - AC modulation calculator (Vpp1, phi_V1, Vpp2, phi_V2 as a function of fm)
-      - detuning-aware MeasurementSequence (via cfg['detuning_MHz'])
 
     Time estimates:
-      - No per-column prints.
-      - After the FIRST fm row, print estimated TOTAL run time.
-      - After EACH subsequent row, update estimated REMAINING time.
+      - after the first 10 fm points in the first row, give estimates of the total remaining time
+      - update the remaining time after finishing each row
     """
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
@@ -356,14 +348,12 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
         'qub_phase_D1'    : exp_globals['qubit_pulse_D1']['qub_phase'],
         'qub_phase_D2'    : exp_globals['qubit_pulse_D2']['qub_phase'],
         
-        'qub_phase2_D1'   : exp_settings.get('qub_phase_D1', exp_globals['qubit_pulse_D1']['qub_phase']),
-        'qub_phase2_D2'   : exp_settings.get('qub_phase_D2', exp_globals['qubit_pulse_D2']['qub_phase']), #just a placeholder here, we overwrite it in every sweep
+        'qub_phase2_D1'   : exp_globals['qubit_pulse_D1']['qub_phase'],
+        'qub_phase2_D2'   : exp_globals['qubit_pulse_D2']['qub_phase'], #just a placeholder here, we overwrite it later
 
         
         
-        'qub_freq'        : QickSweep1D("freq_sweep", exp_settings['det_min_MHz']+exp_settings['qub_freq']/1e6, 
-                                        exp_settings['det_max_MHz']+exp_settings['qub_freq']/1e6),
-        'det_points'      : exp_settings['det_points'],
+        'qub_freq'        : exp_settings['qub_freq']/1e6,
         'qub_mixer_freq'  : (exp_settings['qub_freq']+exp_settings['qub_mixer_detuning'])/1e6,
         'qub_mixer_freq_fixed' : exp_settings['qub_mixer_freq_fixed']/1e6,      # useful for fixing the mixer phase
         'qub_gain_D1'     : exp_settings['qub_gain_D1'],
@@ -448,6 +438,13 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
 
     
     # --- Build sweep axes ---
+    
+    # beta (Hz)
+    beta_list = np.linspace(
+        exp_settings['beta_start'],
+        exp_settings['beta_end'],
+        exp_settings['beta_points']
+    )
 
     # fm (Hz)
     fm_list = np.linspace(
@@ -456,19 +453,9 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
         exp_settings['fm_points']
     )
 
-    # detuning (MHz)
-    det_list = np.linspace(
-        exp_settings['det_min_MHz'],
-        exp_settings['det_max_MHz'],
-        exp_settings['det_points']
-    )
 
-    Nx = len(det_list)   # columns (x-axis, detuning)
-    Ny = len(fm_list)    # rows    (y-axis, fm)
-    
-    # x-axis: qubit frequency (GHz) = f_qubit_nominal + detuning
-    qub_freq_D1_nom_Hz = exp_settings['qub_freq']  # Hz
-    freq_qubit_list_GHz = qub_freq_D1_nom_Hz*1e-9 + det_list*1e-3  # GHz
+    Nx = len(fm_list)   # columns (x-axis, fm)
+    Ny = len(beta_list)    # rows    (y-axis, beta)
     
     
     # Allocate results (Ny x Nx)
@@ -477,10 +464,10 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     I_map     = np.zeros((Ny, Nx))
     Q_map     = np.zeros((Ny, Nx))
 
-    Vpp1_vec   = np.zeros(Ny)
-    phi_V1_vec = np.zeros(Ny)
-    Vpp2_vec   = np.zeros(Ny)
-    phi_V2_vec = np.zeros(Ny)
+    Vpp1_map   = np.zeros((Ny, Nx))
+    phi_V1_map = np.zeros((Ny, Nx))
+    Vpp2_map   = np.zeros((Ny, Nx))
+    phi_V2_map = np.zeros((Ny, Nx))
     
     
     
@@ -496,25 +483,22 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     dbeta1_dV2 = exp_settings['dbeta1_dV2']
     dbeta2_dV1 = exp_settings['dbeta2_dV1']
     dbeta2_dV2 = exp_settings['dbeta2_dV2']
-    beta1      = exp_settings['beta1']
-    beta2      = exp_settings['beta2']
 
     # Modulation phases for the AC calculator
     phi1_prime_deg = 0.0
     phi2_prime_deg = float(exp_settings.get('phi2_prime_deg', 0.0))
     
-    # String to annotate beta and phi2' in plot titles
-    title_params = (r"$\beta_1$={:.3f} MHz, $\beta_2$={:.3f} MHz, "
-                    r"$\phi_2^\prime$={:.1f}°").format(beta1/1e6, beta2/1e6, phi2_prime_deg)
+    # String to annotate phi2' in plot titles
+    title_params = (r"$\phi_2^\prime$={:.1f}°").format(phi2_prime_deg)
 
     # Live plot figures
     fig_amp = plt.figure(1, figsize=(10, 7))
     plt.clf()
-    plt.suptitle('fm and spec frequency scan (Amplitude, live)')
+    plt.suptitle('beta and fm scan (Amplitude, live)')
 
     fig_phase = plt.figure(2, figsize=(10, 7))
     plt.clf()
-    plt.suptitle('fm and spec frequency scan (Phase, live)')
+    plt.suptitle('beta and fm frequency scan (Phase, live)')
 
     # --- Time-estimation bookkeeping (Rabi-chevron style) ---
     tstart_global  = time.time()
@@ -523,49 +507,61 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     # ----------------------------
     # Main sweep loop
     # ----------------------------
-    tstart = time.time()
     
-    for iy, fm in enumerate(fm_list):
+    for iy, beta in enumerate(beta_list):
         row_start = time.time()
-
-        phi11_minus_12_deg, phi22_minus_21_deg = fm_dependent_phase_offsets(fm)
-
-        # AC modulation solution for this fm
-        Vpp1, phi_V1_deg, Vpp2, phi_V2_deg = ac_modulation_calculator(
-            dbeta1_dV1, phi11_minus_12_deg,
-            dbeta1_dV2, dbeta2_dV1, dbeta2_dV2, phi22_minus_21_deg,
-            beta1, phi1_prime_deg, beta2, phi2_prime_deg
-        )
         
-        Vpp1_vec[iy]   = Vpp1
-        phi_V1_vec[iy] = phi_V1_deg
-        Vpp2_vec[iy]   = Vpp2
-        phi_V2_vec[iy] = phi_V2_deg
-
-        # Program the external generators
-        Dual_gen.Ch1_sin_gen(Vpp1, fm, phase=phi_V1_deg,
-                             offset=exp_settings['dc_offset_voltage_1'])
-        Dual_gen.Ch2_sin_gen(Vpp2, fm, phase=phi_V2_deg,
-                             offset=exp_settings['dc_offset_voltage_2'])
-        Dual_gen.phase_sync()
-        time.sleep(0.1)
+        for ix, fm in enumerate(fm_list):
+            
+            # After first 10 phi points for this row, estimate remaining time for the row
+            if ix == 9 and Nx > 10 and first_row_done == False:
+                fm_10_stop = time.time()
+                print("  Estimated time for this beta row based on first 10 fm points:")
+                estimate_time(row_start, fm_10_stop, Nx/10)
                 
-        # Run QICK program
-        prog = MeasurementSequence(soccfg, reps=exp_settings["reps"], final_delay=None, final_wait=0, cfg=config)
-        iq_list = prog.acquire(soc, rounds=exp_settings["rounds"], load_pulses=True, progress=False)
-        
-        iq = iq_list[0][0] # (Nx,2)
-        I = iq[:, 0]                # (Nx,)
-        Q = iq[:, 1]                # (Nx,)
-        
-        
-        # Read I/Q 
-        I_map[iy,:] = I
-        Q_map[iy,:] = Q
+                if iy == 0:
+                    print("  Estimated time for all of the rows:")
+                    estimate_time(tstart_global, fm_10_stop, int(Ny*Nx/10))
+            
+            phi11_minus_12_deg, phi22_minus_21_deg = fm_dependent_phase_offsets(fm)
     
-        amp_map[iy, :] = np.sqrt(I**2 + Q**2)
-        ang_map[iy, :] = np.degrees(np.arctan2(Q, I))
+            # AC modulation solution for this fm
+            Vpp1, phi_V1_deg, Vpp2, phi_V2_deg = ac_modulation_calculator(
+                dbeta1_dV1, phi11_minus_12_deg,
+                dbeta1_dV2, dbeta2_dV1, dbeta2_dV2, phi22_minus_21_deg,
+                beta, phi1_prime_deg, beta, phi2_prime_deg
+            )
+            
+            Vpp1_map[iy,ix]   = Vpp1
+            phi_V1_map[iy,ix] = phi_V1_deg
+            Vpp2_map[iy,ix]   = Vpp2
+            phi_V2_map[iy,ix] = phi_V2_deg
     
+            # Program the external generators
+            Dual_gen.Ch1_sin_gen(Vpp1, fm, phase=phi_V1_deg,
+                                 offset=exp_settings['dc_offset_voltage_1'])
+            Dual_gen.Ch2_sin_gen(Vpp2, fm, phase=phi_V2_deg,
+                                 offset=exp_settings['dc_offset_voltage_2'])
+            Dual_gen.phase_sync()
+            time.sleep(0.1)
+                    
+            # Run QICK program
+            prog = MeasurementSequence(soccfg, reps=exp_settings["reps"], final_delay=None, final_wait=0, cfg=config)
+            holder = prog.acquire(soc, rounds=exp_settings["rounds"], load_pulses=True, progress=False)
+            
+            iq = holder[0] # (1,2)?
+            
+            I = iq[:, 0]      
+            Q = iq[:, 1]
+            
+            
+            # Read I/Q 
+            I_map[iy,ix] = I
+            Q_map[iy,ix] = Q
+        
+            amp_map[iy, ix] = np.sqrt(I**2 + Q**2)
+            ang_map[iy, ix] = np.degrees(np.arctan2(Q, I))
+        
         # --------- Live plot refresh: amplitude ---------
         plt.figure(fig_amp.number)
         plt.clf()
@@ -577,22 +573,22 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
                 origin='lower',
                 aspect='auto',
                 extent=[
-                    freq_qubit_list_GHz[0],
-                    freq_qubit_list_GHz[-1],
-                    fm_list[0] / 1e6,
-                    fm_list[iy] / 1e6
+                    fm_list[0]/1e6,
+                    fm_list[-1]/1e6,
+                    beta_list[0] / 1e6,
+                    beta_list[iy] / 1e6
                 ]
             )
             plt.colorbar(im_amp, ax=ax_amp, label='Amplitude (arb)')
-            ax_amp.set_xlabel('Frequency (GHz)')
-            ax_amp.set_ylabel(r'$f_m$ (MHz)')
-            ax_amp.set_title(f'fm and spec frequency scan \n{title_params}\n{filename}')
+            ax_amp.set_xlabel(r'$f_m$ (MHz)')
+            ax_amp.set_ylabel(r'$beta$ (MHz)')
+            ax_amp.set_title(f'beta and fm scan \n{title_params}\n{filename}')
         else:
-            fm_MHz = fm_list[0] / 1e6
-            ax_amp.plot(freq_qubit_list_GHz, amp_map[0, :], marker='o', linestyle='-')
-            ax_amp.set_xlabel('Frequency (GHz)')
+            beta_MHz = beta_list[0] / 1e6
+            ax_amp.plot(fm_list/1e6, amp_map[0, :], marker='o', linestyle='-')
+            ax_amp.set_xlabel(r'$f_m$ (MHz)')
             ax_amp.set_ylabel('Amplitude (arb)')
-            ax_amp.set_title(f'Spec frequency scan at fm = {fm_MHz:.3f} MHz\n{title_params}\n{filename}')
+            ax_amp.set_title(f'fm scan at beta = {beta_MHz:.3f} MHz\n{title_params}\n{filename}')
             ax_amp.grid(True)
 
         fig_amp.canvas.draw()
@@ -609,22 +605,22 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
                 origin='lower',
                 aspect='auto',
                 extent=[
-                    freq_qubit_list_GHz[0],
-                    freq_qubit_list_GHz[-1],
-                    fm_list[0] / 1e6,
-                    fm_list[iy] / 1e6
+                    fm_list[0]/1e6,
+                    fm_list[-1]/1e6,
+                    beta_list[0] / 1e6,
+                    beta_list[iy] / 1e6
                 ]
             )
             plt.colorbar(im_phase, ax=ax_phase, label='Phase (deg)')
-            ax_phase.set_xlabel('Frequency (GHz)')
-            ax_phase.set_ylabel(r'$f_m$ (MHz)')
-            ax_phase.set_title(f'fm and spec frequency scan \n{title_params}\n{filename}')
+            ax_phase.set_xlabel(r'$f_m$ (MHz)')
+            ax_phase.set_ylabel(r'$beta$ (MHz)')
+            ax_phase.set_title(f'beta and fm scan \n{title_params}\n{filename}')
         else:
-            fm_MHz = fm_list[0] / 1e6
-            ax_phase.plot(freq_qubit_list_GHz, ang_map[0, :], marker='o', linestyle='-')
-            ax_phase.set_xlabel('Frequency (GHz)')
-            ax_phase.set_ylabel('Phase (deg)')
-            ax_phase.set_title(f'Spec frequency scan at fm = {fm_MHz:.3f} MHz\n{title_params}\n{filename}')
+            beta_MHz = beta_list[0] / 1e6
+            ax_phase.plot(fm_list/1e6, ang_map[0, :], marker='o', linestyle='-')
+            ax_phase.set_xlabel(r'$f_m$ (MHz)')
+            ax_phase.set_ylabel('Amplitude (arb)')
+            ax_phase.set_title(f'fm scan at beta = {beta_MHz:.3f} MHz\n{title_params}\n{filename}')
             ax_phase.grid(True)
 
         fig_phase.canvas.draw()
@@ -640,9 +636,9 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
         userfuncs.SaveFull(
             saveDir, filename,
             [
-                'fm_list', 'det_list', 'freq_qubit_list_GHz',
+                'beta_list', 'fm_list',
                 'amp_map', 'ang_map', 'I_map', 'Q_map',
-                'Vpp1_vec', 'phi_V1_vec', 'Vpp2_vec', 'phi_V2_vec'
+                'Vpp1_map', 'phi_V1_map', 'Vpp2_map', 'phi_V2_map'
             ],
             locals(),
             expsettings=settings,
@@ -660,7 +656,6 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
             remaining_rows = Ny - (iy + 1)
             if remaining_rows > 0:
                 print(f"Finished fm row {iy+1}/{Ny}.")
-                print("Estimated REMAINING time based on this row:")
                 estimate_time(row_start, row_stop, remaining_rows)
 
     tstop_global = time.time()
@@ -670,9 +665,9 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     userfuncs.SaveFull(
         saveDir, filename,
         [
-            'fm_list', 'det_list', 'freq_qubit_list_GHz',
+            'beta_list', 'fm_list',
             'amp_map', 'ang_map', 'I_map', 'Q_map',
-            'Vpp1_vec', 'phi_V1_vec', 'Vpp2_vec', 'phi_V2_vec'
+            'Vpp1_map', 'phi_V1_map', 'Vpp2_map', 'phi_V2_map'
         ],
         locals(),
         expsettings=settings,
