@@ -277,18 +277,18 @@ def get_fm_and_detuning_settings():
 
     # -------- AC modulation calibration + targets --------
     # Slopes dβ_j/dV_k (units: your calibration convention)
-    settings['dbeta1_dV1'] = 0.0   # TODO: fill from calibration
-    settings['dbeta1_dV2'] = 0.0   # TODO
-    settings['dbeta2_dV1'] = 0.0   # TODO
-    settings['dbeta2_dV2'] = 0.0   # TODO
+    settings['dbeta1_dV1'] = 0.0   # 
+    settings['dbeta1_dV2'] = 0.0   #
+    settings['dbeta2_dV1'] = 0.0   #
+    settings['dbeta2_dV2'] = 0.0   #
 
     # Target modulation amplitudes β1, β2
-    settings['beta1'] = 0.0        # TODO
-    settings['beta2'] = 0.0        # TODO
+    settings['beta1'] = 0.0        #
+    settings['beta2'] = 0.0        #
 
     # DC offsets on the two modulation channels (V)
-    settings['dc_offset_voltage_1'] = 0.0   # TODO
-    settings['dc_offset_voltage_2'] = 0.0   # TODO
+    settings['dc_offset_voltage_1'] = 0.0   #
+    settings['dc_offset_voltage_2'] = 0.0   
 
     # Relative modulation phase φ2′ (φ1′ = 0 by construction in fm_and_detuning_scan)
     settings['phi2_prime_deg'] = 0.0        # deg
@@ -423,24 +423,24 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
         soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
         
-        soc.rfb_set_gen_filter(config['qub_channel_D1'], fc=config['qub_freq']/1000, ftype='bandpass', bw=qub_ch1['BW'])
-        soc.rfb_set_gen_filter(config['qub_channel_D2'], fc=config['qub_freq']/1000, ftype='bandpass', bw=qub_ch2['BW'])
+        soc.rfb_set_gen_filter(config['qub_channel_D1'], fc=exp_settings['qub_freq']/1e9, ftype='bandpass', bw=qub_ch1['BW'])
+        soc.rfb_set_gen_filter(config['qub_channel_D2'], fc=exp_settings['qub_freq']/1e9, ftype='bandpass', bw=qub_ch2['BW'])
 
         
     elif exp_settings['filter'] == 'no_qubit_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
         soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
     
-        soc.rfb_set_gen_filter(config['qub_channel_D1'], fc=config['qub_freq']/1000, ftype='bypass')
-        soc.rfb_set_gen_filter(config['qub_channel_D2'], fc=config['qub_freq']/1000, ftype='bypass')
+        soc.rfb_set_gen_filter(config['qub_channel_D1'], fc=exp_settings['qub_freq']/1e9, ftype='bypass')
+        soc.rfb_set_gen_filter(config['qub_channel_D2'], fc=exp_settings['qub_freq']/1e9, ftype='bypass')
 
         
     elif exp_settings['filter'] == 'no_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bypass')
         soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
         
-        soc.rfb_set_gen_filter(config['qub_channel_D1'], fc=config['qub_freq']/1000, ftype='bypass')
-        soc.rfb_set_gen_filter(config['qub_channel_D2'], fc=config['qub_freq']/1000, ftype='bypass')
+        soc.rfb_set_gen_filter(config['qub_channel_D1'], fc=exp_settings['qub_freq']/1e9, ftype='bypass')
+        soc.rfb_set_gen_filter(config['qub_channel_D2'], fc=exp_settings['qub_freq']/1e9, ftype='bypass')
         
     else:
         print('Please select one option from:')
@@ -485,10 +485,6 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     phi_V2_vec = np.zeros(Ny)
     
     
-    
-    # Save base phases so we can restore and only rotate pulse #2
-    base_phase_D1 = float(config["qub_phase_D1"])
-    base_phase_D2 = float(config["qub_phase_D2"])
     
    
     # ------------------------------------------------------------------------------------
@@ -648,7 +644,7 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
             [
                 'fm_list', 'det_list', 'freq_qubit_list_GHz',
                 'amp_map', 'ang_map', 'I_map', 'Q_map',
-                'Vpp1_map', 'phi_V1_map', 'Vpp2_map', 'phi_V2_map'
+                'Vpp1_vec', 'phi_V1_vec', 'Vpp2_vec', 'phi_V2_vec'
             ],
             locals(),
             expsettings=settings,
@@ -678,7 +674,7 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
         [
             'fm_list', 'det_list', 'freq_qubit_list_GHz',
             'amp_map', 'ang_map', 'I_map', 'Q_map',
-            'Vpp1_map', 'phi_V1_map', 'Vpp2_map', 'phi_V2_map'
+            'Vpp1_vec', 'phi_V1_vec', 'Vpp2_vec', 'phi_V2_vec'
         ],
         locals(),
         expsettings=settings,
