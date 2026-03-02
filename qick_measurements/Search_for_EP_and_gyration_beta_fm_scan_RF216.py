@@ -261,8 +261,6 @@ def get_beta_and_fm_settings():
     settings["qub_gain_D2"]  = 0.7588
     settings['hold_time_D2_us'] = 30    
 
-    settings["phase2_deg"] = 0
-
     # -------- Scheduling between the two qubit pulses --------
     # pulse_order: which channel is "pulse 1" and "pulse 2"
     settings['pulse_order'] = ('D2', 'D1')  # e.g. ('D1','D2')
@@ -376,8 +374,7 @@ def beta_and_fm_scan(soc,soccfg,instruments,settings):
 
         'pulse_order'     : exp_settings['pulse_order'],    # ('D1','D2'), etc.
         
-        'phase2_deg'      : exp_settings.get('phase2_deg', 0.0), # used in interval mode (fixed) or overwritten in loop
-        'tau_us'          : 0.0,                                 # overwritten in interval loop
+        'phase2_deg'      : exp_settings.get('phase2_deg', 0.0), 
 
         }
     

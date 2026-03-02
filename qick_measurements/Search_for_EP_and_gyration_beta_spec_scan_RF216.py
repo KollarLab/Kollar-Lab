@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Feb 24 15:13:12 2026
+Created on Fri Feb 27 12:33:09 2026
 
 @author: KollarLab
 """
@@ -245,12 +245,12 @@ def ac_modulation_calculator(
 
 #-------------------------------------------------------------------------------------
       
-def get_fm_and_detuning_settings():
+def get_beta_and_detuning_settings():
     
     settings = {}
     
-    settings['scanname']    = 'Search_for_EP_and_gyration_fm_and_spec_scan'
-    settings['meas_type']   = 'fm_and_spec_scan'
+    settings['scanname']    = 'Search_for_EP_and_gyration_beta_and_spec_scan'
+    settings['meas_type']   = 'beta_and_spec_scan'
     #settings['phase_reset'] = True   # 
 
     # -------- Cavity --------
@@ -267,6 +267,7 @@ def get_fm_and_detuning_settings():
     settings["qub_gain_D2"]  = 0.7588
     settings['hold_time_D2_us'] = 0.1846    
 
+    
 
     # -------- Scheduling between the two qubit pulses --------
     # pulse_order: which channel is "pulse 1" and "pulse 2"
@@ -281,9 +282,6 @@ def get_fm_and_detuning_settings():
     settings['dbeta2_dV1'] = 0.0   #
     settings['dbeta2_dV2'] = 0.0   #
 
-    # Target modulation amplitudes β1, β2
-    settings['beta1'] = 0.0        #
-    settings['beta2'] = 0.0        #
 
     # DC offsets on the two modulation channels (V)
     settings['dc_offset_voltage_1'] = 0.0   #
@@ -291,12 +289,13 @@ def get_fm_and_detuning_settings():
 
     # Relative modulation phase φ2′ (φ1′ = 0 by construction in fm_and_detuning_scan)
     settings['phi2_prime_deg'] = 0.0        # deg
+    settings["fm"] = 1e6
 
-    # -------- fm sweep (rows, y-axis) --------
-    # Modulation frequency in Hz
-    settings['fm_start']  = 0.5e6    # 0.5 MHz
-    settings['fm_end']    = 5.0e6    # 5 MHz
-    settings['fm_points'] = 41       # number of fm rows
+    # -------- beta sweep (rows, y-axis) --------
+    # Modulation strength in Hz
+    settings['beta_start']  = 0.5e6    # 0.5 MHz
+    settings['beta_end']    = 5.0e6    # 5 MHz
+    settings['beta_points'] = 41       # number of beta rows
 
     # -------- Detuning sweep (columns, x-axis) --------
     # Detuning in MHz; actual qubit frequency = qub_freq + detuning
@@ -312,10 +311,10 @@ def get_fm_and_detuning_settings():
 
     return settings
 
-def fm_and_detuning_scan(soc,soccfg,instruments,settings):
+def beta_and_detuning_scan(soc,soccfg,instruments,settings):
     """
-    2D scan over modulation frequency fm and qubit detuning.
-    - y-axis: fm (MHz)
+    2D scan over modulation strength beta and qubit detuning.
+    - y-axis: beta (MHz)
     - x-axis: qubit pulse frequency (GHz) = qub_freq + detuning
 
     Uses:
@@ -324,7 +323,7 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
 
     Time estimates:
       - No per-column prints.
-      - After the FIRST fm row, print estimated TOTAL run time.
+      - After the FIRST beta row, print estimated TOTAL run time.
       - After EACH subsequent row, update estimated REMAINING time.
     """
     exp_globals  = settings['exp_globals']
@@ -447,11 +446,11 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     
     # --- Build sweep axes ---
 
-    # fm (Hz)
-    fm_list = np.linspace(
-        exp_settings['fm_start'],
-        exp_settings['fm_end'],
-        exp_settings['fm_points']
+    # beta (Hz)
+    beta_list = np.linspace(
+        exp_settings['beta_start'],
+        exp_settings['beta_end'],
+        exp_settings['beta_points']
     )
 
     # detuning (MHz)
@@ -462,7 +461,7 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     )
 
     Nx = len(det_list)   # columns (x-axis, detuning)
-    Ny = len(fm_list)    # rows    (y-axis, fm)
+    Ny = len(beta_list)    # rows    (y-axis, beta)
     
     # x-axis: qubit frequency (GHz) = f_qubit_nominal + detuning
     qub_freq_D1_nom_Hz = exp_settings['qub_freq']  # Hz
@@ -494,25 +493,25 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     dbeta1_dV2 = exp_settings['dbeta1_dV2']
     dbeta2_dV1 = exp_settings['dbeta2_dV1']
     dbeta2_dV2 = exp_settings['dbeta2_dV2']
-    beta1      = exp_settings['beta1']
-    beta2      = exp_settings['beta2']
+    
+    fm = exp_settings['fm'] # Hz
 
     # Modulation phases for the AC calculator
     phi1_prime_deg = 0.0
     phi2_prime_deg = float(exp_settings.get('phi2_prime_deg', 0.0))
     
-    # String to annotate beta and phi2' in plot titles
-    title_params = (r"$\beta_1$={:.3f} MHz, $\beta_2$={:.3f} MHz, "
-                    r"$\phi_2^\prime$={:.1f}°").format(beta1/1e6, beta2/1e6, phi2_prime_deg)
+    # String to annotate fm and phi2' in plot titles
+    title_params = (r"$f_m$={:.3f} MHz, "
+                    r"$\phi_2^\prime$={:.1f}°").format(fm/1e6, phi2_prime_deg)
 
     # Live plot figures
     fig_amp = plt.figure(1, figsize=(10, 7))
     plt.clf()
-    plt.suptitle('fm and spec frequency scan (Amplitude, live)')
+    plt.suptitle('beta and spec frequency scan (Amplitude, live)')
 
     fig_phase = plt.figure(2, figsize=(10, 7))
     plt.clf()
-    plt.suptitle('fm and spec frequency scan (Phase, live)')
+    plt.suptitle('beta and spec frequency scan (Phase, live)')
 
     # --- Time-estimation bookkeeping (Rabi-chevron style) ---
     tstart_global  = time.time()
@@ -523,7 +522,7 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     # ----------------------------
     tstart = time.time()
     
-    for iy, fm in enumerate(fm_list):
+    for iy, beta in enumerate(beta_list):
         row_start = time.time()
 
         phi11_minus_12_deg, phi22_minus_21_deg = fm_dependent_phase_offsets(fm)
@@ -532,7 +531,7 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
         Vpp1, phi_V1_deg, Vpp2, phi_V2_deg = ac_modulation_calculator(
             dbeta1_dV1, phi11_minus_12_deg,
             dbeta1_dV2, dbeta2_dV1, dbeta2_dV2, phi22_minus_21_deg,
-            beta1, phi1_prime_deg, beta2, phi2_prime_deg
+            beta, phi1_prime_deg, beta, phi2_prime_deg
         )
         
         Vpp1_vec[iy]   = Vpp1
@@ -577,20 +576,20 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
                 extent=[
                     freq_qubit_list_GHz[0],
                     freq_qubit_list_GHz[-1],
-                    fm_list[0] / 1e6,
-                    fm_list[iy] / 1e6
+                    beta_list[0] / 1e6,
+                    beta_list[iy] / 1e6
                 ]
             )
             plt.colorbar(im_amp, ax=ax_amp, label='Amplitude (arb)')
             ax_amp.set_xlabel('Frequency (GHz)')
-            ax_amp.set_ylabel(r'$f_m$ (MHz)')
-            ax_amp.set_title(f'fm and spec frequency scan \n{title_params}\n{filename}')
+            ax_amp.set_ylabel(r'$\beta$ (MHz)')
+            ax_amp.set_title(f'beta and spec frequency scan \n{title_params}\n{filename}')
         else:
-            fm_MHz = fm_list[0] / 1e6
+            beta_MHz = beta_list[0] / 1e6
             ax_amp.plot(freq_qubit_list_GHz, amp_map[0, :], marker='o', linestyle='-')
             ax_amp.set_xlabel('Frequency (GHz)')
             ax_amp.set_ylabel('Amplitude (arb)')
-            ax_amp.set_title(f'Spec frequency scan at fm = {fm_MHz:.3f} MHz\n{title_params}\n{filename}')
+            ax_amp.set_title(f'Spec frequency scan at $\beta$ = {beta_MHz:.3f} MHz\n{title_params}\n{filename}')
             ax_amp.grid(True)
 
         fig_amp.canvas.draw()
@@ -609,20 +608,20 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
                 extent=[
                     freq_qubit_list_GHz[0],
                     freq_qubit_list_GHz[-1],
-                    fm_list[0] / 1e6,
-                    fm_list[iy] / 1e6
+                    beta_list[0] / 1e6,
+                    beta_list[iy] / 1e6
                 ]
             )
             plt.colorbar(im_phase, ax=ax_phase, label='Phase (deg)')
             ax_phase.set_xlabel('Frequency (GHz)')
-            ax_phase.set_ylabel(r'$f_m$ (MHz)')
-            ax_phase.set_title(f'fm and spec frequency scan \n{title_params}\n{filename}')
+            ax_phase.set_ylabel(r'$\beta$ (MHz)')
+            ax_phase.set_title(f'beta and spec frequency scan \n{title_params}\n{filename}')
         else:
-            fm_MHz = fm_list[0] / 1e6
+            beta_MHz = beta_list[0] / 1e6
             ax_phase.plot(freq_qubit_list_GHz, ang_map[0, :], marker='o', linestyle='-')
             ax_phase.set_xlabel('Frequency (GHz)')
             ax_phase.set_ylabel('Phase (deg)')
-            ax_phase.set_title(f'Spec frequency scan at fm = {fm_MHz:.3f} MHz\n{title_params}\n{filename}')
+            ax_phase.set_title(f'Spec frequency scan at $\beta$ = {beta_MHz:.3f} MHz\n{title_params}\n{filename}')
             ax_phase.grid(True)
 
         fig_phase.canvas.draw()
@@ -634,11 +633,11 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
         plt.figure(fig_phase.number)
         plt.savefig(os.path.join(saveDir, filename+'_live_phase.png'), dpi=150)
 
-        # Save data after each fm row
+        # Save data after each beta row
         userfuncs.SaveFull(
             saveDir, filename,
             [
-                'fm_list', 'det_list', 'freq_qubit_list_GHz',
+                'beta_list', 'det_list', 'freq_qubit_list_GHz',
                 'amp_map', 'ang_map', 'I_map', 'Q_map',
                 'Vpp1_vec', 'phi_V1_vec', 'Vpp2_vec', 'phi_V2_vec'
             ],
@@ -650,14 +649,14 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
         # --------- Time estimate after this row (Rabi-chevron style) ---------
         row_stop = time.time()
         if not first_row_done:
-            print(f"Finished first fm row ({iy+1}/{Ny}).")
+            print(f"Finished first beta row ({iy+1}/{Ny}).")
             print("Estimated TOTAL run time based on this row:")
             estimate_time(row_start, row_stop, Ny)
             first_row_done = True
         else:
             remaining_rows = Ny - (iy + 1)
             if remaining_rows > 0:
-                print(f"Finished fm row {iy+1}/{Ny}.")
+                print(f"Finished beta row {iy+1}/{Ny}.")
                 print("Estimated REMAINING time based on this row:")
                 estimate_time(row_start, row_stop, remaining_rows)
 
@@ -668,7 +667,7 @@ def fm_and_detuning_scan(soc,soccfg,instruments,settings):
     userfuncs.SaveFull(
         saveDir, filename,
         [
-            'fm_list', 'det_list', 'freq_qubit_list_GHz',
+            'beta_list', 'det_list', 'freq_qubit_list_GHz',
             'amp_map', 'ang_map', 'I_map', 'Q_map',
             'Vpp1_vec', 'phi_V1_vec', 'Vpp2_vec', 'phi_V2_vec'
         ],
