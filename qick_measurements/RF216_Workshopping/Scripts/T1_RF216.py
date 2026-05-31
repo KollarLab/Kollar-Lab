@@ -69,6 +69,7 @@ class T1_sequence(AveragerProgramV2):
 #         qub_ch = self.cfg["qub_channel"]
 #         self.reset_phase(gen_ch = [qub_ch], t=0)
 # =============================================================================
+        self.delay(self.cfg["relax_delay"])
         sigma = cfg["qub_sigma"]
         num_sigma = cfg["num_sigma"]
         
@@ -89,7 +90,7 @@ class T1_sequence(AveragerProgramV2):
         self.pulse(ch=cfg["qub_channel"],name='qub_pulse',t=ex_time)
         self.pulse(ch=cfg["cav_channel"],name='cav_pulse',t=meas_time)
         self.wait_auto()
-        self.delay(self.cfg["relax_delay"])
+        
 
 # class CavitySweep(AveragerProgram):
 #     def initialize(self):

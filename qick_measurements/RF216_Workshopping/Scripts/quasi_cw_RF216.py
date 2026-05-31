@@ -89,6 +89,7 @@ class Quasi_CW(AveragerProgramV2):
         
         #The body sets the pulse sequence, it runs through it a number of times specified by "reps" and takes averages
         #specified by "soft_averages." Both are required if you wish to acquire_decimated, only "reps" is otherwise.
+        self.delay(self.cfg["relax_delay"])
         sigma = cfg["qub_sigma"]
         num_sigma = cfg["num_sigma"]
         
@@ -108,7 +109,7 @@ class Quasi_CW(AveragerProgramV2):
         self.pulse(ch=cfg["qub_channel"],name='qub_pulse',t=ex_time)
         self.pulse(ch=cfg["cav_channel"],name='cav_pulse',t=meas_time)
         self.wait_auto()
-        self.delay(self.cfg["relax_delay"])
+        
         
         # #Sends measurement pulse
         # self.pulse(ch=self.cfg["qub_channel"],t=ex_time)
