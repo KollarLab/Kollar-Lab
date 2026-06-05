@@ -49,10 +49,14 @@ class Keithley2400(SCPIinst):
         #self.Output=1
     
     def set_voltage(self,value): #0.13s operation
+        if self.mode != 'VOLT':
+            raise ValueError("mode is not voltage")
         self.voltage.output_range = value
         self.voltage.level = value
     
     def set_current(self,value, force=False, verbose=False): #0.13s operation
+        if self.mode != 'CURR':
+            raise ValueError("mode is not current")
         if value>0.01:
             print('Caution, current units are A not mA. Set "force" flag to true')
             if not force:
@@ -83,15 +87,19 @@ class Keithley2400(SCPIinst):
     def ramp_current(self,value, step_size=0.0002):
         init_val = self.current.level
         delta = abs(value-init_val)
-        ramp = np.linspace(init_val, value, int(delta/step_size)+2)
+        ramp = np.linspace(init_val, value, max(2,int(delta/step_size)+1))
         for amp in ramp:
             self.set_current(amp)
         self.measure()
     
-    def ramp_voltage(self,value):
-        npoints=10
-        for i in range(0,npoints):
-            self.set_voltage(value*i/npoints)
+    def ramp_voltage(self,value,step_size=0.005):
+        init_val = self.voltage.level
+        delta = abs(value-init_val)
+        ramp = np.linspace(init_val, value, max(2,int(delta/step_size)+1))
+        for volt in ramp:
+            self.set_voltage(volt)
+        self.measure()
+
 
 
 
