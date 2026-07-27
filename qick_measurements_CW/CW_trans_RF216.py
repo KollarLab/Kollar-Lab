@@ -22,7 +22,10 @@ class LoopbackProgramV2(AveragerProgramV2):
 
         ro_ch = cfg['ro_channel']
         gen_ch = cfg['cav_channel']
-        self.declare_gen(ch=gen_ch, nqz=cfg['nqz_c'], mixer_freq=cfg['mixer_freq'], ro_ch=ro_ch)
+        if cfg['mixer_freq']:
+            self.declare_gen(ch=gen_ch, nqz=cfg['nqz_c'], mixer_freq=cfg['mixer_freq'], ro_ch=ro_ch)
+        else:
+            self.declare_gen(ch=gen_ch,nqz=cfg['nqz_c'])#,ro_ch=ro_ch)
         #for ro_ch in cfg["ro_channels"]:
         self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
         self.add_readoutconfig(ch=ro_ch, name="myro",
@@ -35,7 +38,7 @@ class LoopbackProgramV2(AveragerProgramV2):
                        length= cfg["pulse_length"],
                        phase=cfg['cav_phase'],
                        gain=cfg['meas_gain'],
-                       mode='periodic'
+                       mode='periodic', 
                       )
         self.send_readoutconfig(ch=ro_ch, name="myro", t=0)
         
@@ -142,7 +145,8 @@ def CW_trans(soc, soccfg, instruments, settings):
                 'mixer_freq': (exp_settings["freq_start"] + exp_settings['mixer_detuning'])/1e6, # in MHz
                 'readout_length': exp_settings['readout_length'], # this is not the same as pulse_length; pulse_length has a limit, so we keep the readout long
                 'cav_atten'       : exp_globals['cav_channel']['Atten_1'] + exp_globals['cav_channel']['Atten_2'],
-                'power_sweep_mode': exp_settings['power_sweep_mode']
+                'power_sweep_mode': exp_settings['power_sweep_mode'],
+                'mixer_freq'      : 6000 #Placeholder, MHz 
                }
         
         cav_ch = exp_globals['cav_channel']
@@ -194,10 +198,15 @@ def CW_trans(soc, soccfg, instruments, settings):
                     print('\'all_filter\', \'cav_filter\', \'ro_filter\', and\'no_filter\'')
                     return
                 
-                if exp_settings['fixed_mixer_frequency'] == False:
-                    config['mixer_freq'] = (fpts[f] + exp_settings['mixer_detuning'])/1e6 # in MHz
+                
                 #config["cav_phase"] = phase_fpts[f] # currently this feature is not used
                 #print(config)
+                if exp_settings['mixer_detuning']:
+                    if exp_settings['fixed_mixer_frequency'] == False:
+                        config['mixer_freq'] = (fpts[f] + exp_settings['mixer_detuning'])/1e6 # in MHz
+                else:
+                    config['mixer_freq'] = False
+                print("Checking in ...")
                 prog =LoopbackProgramV2(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
                 holder = prog.acquire(soc, rounds=int(config["rounds"]), progress=False) #acquire returns (shape) = (n_ro_ch, n_reads, 2)
                 #n_reads is set by how many times adc is triggered in the _body, and the last index is I and Q data
@@ -211,7 +220,7 @@ def CW_trans(soc, soccfg, instruments, settings):
                 mag = np.sqrt(I_full**2 + Q_full**2)
                 phase = np.degrees(np.arctan2(Q_full, I_full))
     
-                powerdat[g,f] = mag/gpts[g] #Normalization
+                powerdat[g,f] = mag#/gpts[g] #Normalization
                 phasedat[g,f] = phase
                 Is[g,f] = I_full
                 Qs[g,f] = Q_full
@@ -337,12 +346,18 @@ def CW_trans(soc, soccfg, instruments, settings):
                     print('\'all_filter\', \'cav_filter\', \'ro_filter\', and\'no_filter\'')
                     return
                 
-                if exp_settings['fixed_mixer_frequency'] == False:
-                    config['mixer_freq'] = (fpts[f] + exp_settings['mixer_detuning'])/1e6 # in MHz
+                if exp_settings['mixer_detuning']:
+                    if exp_settings['fixed_mixer_frequency'] == False:
+                        config['mixer_freq'] = (fpts[f] + exp_settings['mixer_detuning'])/1e6 # in MHz
+                else:
+                    config['mixer_freq'] = False
+                print("Are we there yet?")
                 #config["cav_phase"] = phase_fpts[f] # currently this feature is not used
                 #print(config)
                 prog =LoopbackProgramV2(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
+               
                 holder = prog.acquire(soc, rounds=int(config["rounds"]), progress=False) #acquire returns (shape) = (n_ro_ch, n_reads, 2)
+               
                 #n_reads is set by how many times adc is triggered in the _body, and the last index is I and Q data
                 iq = holder[0]
                 soc.reset_gens() #Reset the tProc and run a minimal tProc program that drives all signal generators with 0's. Useful for stopping any periodic or stdysel="last" outputs
