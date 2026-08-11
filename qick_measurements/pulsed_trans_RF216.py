@@ -13,8 +13,11 @@ class CavitySweep(AveragerProgramV2):
 
         ro_ch = cfg['ro_channel']
         gen_ch = cfg['cav_channel']
-        self.declare_gen(ch=gen_ch, nqz=cfg['nqz_c'], mixer_freq=cfg['mixer_freq'], ro_ch=ro_ch)
-        #for ro_ch in cfg["ro_channels"]:
+        if cfg['mixer_freq']:
+            self.declare_gen(ch=gen_ch, nqz=cfg['nqz_c'], mixer_freq=cfg['mixer_freq'], ro_ch=ro_ch)
+        else:
+            self.declare_gen(ch=gen_ch,nqz=cfg['nqz_c'])#,ro_ch=ro_ch)
+            
         self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
         self.add_readoutconfig(ch=ro_ch, name="myro",
                            freq=cfg['cav_freq'],
@@ -23,9 +26,10 @@ class CavitySweep(AveragerProgramV2):
         self.add_pulse(ch=gen_ch, name="mypulse", ro_ch=ro_ch,
                        style="const",
                        freq=cfg['cav_freq'],
-                       length= cfg["meas_window"],
+                       length= 8,#cfg["meas_window"],
                        phase=cfg['cav_phase'],
                        gain=cfg['meas_gain'],
+                       #mode = "periodic"
                       )
         self.send_readoutconfig(ch=ro_ch, name="myro", t=0)
         
@@ -146,7 +150,10 @@ def pulsed_trans(soc,soccfg,instruments,settings):
         for f in range(0,len(fpts)):
             board_freq = fpts[f]/1e6
             config["cav_freq"] = board_freq
-            config["mixer_freq"] = board_freq + exp_settings['mixer_detuning']/1e6
+            if exp_settings['mixer_detuning']:
+                config["mixer_freq"] = board_freq + exp_settings['mixer_detuning']/1e6
+            else:
+                config['mixer_freq'] = False
             prog = CavitySweep(soccfg, reps=exp_settings['reps'], final_delay = None, final_wait=0, cfg=config)
             #Need to assign Iwindow, Qwindow, Ifull, Qfull, xaxis (which should just be timeus)
             if exp_settings['filter'] == 'all_filter':
