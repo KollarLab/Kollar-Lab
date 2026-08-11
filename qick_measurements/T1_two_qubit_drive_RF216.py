@@ -241,6 +241,8 @@ def meas_T1(soc,soccfg,instruments,settings):
         tau_list = np.logspace(np.log10(exp_settings['Tau_min']), np.log10(exp_settings['Tau_max']), exp_settings['Tau_points'])
     else:
          tau_list = np.linspace(exp_settings['Tau_min'], exp_settings['Tau_max'], exp_settings['Tau_points'])
+    rng = np.random.default_rng()
+    rng.shuffle(tau_list)
     taus = np.round(tau_list, 9)
     
     indices = list(range(len(taus)))
@@ -352,7 +354,7 @@ def meas_T1(soc,soccfg,instruments,settings):
     T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
     fig3 = plt.figure(2)
     plt.clf()
-    plt.plot(taus*1e6, amp_int)
+    plt.plot(taus*1e6, amp_int, 'x')
     plt.plot(fit_xvals*1e6, fit_yvals)
     plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
     plt.xlabel('Time (us)')
@@ -366,7 +368,7 @@ def meas_T1(soc,soccfg,instruments,settings):
     T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, ang_int, fit_guess)
     fig4 = plt.figure(3)
     plt.clf()
-    plt.plot(taus*1e6, ang_int)
+    plt.plot(taus*1e6, ang_int, 'x')
     plt.plot(fit_xvals*1e6, fit_yvals)
     plt.title('Phase T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
     plt.xlabel('Time (us)')
