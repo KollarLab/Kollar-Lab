@@ -5,7 +5,7 @@ Created on Wed Oct  9 08:15:08 2024
 @author: gchis
 """
 
-from SCPIinst import SCPIinst
+from .SCPIinst import SCPIinst
 from bidict import bidict
 import numpy as np
 import time
@@ -62,7 +62,7 @@ class Yoko(SCPIinst):
     Allowed vrange inputs: .01, .1, .2, 1, 10, 30
     Range limits are remembered when switching modes.'''
     
-    def __init__(self, address, reset=True, mode='CURR', crange = .1, vrange = 10, Output = 1): 
+    def __init__(self, address, reset=True, mode='CURR', crange = .01, vrange = 10, Output = 1): 
         
         self.init = True
         super().__init__(address, self.commandlist, self.errcmds, reset = reset, baud_rate = 9600)
@@ -95,7 +95,7 @@ class Yoko(SCPIinst):
         
         
         self.mode = mode
-
+        self.output = Output
         
         
     def set_voltage(self,value):

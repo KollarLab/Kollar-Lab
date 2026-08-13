@@ -18,7 +18,19 @@ from utility.plotting_tools import general_colormap_subplot
 from utility.measurement_helpers import estimate_time
 import scipy.signal as signal
 
-      
+try:
+    from scipy.optimize import curve_fit
+except Exception:
+    curve_fit = None
+
+
+def lorentzian_peak(x, A, f0, gamma_fwhm, offset):
+    return offset + A * (0.5 * gamma_fwhm) ** 2 / ((x - f0) ** 2 + (0.5 * gamma_fwhm) ** 2)
+
+def lorentzian_dip(x, A, f0, gamma_fwhm, offset):
+    return offset - A * (0.5 * gamma_fwhm) ** 2 / ((x - f0) ** 2 + (0.5 * gamma_fwhm) ** 2)
+
+
 class T1_sequence(AveragerProgramV2):
     def _initialize(self,cfg): 
         ro_ch  = cfg['ro_channel']
@@ -108,7 +120,7 @@ def get_T1_settings():
     settings = {}
     
     settings['scanname'] = 'initial_power_scan_q4'
-    settings['meas_type'] = 'Tmeas'
+    settings['meas_type'] = 'Reverse_Spec'
     # settings['phase_reset'] = True
     
     # settings['cav_freq'] = 1e9
@@ -177,8 +189,12 @@ def meas_T1(soc,soccfg,instruments,settings):
         'meas_window'     : m_pulse['meas_window'],
         'meas_time'       : m_pulse['meas_pos'],
         'cav_gain'        : exp_settings['cav_gain'],
-        'cav_freq'        : (exp_settings['cav_freq'])/1e6,
-        'cav_mixer_freq'  : (exp_settings['cav_freq'] + exp_settings['cav_mixer_detuning'])/1e6,
+        'cav_freq'        : 6000, #Placeholder, MHz
+        'cav_freq_start'  : (exp_settings['cav_freq_start'])/1e6,
+        'cav_freq_stop'  : (exp_settings['cav_freq_stop'])/1e6,
+        'cav_mixer_freq'  : ((exp_settings['cav_freq_start']+exp_settings['cav_freq_stop'])/2 
+                             + exp_settings['cav_mixer_detuning'])/1e6,
+        'freq_points'     : exp_settings['cav_freq_points'],
         
         'nqz_q'           : 2,
         'qub_phase'       : q_pulse['qub_phase'],
@@ -210,48 +226,17 @@ def meas_T1(soc,soccfg,instruments,settings):
     # Set attenuator on ADC.
     soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
     
-    if exp_settings['filter'] == 'all_filter':
-        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
-        
-        soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bandpass', bw=qub_ch['BW'])
-        
-    elif exp_settings['filter'] == 'no_qubit_filter':
-        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
     
-        soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bypass')
-        
-    elif exp_settings['filter'] == 'no_filter':
-        soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bypass')
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
-        
-        soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bypass')
-        
-    else:
-        print('Please select one option from:')
-        print('\'all_filter\', \'no_qubit_filter\', and \'no_filter\'')
-        return
-        
-    prog = T1_sequence(soccfg,reps = exp_settings['reps'], final_delay = None, final_wait = 0, cfg = config)#Wait this uses reps instead of rounds????
+    fpts = np.linspace(exp_settings['cav_freq_start'], exp_settings['cav_freq_stop'], exp_settings['cav_freq_points'])
+    
+    
+    indices = list(range(len(fpts)))
+    
+    amp_int = np.zeros(len(fpts))
+    ang_int = np.zeros(len(fpts))
 
-    
-    ## Set up array of taus and randomize it
-    if exp_settings['spacing']=='Log':
-        tau_list = np.logspace(np.log10(exp_settings['Tau_min']), np.log10(exp_settings['Tau_max']), exp_settings['Tau_points'])
-    else:
-         tau_list = np.linspace(exp_settings['Tau_min'], exp_settings['Tau_max'], exp_settings['Tau_points'])
-    rng = np.random.default_rng()
-    rng.shuffle(tau_list)
-    taus = np.round(tau_list, 9)
-    
-    indices = list(range(len(taus)))
-    
-    amp_int = np.zeros(len(taus))
-    ang_int = np.zeros(len(taus))
-
-    amp_orig = np.zeros(len(taus))
-    ang_orig = np.zeros(len(taus))
+    amp_orig = np.zeros(len(fpts))
+    ang_orig = np.zeros(len(fpts))
 
 
     
@@ -277,11 +262,34 @@ def meas_T1(soc,soccfg,instruments,settings):
 
     tstart = time.time()
     
-    for tind in indices:
+    for ind in indices:
         
-        tau = taus[tind]
-        print('Tau: {}'.format(tau))
-        config['qub_delay'] = tau*1e6
+        config['cav_freq'] = fpts[ind]/1e6
+
+        if exp_settings['filter'] == 'all_filter':
+            soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
+            soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+            
+            soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bandpass', bw=qub_ch['BW'])
+            
+        elif exp_settings['filter'] == 'no_qubit_filter':
+            soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
+            soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+        
+            soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bypass')
+            
+        elif exp_settings['filter'] == 'no_filter':
+            soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+            soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+            
+            soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bypass')
+            
+        else:
+            print('Please select one option from:')
+            print('\'all_filter\', \'no_qubit_filter\', and \'no_filter\'')
+            return
+        
+
         prog = T1_sequence(soccfg,reps = exp_settings['reps'], final_delay = None, final_wait = 0, cfg = config)
         holder = prog.acquire(soc, rounds = exp_settings['rounds'], load_pulses=True, progress=False)
         
@@ -300,33 +308,35 @@ def meas_T1(soc,soccfg,instruments,settings):
 #        amp_int[tind] = np.sqrt(I_final**2+Q_final**2)
 #        ang_int[tind] = np.arctan2(Q_final, I_final)*180/np.pi
         
-        amp_int[tind] = np.sqrt(I_final**2 + Q_final**2)
-        ang_int[tind] = np.degrees(np.arctan2(Q_final, I_final))
+        amp_int[ind] = np.sqrt(I_final**2 + Q_final**2)
+        ang_int[ind] = np.degrees(np.arctan2(Q_final, I_final))
         
-        amp_orig[tind] = np.sqrt(I_sig**2+Q_sig**2)
-        ang_orig[tind] = np.degrees(np.arctan2(Q_sig, I_sig))
+        amp_orig[ind] = np.sqrt(I_sig**2+Q_sig**2)
+        ang_orig[ind] = np.degrees(np.arctan2(Q_sig, I_sig))
 
         
         if first_it:
             tstop = time.time()
-            estimate_time(tstart, tstop, len(taus))
-            
-                
-            first_it = False  
-            
+            estimate_time(tstart, tstop, len(fpts))
+           
+
+            first_it = False
+
         #_______________________________________#
     
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
         plt.subplot(121)
-        plt.plot(taus*1e6, amp_int, 'x')
-        plt.xlabel('Tau (us)')
+        plt.plot(fpts, amp_int)
+        plt.xlabel('Frequency (Hz)')
         plt.ylabel('Amplitude')  
         plt.subplot(122)
-        plt.plot(taus*1e6, ang_int, 'x')
-        plt.xlabel('Tau (us)')
+        phase_unwrapped = np.unwrap(ang_int*np.pi/180)*180/np.pi
+        phase_plotted = phase_unwrapped - np.linspace(phase_unwrapped[0], phase_unwrapped[-1], len(phase_unwrapped)) + ang_int[0] #unwrap and remove linear trend to prevent large jumps in the plot
+        plt.plot(fpts, phase_plotted)
+        plt.xlabel('Frequency (Hz)')
         plt.ylabel('Phase')  
-        plt.suptitle('Live T1 data (no fit)\n'+filename)
+        plt.suptitle('Live Transmission data (no fit)\n'+filename)
         fig.canvas.draw()
         fig.canvas.flush_events()
         plt.savefig(os.path.join(saveDir, filename+'_no_fit.png'), dpi = 150)
@@ -338,7 +348,7 @@ def meas_T1(soc,soccfg,instruments,settings):
         # general_colormap_subplot(ax, xaxis*1e6, taus*1e6, amps, ['Time (us)', 'Tau (us)'], 'Raw data\n'+filename)
     
         # plt.savefig(os.path.join(saveDir, filename+'_fulldata.png'), dpi = 150)
-        userfuncs.SaveFull(saveDir, filename, ['taus', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
+        userfuncs.SaveFull(saveDir, filename, ['fpts', 'amp_int'], locals(), expsettings=settings, instruments=instruments)
         
         
         
@@ -346,45 +356,56 @@ def meas_T1(soc,soccfg,instruments,settings):
     t2 = time.time()
     print('Elapsed time: {}'.format(t2-tstart))
 
-    T1_guess = exp_settings['T1_guess']
-    amp_guess = max(amp_int)-min(amp_int)
-    offset_guess = np.mean(amp_int[-10:])
+    # Optional Lorentzian fit on last qubit-gain trace
+    if curve_fit is not None and len(fpts) >= 4:
+        x = fpts / 1e6
+        y = amp_int.copy()
 
-    fit_guess = [T1_guess, amp_guess, offset_guess]
-    T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, amp_int, fit_guess)
-    fig3 = plt.figure(2)
-    plt.clf()
-    plt.plot(taus*1e6, amp_int, 'x')
-    plt.plot(fit_xvals*1e6, fit_yvals)
-    plt.title('T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
-    plt.xlabel('Time (us)')
-    plt.ylabel('Amplitude')
-    fig3.canvas.draw()
-    fig3.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'_fit.png'), dpi=150)
+        hanger = bool(exp_globals.get("hanger", False))  # True => dip, False => peak
+        model = lorentzian_dip if hanger else lorentzian_peak
 
-    ang_guess = max(ang_int) - min(ang_int)
-    fit_guess_phase = [T1_guess, ang_guess, offset_guess]
-    T1, amp, offset, fit_xvals, fit_yvals = fit_T1(taus, ang_int, fit_guess)
-    fig4 = plt.figure(3)
-    plt.clf()
-    plt.plot(taus*1e6, ang_int, 'x')
-    plt.plot(fit_xvals*1e6, fit_yvals)
-    plt.title('Phase T1:{}us \n {}'.format(np.round(T1*1e6,3), filename))
-    plt.xlabel('Time (us)')
-    plt.ylabel('Phase')
-    fig4.canvas.draw()
-    fig4.canvas.flush_events()
-    plt.savefig(os.path.join(saveDir, filename+'_fit_p.png'), dpi=150)
+        offset0 = float(np.median(y))
+        idx0 = int(np.argmin(y) if hanger else np.argmax(y))
+        f0_0 = float(x[idx0])
 
-    userfuncs.SaveFull(saveDir, filename, ['taus','amp_int','ang_int','amp_orig','ang_orig', 'T1', 'amp', 'offset', 'fit_guess'],
+        step = float(np.mean(np.diff(x))) if len(x) > 1 else 0.001
+        gamma0 = max(5 * step, 0.001)  # gamma is FWHM in GHz for this model
+        A0 = float((offset0 - y[idx0]) if hanger else (y[idx0] - offset0))
+        A0 = max(A0, 1e-9)
+
+        p0 = [A0, f0_0, gamma0, offset0]
+        bounds = ([0, x.min(), 0, -np.inf], [np.inf, x.max(), np.inf, np.inf])
+
+        try:
+            popt, _ = curve_fit(model, x, y, p0=p0, bounds=bounds, maxfev=20000)
+        except Exception:
+            popt = p0
+
+        A, f0, gamma_fwhm, offset = [float(v) for v in popt]
+        FWHM_MHz = gamma_fwhm * 1e3
+
+        fig2, ax2 = plt.subplots(figsize=(7, 4.5), num=2, clear=True)
+        fig2.suptitle(filename, fontsize=11, y=0.98)
+        ax2.plot(x, y, "o", ms=4, label="Data (last qub gain)")
+        xf = np.linspace(x.min(), x.max(), 1000)
+        ax2.plot(xf, model(xf, *popt), "-", lw=2, label="Lorentzian fit")
+        ax2.set_xlabel("Frequency (GHz)")
+        ax2.set_ylabel("|S21| (a.u.)")
+        ax2.legend()
+        ax2.grid(alpha=0.3)
+        kind = "dip" if hanger else "peak"
+        ax2.set_title(f"Lorentzian {kind}: f0 = {f0:.7f} GHz, FWHM = {FWHM_MHz:.2f} MHz", fontsize=10)
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.savefig(os.path.join(saveDir, filename + "_lasttrace_lorentz_fit.png"), dpi=150)
+
+    userfuncs.SaveFull(saveDir, filename, ['fpts','amp_int','ang_int','amp_orig','ang_orig'],
                          locals(), expsettings=settings, instruments=instruments)
     
     if exp_globals['LO']:
         pass
         #logen.output = 0
 
-    return T1, taus, amp_int
+    return amp_int, ang_int, fpts
    
     
 
