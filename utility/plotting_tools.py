@@ -441,3 +441,26 @@ def get_peaks(freqs, mags, window, polyorder, height, width, show_plot = False):
         plt.title('Peaks in signal')
     
     return [freqs[peaks], mags[peaks]]
+
+
+def load_fig(xlabel, ylabel):
+    plt.ion()   # Interactive mode
+
+    fig = plt.figure(figsize=(13, 8))
+
+    ax1 = plt.subplot(1, 2, 1)
+    line1, = ax1.plot([], [], 'o-', lw=2)
+    ax1.set_xlabel(xlabel[0])
+    ax1.set_ylabel(ylabel[0])
+    ax1.grid(True)
+
+    ax2 = plt.subplot(1, 2, 2)
+    line2, = ax2.plot([], [], 'o-', lw=2)
+    ax2.set_xlabel(xlabel[0])
+    ax2.set_ylabel(ylabel[1])
+    ax2.grid(True)
+
+    plt.tight_layout()
+    plt.show(block=False)
+
+    return fig, ax1, ax2, line1, line2
