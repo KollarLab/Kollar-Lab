@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Feb  1 10:16:54 2023
+Created on Thu Aug 13 16:15:07 2026
 
-@author: kollarlab
+@author: KollarLab
 """
+
 
 from qick.asm_v2 import AveragerProgramV2
 
@@ -21,11 +22,13 @@ class T2_sequence(AveragerProgramV2):
     def _initialize(self, cfg):
         ro_ch  = cfg['ro_channel']
         gen_ch = cfg["cav_channel"]
-        qub_ch = cfg["qub_channel"]
+        qub_ch_1 = cfg["qub_1_channel"]
+        qub_ch_2 = cfg["qub_2_channel"]
 
         # Generators + readout
         self.declare_gen(ch=gen_ch, nqz=cfg["nqz_c"], mixer_freq=cfg['cav_mixer_freq'], ro_ch=ro_ch)
-        self.declare_gen(ch=qub_ch, nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
+        self.declare_gen(ch=qub_ch_1, nqz=cfg["nqz_q"], mixer_freq=cfg['qub_1_mixer_freq'])
+        self.declare_gen(ch=qub_ch_2, nqz=cfg["nqz_q"], mixer_freq=cfg['qub_2_mixer_freq'])
         self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
 
         self.add_readoutconfig(
@@ -47,44 +50,72 @@ class T2_sequence(AveragerProgramV2):
         # Envelope (all times in us)
         sigma = float(cfg["qub_sigma"])
         ns    = int(cfg["num_sigma"])
-        self.add_gauss(ch=qub_ch, name='ramp', sigma=sigma, length=sigma*ns)
+        self.add_gauss(ch=qub_ch_1, name='ramp', sigma=sigma, length=sigma*ns)
+        self.add_gauss(ch=qub_ch_2, name='ramp', sigma=sigma, length=sigma*ns)
 
-        # Pulses: always define all three; in _body we decide whether to play echo
+        # Pulses: Define the sequential pi pulses played to do dual rail T2
+        # 1: pi/2 qub1
+        # 2: pi qub2
+        # 3: evolve
+        # 4: pi qub1
+        # 5: pi/2 qub2
+        # 6: readout
         self.add_pulse(
-            ch=qub_ch, name="qub_pulse_1", ro_ch=ro_ch,
+            ch=qub_ch_1, name="qub_1_pulse_1", ro_ch=ro_ch,
             style="flat_top",
             envelope="ramp",
-            freq=cfg['qub_freq'],
+            freq=cfg['qub_1_freq'],
             length=float(cfg['hold_length']),
-            phase=float(cfg.get('qub_pulse_phase_1', cfg.get('qub_phase', 0.0))),
-            gain=float(cfg['qub_gain'])/2,
+            phase=float(cfg.get('qub_1_pulse_phase_1', cfg.get('qub_1_phase', 0.0))),
+            gain=float(cfg['qub_1_gain']/2),
         )
 
         self.add_pulse(
-            ch=qub_ch, name="qub_pulse_echo", ro_ch=ro_ch,
+            ch=qub_ch_2, name="qub_2_pulse_1", ro_ch=ro_ch,
             style="flat_top",
             envelope="ramp",
-            freq=cfg['qub_freq'],
+            freq=cfg['qub_2_freq'],
             length=float(cfg['hold_length']),
-            phase=float(cfg.get('qub_pulse_phase_echo', cfg.get('qub_phase', 0.0))),
-            gain=float(cfg['qub_gain']),
+            phase=float(cfg.get('qub_2_pulse_phase_1', cfg.get('qub_2_phase', 0.0))),
+            gain=float(cfg['qub_2_gain']),
         )
 
         self.add_pulse(
-            ch=qub_ch, name="qub_pulse_2", ro_ch=ro_ch,
+            ch=qub_ch_1, name="qub_1_pulse_2", ro_ch=ro_ch,
             style="flat_top",
             envelope="ramp",
-            freq=cfg['qub_freq'],
+            freq=cfg['qub_1_freq'],
             length=float(cfg['hold_length']),
-            phase=float(cfg.get('qub_pulse_phase_2', cfg.get('qub_phase', 0.0))),
-            gain=float(cfg['qub_gain'])/2,
+            phase=float(cfg.get('qub_1_pulse_phase_2', cfg.get('qub_1_phase', 0.0))),
+            gain=float(cfg['qub_1_gain']),
+        )
+
+        self.add_pulse(
+            ch=qub_ch_2, name="qub_2_pulse_2", ro_ch=ro_ch,
+            style="flat_top",
+            envelope="ramp",
+            freq=cfg['qub_2_freq'],
+            length=float(cfg['hold_length']),
+            phase=float(cfg.get('qub_2_pulse_phase_2', cfg.get('qub_2_phase', 0.0))),
+            gain=float(cfg['qub_2_gain']/2),
         )
 
         # Phase reset pulse
         self.add_pulse(
-            ch=qub_ch, name="qub_phrst", ro_ch=ro_ch,
+            ch=qub_ch_1, name="qub_1_phrst", ro_ch=ro_ch,
             style="const",
-            freq=cfg["qub_freq"],
+            freq=cfg["qub_1_freq"],
+            phase=0,
+            gain=0,
+            length=0.015,   # us
+            phrst=1
+        )
+
+         # Phase reset pulse
+        self.add_pulse(
+            ch=qub_ch_2, name="qub_2_phrst", ro_ch=ro_ch,
+            style="const",
+            freq=cfg["qub_2_freq"],
             phase=0,
             gain=0,
             length=0.015,   # us
@@ -122,21 +153,26 @@ class T2_sequence(AveragerProgramV2):
         
 
         # Optional phase reset
+        print(cfg.get('phase_reset', False))
         if cfg.get("phase_reset", False):
-            self.pulse(ch=cfg["qub_channel"], name="qub_phrst", t=0)
-
+            self.pulse(ch=cfg["qub_1_channel"], name="qub_1_phrst", t=0)
+            self.pulse(ch=cfg["qub_2_channel"], name="qub_2_phrst", t=0)
+            
         # Trigger ADC
         self.trigger(ros=[cfg['ro_channel']], pins=[0], t=float(cfg["adc_trig_offset"]))
 
         # Pulses
-        self.pulse(ch=cfg["qub_channel"], name='qub_pulse_1', t=t1_start)
+        self.pulse(ch=cfg["qub_1_channel"], name='qub_1_pulse_1', t=t1_start)
+        self.pulse(ch=cfg["qub_2_channel"], name='qub_2_pulse_1', t=t1_start+pulse_len)
 
         if mode == "T2_echo":
-            self.pulse(ch=cfg["qub_channel"], name='qub_pulse_echo', t=t_echo_start)
+            #self.pulse(ch=cfg["qub_channel"], name='qub_pulse_echo', t=t_echo_start)
+            raise ValueError(f"Unsupported T2_mode: {mode}")
         elif mode != "T2":
             raise ValueError(f"Unsupported T2_mode: {mode}")
 
-        self.pulse(ch=cfg["qub_channel"], name='qub_pulse_2', t=t2_start)
+        self.pulse(ch=cfg["qub_1_channel"], name='qub_1_pulse_2', t=t2_start)
+        self.pulse(ch=cfg["qub_2_channel"], name='qub_2_pulse_2', t=t2_start+pulse_len)
 
         # Readout
         self.pulse(ch=cfg["cav_channel"], name='cav_pulse', t=meas_time)
@@ -178,19 +214,16 @@ def meas_T2(soc,soccfg,instruments,settings):
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
     
-    qub_drive_index = exp_settings['qub_drive_index']
-    if qub_drive_index == 'D1':
-        qub_ch = exp_globals['qub_channel_1']
-        qub_channel = exp_globals['qub_channel_1']['ID']
-        q_pulse = exp_globals['qubit_pulse_D1']
+
+    qub_1_ch = exp_globals['qub_channel_1']
+    qub_1_channel = exp_globals['qub_channel_1']['ID']
+    q_1_pulse = exp_globals['qubit_pulse_D1']
         
-    elif qub_drive_index == 'D2':
-        qub_ch = exp_globals['qub_channel_2']
-        qub_channel = exp_globals['qub_channel_2']['ID']
-        q_pulse = exp_globals['qubit_pulse_D2']
+
+    qub_2_ch = exp_globals['qub_channel_2']
+    qub_2_channel = exp_globals['qub_channel_2']['ID']
+    q_2_pulse = exp_globals['qubit_pulse_D2']
         
-    else:
-        print("Wrong qubit drive index, check carefully")
     
    # if exp_globals['LO']:
     if False:
@@ -208,7 +241,8 @@ def meas_T2(soc,soccfg,instruments,settings):
 
     config = {
         'cav_channel'     : exp_globals['cav_channel']['ID'],
-        'qub_channel'     : qub_channel,
+        'qub_1_channel'     : qub_1_channel,
+        'qub_2_channel'     : qub_2_channel,
         'ro_channel'     : exp_globals['ro_channel']['ID'],
 
         'nqz_c'           : 2,
@@ -220,26 +254,33 @@ def meas_T2(soc,soccfg,instruments,settings):
         'cav_mixer_freq'  : (exp_settings['cav_freq'] + exp_settings['cav_mixer_detuning'])/1e6,
         
         'nqz_q'           : 2,
-        'qub_freq'        : exp_settings['qub_freq']/1e6,
-        'qub_mixer_freq'  : (exp_settings['qub_freq']+exp_settings['qub_mixer_detuning'])/1e6,
-        'qub_gain'        : exp_settings['qub_gain'],
-        
-        'qub_sigma'       : q_pulse['sigma'],
+        'qub_1_freq'        : exp_settings['qub_1_freq']/1e6,
+        'qub_1_mixer_freq'  : (exp_settings['qub_1_freq']+exp_settings['qub_1_mixer_detuning'])/1e6,
+        'qub_1_gain'        : exp_settings['qub_1_gain'],
+
+        'qub_2_freq'        : exp_settings['qub_2_freq']/1e6,
+        'qub_2_mixer_freq'  : (exp_settings['qub_2_freq']+exp_settings['qub_2_mixer_detuning'])/1e6,
+        'qub_2_gain'        : exp_settings['qub_2_gain'],
+
+        'qub_sigma'       : q_1_pulse['sigma'],
+
         'qub_delay_fixed' : exp_globals['qub_delay_fixed'],
         'tau_us'    : 0, #Placeholder
-        'num_sigma'       : q_pulse['num_sigma'],
+        'num_sigma'       : q_1_pulse['num_sigma'],
         'hold_length'     : exp_settings['hold_time'],
         
         'T2_mode'         : exp_settings.get('T2_mode', 'T2'),   # "T2" or "T2_echo"
         'synthetic_detuning': exp_settings.get('synthetic_detuning', 0.0)/1e6,
         
         # default phases (degrees)
-        'qub_phase'           : q_pulse['qub_phase'],   # base phase
-        'qub_pulse_phase_1'   : q_pulse['qub_phase'],
-        'qub_pulse_phase_echo': q_pulse['qub_phase'],
-        'qub_pulse_phase_2'   : q_pulse['qub_phase'],
+        'qub_1_phase'           : q_1_pulse['qub_phase'],   # base phase
+        'qub_1_pulse_phase_1'   : q_1_pulse['qub_phase'],
+        'qub_1_pulse_phase_2'   : q_1_pulse['qub_phase'],
 
-        
+        'qub_2_phase'           : q_2_pulse['qub_phase'],   # base phase
+        'qub_2_pulse_phase_1'   : q_2_pulse['qub_phase'],
+        'qub_2_pulse_phase_2'   : q_2_pulse['qub_phase'],
+
         'readout_length'  : m_pulse['meas_window'],
         'adc_trig_offset' : m_pulse['emp_delay'] + m_pulse['meas_pos'],
 
@@ -254,27 +295,31 @@ def meas_T2(soc,soccfg,instruments,settings):
     ro_ch  = exp_globals['ro_channel']
     # Set attenuator on DAC.
     soc.rfb_set_gen_rf(cav_ch['ID'], cav_ch['Atten_1'], cav_ch['Atten_2'])
-    soc.rfb_set_gen_rf(qub_ch['ID'], qub_ch['Atten_1'], qub_ch['Atten_2'])
+    soc.rfb_set_gen_rf(qub_1_ch['ID'], qub_1_ch['Atten_1'], qub_1_ch['Atten_2'])
+    soc.rfb_set_gen_rf(qub_2_ch['ID'], qub_2_ch['Atten_1'], qub_2_ch['Atten_2'])
     # Set attenuator on ADC.
     soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
     
     if exp_settings['filter'] == 'all_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
         soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
-        
-        soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bandpass', bw=qub_ch['BW'])
-        
+
+        soc.rfb_set_gen_filter(config['qub_1_channel'], fc=config['qub_1_freq']/1000, ftype='bandpass', bw=qub_1_ch['BW'])
+        soc.rfb_set_gen_filter(config['qub_2_channel'], fc=config['qub_2_freq']/1000, ftype='bandpass', bw=qub_2_ch['BW'])
+
     elif exp_settings['filter'] == 'no_qubit_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
         soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
-    
-        soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bypass')
+
+        soc.rfb_set_gen_filter(config['qub_1_channel'], fc=config['qub_1_freq']/1000, ftype='bypass')
+        soc.rfb_set_gen_filter(config['qub_2_channel'], fc=config['qub_2_freq']/1000, ftype='bypass')
         
     elif exp_settings['filter'] == 'no_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bypass')
         soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
-        
-        soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bypass')
+
+        soc.rfb_set_gen_filter(config['qub_1_channel'], fc=config['qub_1_freq']/1000, ftype='bypass')
+        soc.rfb_set_gen_filter(config['qub_2_channel'], fc=config['qub_2_freq']/1000, ftype='bypass')
         
     else:
         print('Please select one option from:')
@@ -341,18 +386,20 @@ def meas_T2(soc,soccfg,instruments,settings):
                 raise ValueError(f"tau_us={tau:.6g} < pulse_len_us={pulse_len_us:.6g}. Increase tau_min.")
 
 
-        base_phi = float(config['qub_phase'])  # degrees
+        base_phi = float(config['qub_1_phase'])  # degrees
         
         if config['T2_mode'] == "T2":
             # synthetic phase accumulation: phi2 = phi1 + 360 * f_syn * tau
             f_syn = float(config.get('synthetic_detuning', 0.0))  # MHz
             dphi = 360.0 * f_syn * float(tau)               # degrees
         
-            config['qub_pulse_phase_1'] = base_phi
-            config['qub_pulse_phase_2'] = base_phi + dphi
-        
+            config['qub_1_pulse_phase_1'] = base_phi
+            config['qub_1_pulse_phase_2'] = base_phi #+ dphi
+            config['qub_2_pulse_phase_1'] = base_phi
+            config['qub_2_pulse_phase_2'] = base_phi + dphi
+
             # echo pulse isn't played in T2 mode; phase value doesn't matter, but keep sane:
-            config['qub_pulse_phase_echo'] = base_phi
+            config['qub_1_pulse_phase_echo'] = base_phi
         
         elif config['T2_mode'] == "T2_echo":
             # no synthetic detuning in echo mode: all three pulses same phase

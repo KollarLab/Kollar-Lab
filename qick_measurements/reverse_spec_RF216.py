@@ -394,7 +394,7 @@ def meas_T1(soc,soccfg,instruments,settings):
         ax2.legend()
         ax2.grid(alpha=0.3)
         kind = "dip" if hanger else "peak"
-        ax2.set_title(f"Lorentzian {kind}: f0 = {f0:.7f} GHz, FWHM = {FWHM_MHz:.2f} MHz", fontsize=10)
+        ax2.set_title(f"Lorentzian {kind}: f0 = {f0/1e3:.7f} GHz, FWHM = {FWHM_MHz/1e3:.2f} MHz", fontsize=10)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
         plt.savefig(os.path.join(saveDir, filename + "_lasttrace_lorentz_fit.png"), dpi=150)
 

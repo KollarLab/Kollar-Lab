@@ -332,7 +332,7 @@ def meas_T2(soc,soccfg,instruments,settings):
     taus = np.round(tau_list, 9)
     
     indices = list(range(len(taus)))
-#    np.random.shuffle(indices)
+    np.random.shuffle(indices)
     
     amp_int = np.zeros(len(taus))
     amp_orig = np.zeros(len(taus))
@@ -439,12 +439,12 @@ def meas_T2(soc,soccfg,instruments,settings):
         fig = plt.figure(1, figsize=(13,8))
         plt.clf()
         plt.subplot(121)
-        plt.plot(taus, amp_int)
+        plt.plot(taus, amp_int, 'x')
         plt.suptitle('Live T2 data (no fit)\nf{filename}')
         plt.xlabel('Tau (us)')
         plt.ylabel('Amplitude')
         plt.subplot(122)
-        plt.plot(taus, ang_int)
+        plt.plot(taus, ang_int, 'x')
         plt.xlabel('Tau (us)')
         plt.ylabel('Phase')
         fig.canvas.draw()
