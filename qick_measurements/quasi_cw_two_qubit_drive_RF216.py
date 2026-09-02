@@ -37,7 +37,7 @@ class Quasi_CW(AveragerProgramV2):
             self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq_fixed'])
             
         else:
-            self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_mixer_freq'])
+            self.declare_gen(ch=cfg["qub_channel"], nqz=cfg["nqz_q"], mixer_freq=cfg['qub_freq']+cfg['qub_mixer_detuning'])
         
         self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
         
@@ -193,6 +193,7 @@ def quasi_cw(soc,soccfg,instruments,settings):
         'freq_points'     : exp_settings['freq_points'],
         'qub_gain'        : exp_settings['qub_gain'],
         'qub_mixer_freq'  : (exp_settings['freq_start']+exp_settings['qub_mixer_detuning'])/1e6,
+        'qub_mixer_detuning' :   exp_settings['qub_mixer_detuning']/1e6,
         'qub_mixer_freq_fixed' : exp_settings['qub_mixer_freq_fixed']/1e6,      # this is useful for maintaining a fixed phase offset between two channels
 
         'qub_sigma'       : q_pulse['sigma'],

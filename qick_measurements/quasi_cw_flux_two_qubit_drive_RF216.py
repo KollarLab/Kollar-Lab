@@ -211,8 +211,9 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
     # suppresses sum buffer overflow warning
     logging.getLogger("qick").setLevel(logging.ERROR)
 
-    SRS = instruments['DCsupply']
-
+    #SRS = instruments['DCsupply']
+    DCS = instruments['DCsupply']
+    
     exp_globals  = settings['exp_globals']
     exp_settings = settings['exp_settings'] 
     m_pulse      = exp_globals['measurement_pulse']
@@ -310,17 +311,34 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
 
 
     #set voltage sweep
-    start_voltage = spec_set['start_voltage']
-    stop_voltage  = spec_set['stop_voltage']
-    voltage_points = spec_set['voltage_points']
-    voltages = np.round(np.linspace(start_voltage, stop_voltage, voltage_points),6)
-    max_voltage = 10#3.5
-    if np.max(voltages) > max_voltage:
-        raise ValueError('max voltage too large!')
+    sweep_steps = 0
+    if spec_set['DC_mode'] == 'Voltage' :
+        start_voltage = spec_set['start_voltage']
+        stop_voltage  = spec_set['stop_voltage']
+        voltage_points = spec_set['voltage_points']
+        sweep_steps = voltage_points
+        voltages = np.round(np.linspace(start_voltage, stop_voltage, voltage_points),6)
+        max_voltage = 10#3.5
+        if np.max(voltages) > max_voltage:
+            raise ValueError('max voltage too large!')
+        else:
+            settings['voltages'] = voltages
+            DCS.Output = 'On'
+    elif spec_set['DC_mode'] == 'Current' :
+        start_current = spec_set['start_current']
+        stop_current  = spec_set['stop_current']
+        current_points = spec_set['current_points']
+        sweep_steps = current_points
+        currents = np.round(np.linspace(start_current, stop_current, current_points),6)
+        max_current = 0.1#3.5
+        if np.max(currents) > max_current:
+            raise ValueError('max current too large!')
+        else:
+            settings['currents'] = currents
+            DCS.output = 1
     else:
-        settings['voltages'] = voltages
-
-    SRS.Output = 'On'
+        print("DC_mode must be either Voltage or Current")
+    
     
     f_start_trans = autoscan_set['freq_start']
     f_stop_trans  = autoscan_set['freq_stop']
@@ -359,11 +377,18 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
 
     # voltage sweep
     for vind in range(len(voltages)):
-        voltage = voltages[vind]
-        print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
-        
-        SRS.voltage_ramp(voltage)
-        time.sleep(0.1)
+        if spec_set['DC_mode'] == 'Voltage' :
+            voltage = voltages[vind]
+            print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
+            
+            DCS.voltage_ramp(voltage)
+            time.sleep(0.1)
+        elif spec_set['DC_mode'] == 'Current' :
+            current = currents[vind]
+            print('Current: {}, final current: {}'.format(current, currents[-1]))
+            
+            DCS.current_ramp(current)
+            time.sleep(0.1)
 
         print('trans')
 
@@ -503,8 +528,12 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
         singledata['mag']   = specdata['mags'][vind]
         singledata['phase'] = specdata['phases'][vind]
 
-        trans_labels = ['Freq (GHz)','Voltage (V)']
-        spec_labels  = ['Freq (GHz)','Voltage (V)']
+        if spec_set['DC_mode'] == 'Voltage' :
+            trans_labels = ['Freq (GHz)','Voltage (V)']
+            spec_labels  = ['Freq (GHz)','Voltage (V)']
+        elif spec_set['DC_mode'] == 'Current' :
+            trans_labels = ['Freq (GHz)','Current (A)']
+            spec_labels  = ['Freq (GHz)','Current (A)']
         
         specplotdata = {}
         specplotdata['xaxis']  = specdata['xaxis']
@@ -525,6 +554,18 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
         userfuncs.SaveFull(saveDir, filename, ['transdata', 'raw_trans', 'specdata', 'raw_spec', 'singledata', 'voltages', 
                                        'filename', 'trans_labels', 'spec_labels'], 
                                        locals(), expsettings=settings, instruments=instruments)
+        
+        if spec_set['DC_mode'] == 'Voltage' :
+            plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
+            userfuncs.SaveFull(saveDir, filename, ['transdata', 'raw_trans', 'specdata', 'raw_spec', 'singledata', 'voltages', 
+                                           'filename', 'trans_labels', 'spec_labels'], 
+                                           locals(), expsettings=settings, instruments=instruments)
+        elif spec_set['DC_mode'] == 'Current' :
+            plots.autoscan_plot(transdata, specplotdata, singledata, currents[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
+                
+            userfuncs.SaveFull(saveDir, filename, ['transdata', 'raw_trans', 'specdata', 'raw_spec', 'singledata', 'currents', 
+                                           'filename', 'trans_labels', 'spec_labels'], 
+                                           locals(), expsettings=settings, instruments=instruments)
         plt.savefig(os.path.join(saveDir, filename+'.png'), dpi = 150)    
     
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug 13 16:15:07 2026
+Created on Sat Aug 15 22:07:37 2026
 
 @author: KollarLab
 """
@@ -37,7 +37,7 @@ class T2_sequence(AveragerProgramV2):
             gen_ch=gen_ch,
             outsel='product'
         )
-
+        #Cavity measurement pulse
         self.add_pulse(
             ch=gen_ch, name="cav_pulse", ro_ch=ro_ch,
             style="const",
@@ -46,7 +46,15 @@ class T2_sequence(AveragerProgramV2):
             phase=cfg['cav_phase'],
             gain=cfg['cav_gain'],
         )
-
+        #Cavity noise pulse
+        self.add_pulse(
+            ch=gen_ch, name="cav_noise_pulse", ro_ch=ro_ch,
+            style="const",
+            freq=cfg['cav_freq'],
+            length=cfg.get("tau_us", 0.0),
+            phase=cfg['cav_phase'],
+            gain=cfg['cav_noise_gain'],
+        )
         # Envelope (all times in us)
         sigma = float(cfg["qub_sigma"])
         ns    = int(cfg["num_sigma"])
@@ -164,6 +172,9 @@ class T2_sequence(AveragerProgramV2):
         # Pulses
         self.pulse(ch=cfg["qub_1_channel"], name='qub_1_pulse_1', t=t1_start)
         self.pulse(ch=cfg["qub_2_channel"], name='qub_2_pulse_1', t=t1_start+pulse_len)
+        
+        #Cavity noise pulse
+        self.pulse(ch=cfg["cav_channel"], name='cav_noise_pulse', t=t1_start+2*pulse_len)
 
         if mode == "T2_echo":
             #self.pulse(ch=cfg["qub_channel"], name='qub_pulse_echo', t=t_echo_start)
@@ -252,6 +263,8 @@ def meas_T2(soc,soccfg,instruments,settings):
         'cav_gain'       : exp_settings['cav_gain'],
         'cav_freq'        : exp_settings['cav_freq']/1e6,
         'cav_mixer_freq'  : (exp_settings['cav_freq'] + exp_settings['cav_mixer_detuning'])/1e6,
+        
+        'cav_noise_gain'  : exp_settings['cav_noise_gain'],
         
         'nqz_q'           : 2,
         'qub_1_freq'        : exp_settings['qub_1_freq']/1e6,
