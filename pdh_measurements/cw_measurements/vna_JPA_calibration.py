@@ -130,7 +130,7 @@ def vna_JPA_calibration(instruments, settings):
 
         for pind in range(len(pump_powers)):
             pump_gen.Power = pump_powers[pind]
-            print('pump power: {}, final pump power: {}'.format(pump_powers[pind], pump_powers[-1]))
+            print('pump power: {}, final pump power: {}'.format(pump_powers_panel[pind], pump_powers_panel[-1]))
             filename = filename_template.format(voltages[vind], pump_powers_panel[pind])
 
             for find in range(len(pump_freqs)):
