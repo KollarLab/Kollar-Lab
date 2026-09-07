@@ -118,7 +118,7 @@ class HDAWG():
             fullsettings['AWGs']['AWG0'] = self.AWGs[0].settings
         else:
             for i in range(2):
-                fullsettings['AWGS']['AWG{}'.format(i)] = self.AWGs[i].settings
+                fullsettings['AWGs']['AWG{}'.format(i)] = self.AWGs[i].settings
         fullsettings['Channels']={}
         for i in range(4):
             if self.Channels[i].configured:
