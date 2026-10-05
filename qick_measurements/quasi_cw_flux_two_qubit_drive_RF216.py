@@ -348,21 +348,21 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
 
     #fpts_trans = np.arange(0,expts_trans)*f_step_trans+f_start_trans
 
-    trans_mags   = np.zeros((voltage_points, autoscan_set['freq_points']))
-    trans_phases = np.zeros((voltage_points, autoscan_set['freq_points']))
+    trans_mags   = np.zeros((sweep_steps, autoscan_set['freq_points']))
+    trans_phases = np.zeros((sweep_steps, autoscan_set['freq_points']))
 
     raw_trans = {}
-    raw_trans['Is'] = np.zeros((voltage_points, autoscan_set['freq_points']))
-    raw_trans['Qs'] = np.zeros((voltage_points, autoscan_set['freq_points']))   
+    raw_trans['Is'] = np.zeros((sweep_steps, autoscan_set['freq_points']))
+    raw_trans['Qs'] = np.zeros((sweep_steps, autoscan_set['freq_points']))   
 
 ###################
 
-    mags = np.zeros((voltage_points, spec_set['freq_points']))
-    phases = np.zeros((voltage_points, spec_set['freq_points']))
+    mags = np.zeros((sweep_steps, spec_set['freq_points']))
+    phases = np.zeros((sweep_steps, spec_set['freq_points']))
 
     raw_spec = {}
-    raw_spec['Is'] = np.zeros((voltage_points, spec_set['freq_points']))
-    raw_spec['Qs'] = np.zeros((voltage_points, spec_set['freq_points']))
+    raw_spec['Is'] = np.zeros((sweep_steps, spec_set['freq_points']))
+    raw_spec['Qs'] = np.zeros((sweep_steps, spec_set['freq_points']))
     
     t_start = time.time()
     
@@ -376,7 +376,7 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
     soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
 
     # voltage sweep
-    for vind in range(len(voltages)):
+    for vind in range(sweep_steps):
         if spec_set['DC_mode'] == 'Voltage' :
             voltage = voltages[vind]
             print('Voltage: {}, final voltage: {}'.format(voltage, voltages[-1]))
@@ -511,7 +511,7 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
             
         if vind == 0:
             t_stop = time.time()
-            estimate_time(t_start, t_stop, len(voltages))
+            estimate_time(t_start, t_stop, sweep_steps)
     
         transdata = {}
         transdata['xaxis'] = fpts_trans
@@ -549,11 +549,6 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
         for ind in range(0, mat.shape[0]):
             mat[ind,:]  = mat[ind,:] - np.mean(mat[ind,:])
         specplotdata['phases'] = mat
-        
-        plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
-        userfuncs.SaveFull(saveDir, filename, ['transdata', 'raw_trans', 'specdata', 'raw_spec', 'singledata', 'voltages', 
-                                       'filename', 'trans_labels', 'spec_labels'], 
-                                       locals(), expsettings=settings, instruments=instruments)
         
         if spec_set['DC_mode'] == 'Voltage' :
             plots.autoscan_plot(transdata, specplotdata, singledata, voltages[0:vind+1], filename, trans_labels, spec_labels, identifier, fig_num = 1)
