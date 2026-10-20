@@ -329,7 +329,7 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
         stop_current  = spec_set['stop_current']
         current_points = spec_set['current_points']
         sweep_steps = current_points
-        currents = np.round(np.linspace(start_current, stop_current, current_points),6)
+        currents = np.round(np.linspace(start_current, stop_current, current_points),7)
         max_current = 0.1#3.5
         if np.max(currents) > max_current:
             raise ValueError('max current too large!')
