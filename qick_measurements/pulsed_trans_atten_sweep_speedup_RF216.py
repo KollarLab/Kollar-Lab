@@ -15,6 +15,7 @@ class CavitySweep(AveragerProgramV2):
         gen_ch = cfg['cav_channel']
 
         self.declare_gen(ch=gen_ch, nqz=cfg['nqz_c'], mixer_freq=cfg['mixer_freq'], ro_ch=ro_ch)
+        
         self.declare_readout(ch=ro_ch, length=cfg['readout_length'])
 
         self.add_readoutconfig(
@@ -23,7 +24,8 @@ class CavitySweep(AveragerProgramV2):
             gen_ch=gen_ch,
             outsel='product'
         )
-
+       
+        
         self.add_pulse(
             ch=gen_ch, name="mypulse", ro_ch=ro_ch,
             style="const",
@@ -74,7 +76,7 @@ def pulsed_trans(soc, soccfg, instruments, settings):
     config = {
         'cav_channel': exp_globals['cav_channel']['ID'],
         'ro_channel': exp_globals['ro_channel']['ID'],
-
+        'ro_card' : exp_globals['Readout_Card'],
         'nqz_c': 2,
         'cav_phase': m_pulse['cav_phase'],
         'meas_window': m_pulse['meas_window'],
@@ -94,7 +96,8 @@ def pulsed_trans(soc, soccfg, instruments, settings):
     ro_ch = exp_globals['ro_channel']
 
     # ADC attenuation
-    soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
+    if exp_globals['Readout_Card'] == 'ADC_Card':
+        soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
 
     # Sweep axes
     fpts = exp_settings["freq_start"] + exp_settings["freq_step"] * np.arange(exp_settings["freq_points"])
@@ -128,26 +131,30 @@ def pulsed_trans(soc, soccfg, instruments, settings):
 
             if exp_settings['filter'] == 'all_filter':
                 soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-                soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+                if exp_globals['Readout_Card'] == 'ADC_Card':
+                    soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
                 
             elif exp_settings['filter'] == 'cav_filter':
                 soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-                soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bypass')
+                if exp_globals['Readout_Card'] == 'ADC_Card':
+                    soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bypass')
                 
             elif exp_settings['filter'] == 'ro_filter':
                 soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bypass')
-                soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+                if exp_globals['Readout_Card'] == 'ADC_Card':
+                    soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
                 
             elif exp_settings['filter'] == 'no_filter':
                 soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bypass')
-                soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bypass')    
+                if exp_globals['Readout_Card'] == 'ADC_Card':
+                    soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bypass')    
                 
             else:
                 print('Please select one option from:')
                 print('\'all_filter\', \'cav_filter\', \'ro_filter\', and\'no_filter\'')
                 return
 
-            holder = prog.acquire(soc, rounds = exp_settings['rounds'], load_pulses=True, progress=False)
+            holder = prog.acquire(soc, rounds = exp_settings['rounds'], progress=False)#load_pulses=True
             
 # =============================================================================
 # #-----------------------------------------------debugging---------------------------------------------------------            

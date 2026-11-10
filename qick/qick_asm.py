@@ -7,7 +7,6 @@ import logging
 import numpy as np
 import json
 from collections import namedtuple, OrderedDict, defaultdict
-from contextlib import suppress
 import operator
 import functools
 from numbers import Number
@@ -63,22 +62,35 @@ class QickConfig():
     def _describe_dac(self, dacname):
         tile, block = [int(c) for c in dacname]
         if self['board']=='ZCU111':
-            label = "DAC%d_T%d_CH%d or RF board output %d" % (tile + 228, tile, block, tile*4 + block)
+            label = "DAC%d_T%d_CH%d, or RF board DAC port %d" % (tile + 228, tile, block, tile*4 + block)
         elif self['board']=='ZCU216':
-            label = "%d_%d, on JHC%d" % (block, tile + 228, 1 + (block%2) + 2*(tile//2))
+            jhc_connector = 1 + (block%2) + 2*(tile//2)
+            box_port = tile*4 + block
+            label = "%d_%d on JHC%d, or QICK box DAC port %d" % (block, tile + 228, jhc_connector, box_port)
         elif self['board']=='RFSoC4x2':
             label = {'00': 'DAC_B', '20': 'DAC_A'}[dacname]
+        elif self['board']=='RFSoC2x4':
+            label = {'00': 'DAC_D', '02': 'DAC_C', '20': 'DAC_B', '22': 'DAC_A'}[dacname]
         return "DAC tile %d, blk %d is %s" % (tile, block, label)
 
     def _describe_adc(self, adcname):
         tile, block = [int(c) for c in adcname]
+        # we don't print the coupling because it might be confusing, but we could?
+        coupling = self['rf']['adcs'][adcname]['coupling']
         if self['board']=='ZCU111':
             rfbtype = "DC" if tile > 1 else "AC"
-            label = "ADC%d_T%d_CH%d or RF board %s input %d" % (tile + 224, tile, block//2, rfbtype, (tile%2)*2 + block//2)
+            label = "ADC%d_T%d_CH%d, or RF board ADC %s port %d" % (tile + 224, tile, block//2, rfbtype, (tile%2)*2 + block//2)
         elif self['board']=='ZCU216':
-            label = "%d_%d, on JHC%d" % (block, tile + 224, 5 + (block%2) + 2*(tile//2))
+            jhc_connector = 5 + (block%2) + 2*(tile//2)
+            if tile in [1, 2]:
+                box_port = (tile-1)*4 + block
+                label = "%d_%d on JHC%d, or QICK box ADC port %d" % (block, tile + 224, jhc_connector, box_port)
+            else:
+                label = "%d_%d on JHC%d" % (block, tile + 224, jhc_connector)
         elif self['board']=='RFSoC4x2':
             label = {'00': 'ADC_D', '02': 'ADC_C', '20': 'ADC_B', '22': 'ADC_A'}[adcname]
+        elif self['board']=='RFSoC2x4':
+            label = {'00': 'ADC_B', '20': 'ADC_A'}[adcname]
         return "ADC tile %d, blk %d is %s" % (tile, block, label)
 
     def description(self):
@@ -116,28 +128,33 @@ class QickConfig():
             groupdescs.append('[' + ', '.join(groupnames) + ']')
         lines.append('\tGroups of related clocks: ' + ', '.join(groupdescs))
 
-        with suppress(KeyError): # self['gens'] may not exist
+        lines.append("\n\tDAC output power mode: %s" % (self['rf']['dac_power']))
+
+        if 'gens' in self._cfg: # self['gens'] may not exist for a non-tproc firmware
             lines.append("\n\t%d signal generator channels:" % (len(self['gens'])))
             for iGen, gen in enumerate(self['gens']):
                 dacname = gen['dac']
                 dac = self['rf']['dacs'][dacname]
-                buflen = gen['maxlen']/(gen['samps_per_clk']*gen['f_fabric'])
-                lines.append("\t%d:\t%s - envelope memory %d samples (%.3f us)" %
-                             (iGen, gen['type'], gen['maxlen'], buflen))
-                lines.append("\t\tfs=%.3f Msps, fabric=%.3f MHz, %d-bit DDS, range=%.3f MHz" %
-                             (dac['fs'], gen['f_fabric'], gen['b_dds'], gen['f_dds']))
+                lines.append("\t%d:\t%s - fs=%.3f Msps, fabric=%.3f MHz" % (iGen, gen['type'], dac['fs'], gen['f_fabric']))
+                if 'maxlen' in gen:
+                    buflen = gen['maxlen']/(gen['samps_per_clk']*gen['f_fabric'])
+                    envtype = 'complex' if gen['complex_env'] else 'real'
+                    lines.append("\t\tenvelope memory: %d %s samples (%.3f us)" %
+                                    (gen['maxlen'], envtype, buflen))
+                if gen['has_dds']:
+                    lines.append("\t\t%d-bit DDS, range=%.3f MHz" %
+                                (gen['b_dds'], gen['f_dds']))
                 lines.append("\t\t" + self._describe_dac(dacname))
 
-        with suppress(KeyError): # self['iqs'] may not exist
-            if self['iqs']: # if there are no IQ generators, don't print this section
-                lines.append("\n\t%d constant-IQ outputs:" % (len(self['iqs'])))
-                for iIQ, iq in enumerate(self['iqs']):
-                    dacname = iq['dac']
-                    dac = self['rf']['dacs'][dacname]
-                    lines.append("\t%d:\tfs=%.3f Msps" % (iIQ, iq['fs']))
-                    lines.append("\t\t" + self._describe_dac(dacname))
+        if 'iqs' in self._cfg and self['iqs']: # if there are no IQ generators, don't print this section
+            lines.append("\n\t%d constant-IQ outputs:" % (len(self['iqs'])))
+            for iIQ, iq in enumerate(self['iqs']):
+                dacname = iq['dac']
+                dac = self['rf']['dacs'][dacname]
+                lines.append("\t%d:\tfs=%.3f Msps" % (iIQ, iq['fs']))
+                lines.append("\t\t" + self._describe_dac(dacname))
 
-        with suppress(KeyError): # self['readouts'] may not exist
+        if 'readouts' in self._cfg: # self['readouts'] may not exist for a non-tproc firmware
             lines.append("\n\t%d readout channels:" % (len(self['readouts'])))
             for iReadout, readout in enumerate(self['readouts']):
                 adcname = readout['adc']
@@ -162,7 +179,35 @@ class QickConfig():
                     readout['trigger_type'], readout['trigger_port'], readout['trigger_bit'], readout['tproc_ch']))
                 lines.append("\t\t" + self._describe_adc(adcname))
 
-        with suppress(KeyError): # tproc may be an empty dict
+        if 'time_taggers' in self._cfg and self['time_taggers']: # only print if we have time taggers
+            lines.append("\n\t%d time-tagger blocks:" % (len(self['time_taggers'])))
+            for iTT, tt in enumerate(self['time_taggers']):
+                lines.append("\t%d:\t%s" % (iTT, tt['type']))
+                options = []
+                if tt['cmp_slope']:
+                    options.append('slope-trigger mode')
+                if tt['cmp_inter']:
+                    options.append('%d-bit interpolation' % (tt['cmp_inter']))
+                if options:
+                    lines[-1] + ", supports " + ', '.join(options)
+
+                lines.append("\t\tmemories: %d time-tags (TAG)" % (tt['tag_mem_size']))
+                if tt['arm_store']:
+                    lines[-1] += ", %d counts (ARM)" % (tt['arm_mem_size'])
+                if tt['smp_store']:
+                    lines[-1] += ", %d samples (SMP)" % (tt['smp_mem_size'])
+
+                if tt['trigger'] is not None:
+                    trigcfg = tt['trigger']
+                    lines.append("\t\tarmed by %s %d, pin %d" % (
+                        trigcfg['type'], trigcfg['port'], trigcfg['bit']))
+                if tt['peripheral'] is not None:
+                    lines.append("\t\tis tProc peripheral %s" % (tt['peripheral']))
+                lines.append("\t\t%d ADC ports:" % (tt['adc_qty']))
+                for iADC, adcname in enumerate(tt['adcs']):
+                    lines.append("\t\t  %d_%d: %s" % (iTT, iADC, self._describe_adc(adcname)))
+
+        if tproc: # tproc may be an empty dict
             lines.append("\n\t%d digital output pins:" % (len(tproc['output_pins'])))
             for iPin, (porttype, port, pin, name) in enumerate(tproc['output_pins']):
                 lines.append("\t%d:\t%s" % (iPin, name))
@@ -220,20 +265,34 @@ class QickConfig():
         """
         return self._cfg
 
-    def dump_cfg(self):
+    def dump_cfg(self, gen_file_path=None):
         """Generate a JSON description of the QICK configuration.
         You can save this string to a file and load it to recreate the QickConfig.
 
         Parameters
         ----------
+        gen_file_path : str or path-like, optional
+            If provided, write the generated JSON configuration to this file path.
 
         Returns
         -------
         str
             configuration in JSON format
 
+        Raises
+        ------
+        OSError
+            If ``gen_file_path`` is provided and the JSON configuration cannot be
+            written to the specified file.
         """
-        return json.dumps(self._cfg, indent=4)
+        cfg_json = json.dumps(self._cfg, indent=4)
+
+        if gen_file_path is not None:
+            with open(gen_file_path, "w") as json_file:
+                json_file.write(cfg_json)
+                logger.info(f"JSON data successfully saved to {gen_file_path}")
+
+        return cfg_json
 
     def calc_fstep_int(self, dict1, other_dicts):
         """Finds the multiplier that needs to be applied to a channel's frequency step size to allow this channel to be frequency-matched with another channel.
@@ -514,11 +573,10 @@ class QickConfig():
         else:
             return None
 
-    def _get_mixer_cfg(self, gen_ch):
+    def _get_mixer_cfg(self, gencfg):
         """
         Create a fake config dictionary for a generator's NCO, for use in frequency matching.
         """
-        gencfg = self['gens'][gen_ch]
         mixercfg = {}
         mixercfg['fs_mult'] = gencfg['fs_mult']
         mixercfg['fdds_div'] = gencfg['fs_div']
@@ -635,7 +693,7 @@ class QickConfig():
             fclk = self['tprocs'][0]['f_time']
         return cycles/fclk
 
-    def us2cycles(self, us, gen_ch=None, ro_ch=None):
+    def us2cycles(self, us, gen_ch=None, ro_ch=None, as_float=False):
         """Converts microseconds to integer number of clock cycles.
         Uses tProc clock frequency by default.
         If gen_ch or ro_ch is specified, uses that generator/readout channel's fabric clock.
@@ -648,6 +706,8 @@ class QickConfig():
             generator channel (index in 'gens' list)
         ro_ch : int
             readout channel (index in 'readouts' list)
+        as_float : bool
+            leave as float, instead of rounding to int
 
         Returns
         -------
@@ -663,8 +723,10 @@ class QickConfig():
             fclk = self['readouts'][ro_ch]['f_output']
         else:
             fclk = self['tprocs'][0]['f_time']
-        #return np.int64(np.round(obtain(us)*fclk))
-        return to_int(obtain(us), fclk, parname='length')
+        if as_float:
+            return us * fclk
+        else:
+            return to_int(obtain(us), fclk, parname='length')
 
     def calc_mixer_freq(self, gen_ch, mixer_freq, nqz, ro_ch):
         """
@@ -687,7 +749,7 @@ class QickConfig():
         cfg = {}
         cfg['userval'] = mixer_freq
         gencfg = self['gens'][gen_ch]
-        mixercfg = self._get_mixer_cfg(gen_ch)
+        mixercfg = self._get_mixer_cfg(gencfg)
         if ro_ch is None:
             rounded_f = self.roundfreq(mixer_freq, [mixercfg])
         else:
@@ -1232,7 +1294,7 @@ class AbsQickProgram(ABC):
                 soc.config_buf(ch, length=cfg['length'])
             soc.enable_buf(ch, enable_avg=enable_avg, enable_buf=enable_buf)
 
-    def declare_gen(self, ch, nqz=1, mixer_freq=None, mux_freqs=None, mux_gains=None, mux_phases=None, ro_ch=None):
+    def declare_gen(self, ch, nqz=1, mixer_freq=None, mixer_fullscale=False, mux_freqs=None, mux_gains=None, mux_phases=None, ro_ch=None):
         """Add a channel to the program's list of signal generators.
 
         If this is a generator with a mixer (interpolated or muxed generator), you may define a mixer frequency.
@@ -1251,6 +1313,8 @@ class AbsQickProgram(ABC):
             Setting the NQZ to 2 increases output power in the 2nd/3rd Nyquist zones.
         mixer_freq : float, optional
             Mixer frequency (in MHz)
+        mixer_fullscale : bool
+            DACs with mixers have a built-in scale factor of 0.7 to prevent overflow (see https://docs.amd.com/r/en-US/pg269-rf-data-converter/RF-DAC-Numerical-Controlled-Oscillator-and-Mixer). If this is set to True, the scale factor will be bypassed and you will get the full DAC range.
         mux_freqs : list of float, optional
             Tone frequencies for the muxed generator (in MHz).
             For tProc v1 programs these should be given as offsets relative to the digital mixer frequency.
@@ -1272,6 +1336,7 @@ class AbsQickProgram(ABC):
             if mixer_freq is None:
                 raise RuntimeError("generator %d has a digital mixer, but no mixer_freq was defined" % (ch))
             cfg['mixer_freq'] = self.soccfg.calc_mixer_freq(ch, mixer_freq, nqz, ro_ch)
+            cfg['mixer_fullscale'] = mixer_fullscale
         else:
             if mixer_freq is not None:
                 logger.warning("generator %d doesn't have a digital mixer, but mixer_freq was defined" % (ch))
@@ -1308,13 +1373,16 @@ class AbsQickProgram(ABC):
         for ch, cfg in self.gen_chs.items():
             soc.set_nyquist(ch, cfg['nqz'])
             if 'mixer_freq' in cfg:
-                soc.set_mixer_freq(ch, cfg['mixer_freq']['setval'])
+                soc.set_mixer_freq(ch, cfg['mixer_freq']['setval'], fullscale=cfg['mixer_fullscale'])
             if 'mux_tones' in cfg:
                 soc.config_mux_gen(ch, cfg['mux_tones'])
 
     def add_envelope(self, ch, name, idata=None, qdata=None):
         """Adds a waveform to the list of envelope waveforms available for this channel.
         The I and Q arrays must be of equal length, and the length must be divisible by the samples-per-clock of this generator.
+        If either array is omitted, zeros will be used for that component.
+
+        If this channel uses a real-only envelope, qdata must be omitted or all zeros.
 
         Parameters
         ----------
@@ -1322,13 +1390,16 @@ class AbsQickProgram(ABC):
             generator channel (index in 'gens' list)
         name : str
             Name of the pulse
-        idata : numpy.ndarray
+        idata : numpy.ndarray or None
             I data
-        qdata : numpy.ndarray
+        qdata : numpy.ndarray or None
             Q data
 
         """
         gencfg = self.soccfg['gens'][ch]
+
+        if not gencfg['complex_env'] and qdata is not None and np.any(qdata):
+            raise RuntimeError("generator %d only supports real envelope, but nonzero qdata was supplied"%(ch))
 
         length = [len(d) for d in [idata, qdata] if d is not None]
         if len(length)==0:
@@ -1424,10 +1495,10 @@ class AbsQickProgram(ABC):
                 lenreg = 2*self.us2cycles(gen_ch=ch, us=length/2)
             else:
                 lenreg = self.us2cycles(gen_ch=ch, us=length)
-            sigreg = self.us2cycles(gen_ch=ch, us=sigma)
+            sigreg = self.us2cycles(gen_ch=ch, us=sigma, as_float=True)
         else:
             lenreg = np.round(length)
-            sigreg = np.round(sigma)
+            sigreg = sigma
 
         # convert to number of samples
         lenreg *= samps_per_clk
@@ -1435,8 +1506,10 @@ class AbsQickProgram(ABC):
 
         self.add_envelope(ch, name, idata=gauss(mu=lenreg/2-0.5, si=sigreg, length=lenreg, maxv=maxv))
 
-    def add_DRAG(self, ch, name, sigma, length, delta, alpha=0.5, maxv=None, even_length=False):
-        """Adds a DRAG to the envelope library.
+    def add_DRAG(self, ch, name, sigma, length, delta, alpha=0.5, det=0, maxv=None, even_length=False):
+        """Adds a DRAG pulse to the envelope library.
+        DRAG with constant detuning is implemented as defined in https://doi.org/10.1103/PhysRevLett.116.020501.
+
         The envelope will peak at length/2.
 
         Parameters
@@ -1449,12 +1522,14 @@ class AbsQickProgram(ABC):
             Standard deviation of the Gaussian (in fabric clocks or us)
         length : int or float
             Total envelope length (in fabric clocks or us)
-        maxv : float
-            Value at the peak (if None, the max value for this generator will be used)
         delta : float
-            anharmonicity of the qubit (units of MHz)
+            anharmonicity of the qubit, the difference between f_ge and f_ef (units of MHz)
         alpha : float
             alpha parameter of DRAG (order-1 scale factor)
+        det : float
+            constant detuning (units of MHz)
+        maxv : float
+            Value at the peak (if None, the max value for this generator will be used)
         even_length : bool
             If length is in us, round the envelope length to an even number of fabric clock cycles.
             This is useful for flat_top pulses, where the envelope gets split into two halves.
@@ -1468,6 +1543,7 @@ class AbsQickProgram(ABC):
             sigma /= np.sqrt(2.0)
 
         delta /= samps_per_clk*f_fabric
+        det /= samps_per_clk*f_fabric
 
         # convert to integer number of fabric clocks
         if self.USER_DURATIONS:
@@ -1475,16 +1551,16 @@ class AbsQickProgram(ABC):
                 lenreg = 2*self.us2cycles(gen_ch=ch, us=length/2)
             else:
                 lenreg = self.us2cycles(gen_ch=ch, us=length)
-            sigreg = self.us2cycles(gen_ch=ch, us=sigma)
+            sigreg = self.us2cycles(gen_ch=ch, us=sigma, as_float=True)
         else:
             lenreg = np.round(length)
-            sigreg = np.round(sigma)
+            sigreg = sigma
 
         # convert to number of samples
         lenreg *= samps_per_clk
         sigreg *= samps_per_clk
 
-        idata, qdata = DRAG(mu=lenreg/2-0.5, si=sigreg, length=lenreg, maxv=maxv, alpha=alpha, delta=delta)
+        idata, qdata = DRAG(mu=lenreg/2-0.5, si=sigreg, length=lenreg, maxv=maxv, delta=delta, alpha=alpha, det=det)
 
         self.add_envelope(ch, name, idata=idata, qdata=qdata)
 
@@ -1552,6 +1628,33 @@ class AbsQickProgram(ABC):
                     weights = cfg['weights']
                 assert weights.dtype==np.int16
                 soc.load_weights(ch, weights.tolist())
+
+    def print_sg_mem(self, sg_idx=0, gen_file=False):
+        """Prints the content of the SG envelope table memory to be loaded in an RTL simulation.
+        This assumes that the envelopes defined for this channel are contiguous in memory and start at address 0.
+
+        Parameters
+        ----------
+        sg_idx : int
+            Signal Generator index to dump.
+        gen_file : bool
+            If True, dumps content to a file with name sg_{sg_idx}.mem. If False, prints content to stdout
+        """
+
+        # Get the envelopes defined for the SG channel
+        sg_env = self.envelopes[sg_idx]
+
+        s = ""
+        for name, pulse in sg_env['envs'].items():
+            for val in pulse['data']:
+                s += "%0d,%0d\n" % (val[0], val[1])
+
+        if gen_file:
+            with open("sg_%0d.mem"%(sg_idx), "w") as file:
+                print(s, file=file)
+            print("Dumped SG envelope table memory to file sg_%0d.mem"%(sg_idx))
+        else:
+            print(s)
 
     def reset_timestamps(self, gen_t0=None):
         # used by init and sync_all()
@@ -1795,7 +1898,7 @@ class AcquireMixin:
         """
         return np.arange(data.shape[0])/self.soccfg['readouts'][ro_ch]['fs']
 
-    def acquire(self, soc, rounds=1, load_envelopes=True, start_src="internal", threshold=None, angle=None, progress=True, remove_offset=True, step_rounds=False, **kwargs):
+    def acquire(self, soc, rounds=1, load_envelopes=True, start_src="internal", threshold=None, angle=None, progress=True, remove_offset=True, step_rounds=False, extra_args=None):
         """Acquire data using the accumulated readout.
 
         Parameters
@@ -1826,6 +1929,8 @@ class AcquireMixin:
         step_rounds: bool
             Return after setting up the acquisition and preparing the first round.
             You will need to step through and complete the acquisition with prepare_round(), finish_round(), and finish_acquire().
+        extra_args: dict or None
+            If the data-processing methods have been overriden and need extra arguments, those are supplied here and will be added to acquire_params.
 
         Returns
         -------
@@ -1846,9 +1951,8 @@ class AcquireMixin:
                 'threshold': threshold,
                 'angle': angle,
                 }
-        # any unrecognized keyword arguments get inserted in the acquire_params
-        # this is for subclasses that override the data-processing methods and need to supply special arguments
-        self.acquire_params.update(kwargs)
+        if extra_args is not None:
+            self.acquire_params.update(extra_args)
 
         if any([x is None for x in [self.counter_addr, self.loop_dims, self.avg_level]]):
             raise RuntimeError("data dimensions need to be defined with setup_acquire() before calling acquire()")
@@ -2058,7 +2162,7 @@ class AcquireMixin:
 
         return self.finish_acquire()
 
-    def acquire_decimated(self, soc, rounds=1, load_envelopes=True, start_src="internal", progress=True, remove_offset=True, step_rounds=False, **kwargs):
+    def acquire_decimated(self, soc, rounds=1, load_envelopes=True, start_src="internal", progress=True, remove_offset=True, step_rounds=False, extra_args=None):
         """Acquire data using the decimating readout.
 
         Parameters
@@ -2078,6 +2182,8 @@ class AcquireMixin:
         step_rounds: bool
             Return after setting up the acquisition and preparing the first round.
             You will need to step through and complete the acquisition with prepare_round(), finish_round(), and finish_acquire().
+        extra_args: dict or None
+            If the data-processing methods have been overriden and need extra arguments, those are supplied here and will be added to acquire_params.
 
         Returns
         -------
@@ -2094,9 +2200,8 @@ class AcquireMixin:
                 'rounds_remaining': rounds,
                 'remove_offset': remove_offset,
                 }
-        # any unrecognized keyword arguments get inserted in the acquire_params
-        # this is for subclasses that override the data-processing methods and need to supply special arguments
-        self.acquire_params.update(kwargs)
+        if extra_args is not None:
+            self.acquire_params.update(extra_args)
 
         if any([x is None for x in [self.counter_addr, self.loop_dims, self.avg_level]]):
             raise RuntimeError("data dimensions need to be defined with setup_acquire() before calling acquire_decimated()")
@@ -2182,7 +2287,9 @@ class AcquireMixin:
         # Reload data memory.
         soc.reload_mem()
         # make sure count variable is reset to 0
-        soc.set_tproc_counter(addr=self.counter_addr, val=0)
+        soc.clear_tproc_counter(addr=self.counter_addr)
+        # do any other pre-execution setup
+        soc.prepare_round()
         # configure tproc for internal/external start
         soc.start_src(self.acquire_params['start_src'])
 
@@ -2243,6 +2350,9 @@ class AcquireMixin:
                         self.stats.append(s)
                         pbar.update(new_points)
             self.rounds_buf.append(self._process_accumulated(self.acc_buf))
+
+        # do any post-execution cleanup
+        soc.cleanup_round()
 
         self.rounds_pbar.update()
         self.acquire_params['rounds_remaining'] -= 1

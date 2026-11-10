@@ -373,7 +373,8 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
     # Set attenuator on DAC.
     soc.rfb_set_gen_rf(cav_ch['ID'], cav_ch['Atten_1'], cav_ch['Atten_2'])
     # Set attenuator on ADC.
-    soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
+    if exp_globals['Readout_Card'] == 'ADC_Card':
+        soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
 
     # voltage sweep
     for vind in range(sweep_steps):
@@ -400,7 +401,7 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
             prog = CavitySweep(soccfg,reps = exp_settings['autoscan']['reps'], final_delay = None, final_wait = 0, cfg =config_trans)
             setfilters_trans(soc, config_trans, exp_settings, exp_globals, config_trans['cav_freq'])
 
-            holder = prog.acquire(soc,rounds = exp_settings['autoscan']['rounds'], load_pulses=True, progress=False)
+            holder = prog.acquire(soc,rounds = exp_settings['autoscan']['rounds'], progress=False)#load_pulses=True
             #print(holder)
             iq = holder[0][0]
             trans_I = iq[0] 
@@ -445,32 +446,37 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
         soc.rfb_set_gen_rf(cav_ch['ID'], cav_ch['Atten_1'], cav_ch['Atten_2'])
         soc.rfb_set_gen_rf(qub_ch['ID'], qub_ch['Atten_1'], qub_ch['Atten_2'])
         # Set attenuator on ADC.
-        soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
+        if exp_globals['Readout_Card'] == 'ADC_Card':
+            soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
         
         if exp_settings['spec']['filter'] == 'all_filter':
             soc.rfb_set_gen_filter(config_qubit['cav_channel'], fc=config_qubit['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-            soc.rfb_set_ro_filter(config_qubit['ro_channel'], fc=config_qubit['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+            if exp_globals['Readout_Card'] == 'ADC_Card':
+                soc.rfb_set_ro_filter(config_qubit['ro_channel'], fc=config_qubit['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
 
             center_freq = (exp_settings['spec']['freq_start']+exp_settings['spec']['freq_stop'])/2e9
             soc.rfb_set_gen_filter(config_qubit['qub_channel'], fc=center_freq, ftype='bandpass', bw=qub_ch['BW'])
 
         elif exp_settings['spec']['filter'] == 'no_ro_filter':
             soc.rfb_set_gen_filter(config_qubit['cav_channel'], fc=config_qubit['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-            soc.rfb_set_ro_filter(config_qubit['ro_channel'], fc=config_qubit['cav_freq']/1000, ftype='bypass')
+            if exp_globals['Readout_Card'] == 'ADC_Card':
+                soc.rfb_set_ro_filter(config_qubit['ro_channel'], fc=config_qubit['cav_freq']/1000, ftype='bypass')
 
             center_freq = (exp_settings['spec']['freq_start']+exp_settings['spec']['freq_stop'])/2e9
             soc.rfb_set_gen_filter(config_qubit['qub_channel'], fc=center_freq, ftype='bypass')
 
         elif exp_settings['spec']['filter'] == 'no_qubit_filter':
             soc.rfb_set_gen_filter(config_qubit['cav_channel'], fc=config_qubit['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-            soc.rfb_set_ro_filter(config_qubit['ro_channel'], fc=config_qubit['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+            if exp_globals['Readout_Card'] == 'ADC_Card':
+                soc.rfb_set_ro_filter(config_qubit['ro_channel'], fc=config_qubit['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
 
             center_freq = (exp_settings['spec']['freq_start']+exp_settings['spec']['freq_stop'])/2e9
             soc.rfb_set_gen_filter(config_qubit['qub_channel'], fc=center_freq, ftype='bypass')
 
         elif exp_settings['spec']['filter'] == 'no_filter':
             soc.rfb_set_gen_filter(config_qubit['cav_channel'], fc=config_qubit['cav_freq']/1000, ftype='bypass')
-            soc.rfb_set_ro_filter(config_qubit['ro_channel'], fc=config_qubit['cav_freq']/1000, ftype='bypass')
+            if exp_globals['Readout_Card'] == 'ADC_Card':
+                soc.rfb_set_ro_filter(config_qubit['ro_channel'], fc=config_qubit['cav_freq']/1000, ftype='bypass')
 
             center_freq = (exp_settings['spec']['freq_start']+exp_settings['spec']['freq_stop'])/2e9
             soc.rfb_set_gen_filter(config_qubit['qub_channel'], fc=center_freq, ftype='bypass')
@@ -488,7 +494,7 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
         print("Projected Time: " + str(projected_time))
         
         
-        iq_list = prog.acquire(soc, rounds = exp_settings['spec']['rounds'], load_pulses=True, progress=False)
+        iq_list = prog.acquire(soc, rounds = exp_settings['spec']['rounds'], progress=False)#, load_pulses=True
         #iq_list = prog.acquire(soc, reps = exp_settings['reps'], load_pulses=True, progress=False)
         
         iq = iq_list[0][0]
@@ -572,15 +578,18 @@ def quasi_cw_flux(soc,soccfg,instruments,settings):
 def setfilters_trans(soc, config, exp_settings, exp_globals, board_freq):
     if exp_settings['spec']['filter'] == 'all_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+        if exp_globals['Readout_Card'] == 'ADC_Card':
+            soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
 
     elif exp_settings['spec']['filter'] == 'cav_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bypass')
+        if exp_globals['Readout_Card'] == 'ADC_Card':
+            soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bypass')
 
     elif exp_settings['spec']['filter'] == 'ro_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bypass')
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+        if exp_globals['Readout_Card'] == 'ADC_Card':
+            soc.rfb_set_ro_filter(config['ro_channel'], fc=board_freq/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
 
     elif exp_settings['spec']['filter'] == 'no_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=board_freq/1000, ftype='bypass')

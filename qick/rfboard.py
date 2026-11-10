@@ -2,12 +2,17 @@ import os
 from .qick import QickSoc
 from .ip import SocIP
 from .qick_asm import QickConfig
+from .helpers import ADCInterruptError
 from pynq.buffer import allocate
 import xrfclk
+import xrfdc
 import numpy as np
 import time
+from numbers import Number, Integral
 from contextlib import contextmanager, suppress
 from abc import ABC, abstractmethod
+from collections import defaultdict
+from operator import itemgetter
 import logging
 from qick.ipq_pynq_utils.ipq_pynq_utils import clock_models
 
@@ -21,7 +26,8 @@ class AxisSignalGenV3(SocIP):
     # * 0 : disable writes.
     # * 1 : enable writes.
     #
-    bindto = ['user.org:user:axis_signal_gen_v3:1.0']
+    bindto = ['user.org:user:axis_signal_gen_v3:1.0',
+              'QICK:QICK:axis_signal_gen_v3:1.0']
 
     # Generics
     N = 12
@@ -91,7 +97,8 @@ class AxisSignalGenV3(SocIP):
 class AxisSignalGenV3Ctrl(SocIP):
     # Signal Generator V3 Control registers.
     # ADDR_REG
-    bindto = ['user.org:user:axis_signal_gen_v3_ctrl:1.0']
+    bindto = ['user.org:user:axis_signal_gen_v3_ctrl:1.0',
+              'QICK:QICK:axis_signal_gen_v3_ctrl:1.0']
 
     # Generics of Signal Generator.
     N = 10
@@ -189,7 +196,8 @@ class AxisSignalGenV6Ctrl(SocIP):
     # WE_REG        : 1-bit.
     # * 0 : disable.
     # * 1 : enable.
-    bindto = ['user.org:user:axis_signal_gen_v6_ctrl:1.0']
+    bindto = ['user.org:user:axis_signal_gen_v6_ctrl:1.0',
+              'QICK:QICK:axis_signal_gen_v6_ctrl:1.0']
 
     def __init__(self, description, **kwargs):
         super().__init__(description)
@@ -235,7 +243,7 @@ class AxisSignalGenV6Ctrl(SocIP):
             self.phase_reg      = phase
             self.addr_reg       = addr
             self.gain_reg       = int(gain*self.gen.MAXV)
-            self.nsamp_reg      = int(np.round(nsamp/self.gen.NDDS))
+            self.nsamp_reg      = int(np.round(nsamp/self.gen.SAMPS_PER_CLK))
             self.outsel_reg     = {"product": 0, "dds":1, "envelope":2}[outsel]
             self.mode_reg       = {"nsamp": 0, "periodic":1}[mode]
             self.stdysel_reg    = {"last": 0, "zero":1}[stdysel]
@@ -264,7 +272,8 @@ class AxisDdsMrSwitch(SocIP):
     # * 0 : real part.
     # * 1 : imaginary part.
     #
-    bindto = ['user.org:user:axis_dds_mr_switch:1.0']
+    bindto = ['user.org:user:axis_dds_mr_switch:1.0',
+              'QICK:QICK:axis_dds_mr_switch:1.0']
 
     def __init__(self, description, **kwargs):
         """
@@ -288,7 +297,8 @@ class AxisDdsMrSwitch(SocIP):
 
 
 class AxisSwitchV1(SocIP):
-    bindto = ['user.org:user:axis_switch_v1:1.0']
+    bindto = ['user.org:user:axis_switch_v1:1.0',
+              'QICK:QICK:axis_switch_v1:1.0']
 
     def __init__(self, description):
         """
@@ -860,116 +870,110 @@ class FilterADMV8818:
         res = self.spi.send_receive_m(msg, self.ch_en, self.cs_t)
         return int(res[2])
 
-    def _freq2band(self, f=0, section="LPF"):
-        ret = None
+    def freq2step(self, f, section, n=10):
+        n = 10
+        f = 6.0
 
-        if section == "LPF":
-            for b in self.BANDS[section].keys():
-                if b != 'bypass':
-                    fmin = self.BANDS[section][b]['min'] 
-                    fmax = self.BANDS[section][b]['max'] 
-                    if ((f > fmin) and (f < fmax)):
-                        ret = b
-                        break
-        elif section == "HPF":
-            for b in self.BANDS[section].keys():
-                if b != 'bypass':
-                    fmin = self.BANDS[section][b]['min'] 
-                    fmax = self.BANDS[section][b]['max'] 
-                    if ((f > fmin) and (f < fmax)):
-                        ret = b
-                        break
+        freqs = np.concatenate([np.linspace(f0, f15, 16) for f0, f15 in BANDS['LPF']])
 
-        if ret is not None:
-            logger.debug("{}: frequency {:.2f} GHz for section {} found in band {}".format(self.__class__.__name__, f, section, b))
+
+        sortlist = list(enumerate(freqs))
+        sortlist.sort(key=lambda x: np.abs(x[1]-f))
+        best_steps, best_freqs = list(zip(*sorted(sortlist[:n], key=itemgetter(1))))
+        print(best_steps, best_freqs)
+
+    def _freq2step(self, f=0, section="LPF"):
+        band = None
+        if f<0:
+            return -1
         else:
-            logger.debug("{}: frequency {:.2f} GHz for section {} not found.".format(self.__class__.__name__, f, section))
+            for b in self.BANDS[section].keys():
+                fmin = self.BANDS[section][b]['min']
+                fmax = self.BANDS[section][b]['max']
+                if ((f > fmin) and (f < fmax)):
+                    band = b
+                    break
+            if band is None:
+                raise RuntimeError("frequency {:.2f} GHz for section {} not found.".format(f, section))
+            logger.debug("frequency {:.2f} GHz for section {} found in band {}".format(f, section, band))
 
-        return ret
-
-    def _freq2bits(self, f=0, section="LPF", band="LPF1"):
-        ret = None
-
-        if section == "LPF":
             if band in self.BANDS[section].keys():
                 fmin = self.BANDS[section][band]['min'] 
                 fmax = self.BANDS[section][band]['max'] 
                 span = self.BANDS[section][band]['span'] 
                 df   = self.BANDS[section][band]['df'] 
                 if ((f > fmin) and (f < fmax)):
-                    ret = int((f - fmin)/df)
-        elif section == "HPF":
-            if band in self.BANDS[section].keys():
-                fmin = self.BANDS[section][band]['min'] 
-                fmax = self.BANDS[section][band]['max'] 
-                span = self.BANDS[section][band]['span'] 
-                df   = self.BANDS[section][band]['df'] 
-                if ((f > fmin) and (f < fmax)):
-                    ret = int((f - fmin)/df)
-        
-        if ret is None:
-            raise RuntimeError("{}: frequency {:.2f} GHz not found in section {} band {}.".format(self.__class__.__name__, f, section, band))
-        logger.debug("{}: fmin = {:.2f} GHz, fmax = {:.2f} GHz, span = {:.2f} GHz, df = {:.3f} GHz, f = {:.2f} GHz, bits = {}".format(self.__class__.__name__, fmin, fmax, span, df, f, ret))
+                    state = int((f - fmin)/df)
+            if state is None:
+                raise RuntimeError("{}: frequency {:.2f} GHz not found in section {} band {}.".format(self.__class__.__name__, f, section, band))
+            logger.debug("fmin = {:.2f} GHz, fmax = {:.2f} GHz, span = {:.2f} GHz, df = {:.3f} GHz, f = {:.2f} GHz, bits = {}".format(fmin, fmax, span, df, f, state))
 
-        return ret
+            switch = self.BANDS[section][band]['switch']
+            return 16*(switch-1) + state
 
-    def _band2switch(self, section="LPF", band="LPF1"):
-        if section in self.BANDS.keys():
-            if band in self.BANDS[section].keys():
-                return self.BANDS[section][band]['switch'] 
-            else: 
-                logger.warning("{}: band {} not found in section {}. Using bypass by default.".format(self.__class__.__name__, band, section))
-                return 0
-        else: 
-            logger.warning("{}: section {} not found. Using bypass by default.".format(self.__class__.__name__, section))
-            return 0
+    def set_filter_raw(self, hpf, lpf):
+        """
+        lpf, hpf: -1 for bypass, 0 through 63 to enable filter
+        """
+        if not isinstance(hpf, Integral):
+            raise RuntimeError("hpf must be an integer, not %s" % (hpf))
+        if not isinstance(lpf, Integral):
+            raise RuntimeError("lpf must be an integer, not %s" % (hpf))
+
+        if hpf < 0:
+            hpf_band, hpf_state = 0, 0
+        elif hpf > 63:
+            raise RuntimeError("hpf must be negative (bypass) or 0-63, not %s" % (hpf))
+        else:
+            hpf_band = 1 + hpf//16
+            hpf_state = hpf % 16
+
+        if lpf < 0:
+            lpf_band, lpf_state = 0, 0
+        elif lpf > 63:
+            raise RuntimeError("lpf must be negative (bypass) or 0-63, not %s" % (lpf))
+        else:
+            lpf_band = 1 + lpf//16
+            lpf_state = lpf % 16
+
+        sw = 0xC0 + (hpf_band<<3) + lpf_band
+        filt_state = (hpf_state<<4) + lpf_state
+
+        self.write_reg(reg="WR0_SW", value=sw)
+        self.write_reg(reg="WR0_FILTER", value=filt_state)
 
     def set_filter(self, fc=0, bw=2.0, ftype="lowpass"):
         # Low-pass.
         if ftype == 'lowpass':
             logger.debug("{}: setting {} filter type, fc = {:.2f} GHz.".format(self.__class__.__name__, ftype, fc))
 
-            band_lpf = self._freq2band(f=fc, section="LPF")
-            bits_lpf = self._freq2bits(f=fc, section="LPF", band=band_lpf)
-            band_hpf = 'bypass'
-            bits_hpf = 0
+            step_lpf = self._freq2step(f=fc, section="LPF")
+            step_hpf = self._freq2step(f=-1, section="HPF")
 
         elif ftype == 'highpass':
             logger.debug("{}: setting {} filter type, fc = {:.2f} GHz.".format(self.__class__.__name__, ftype, fc))
 
-            band_lpf = 'bypass'
-            bits_lpf = 0
-            band_hpf = self._freq2band(f=fc, section="HPF")
-            bits_hpf = self._freq2bits(f=fc, section="HPF", band=band_hpf)
+            step_lpf = self._freq2step(f=-1, section="LPF")
+            step_hpf = self._freq2step(f=fc, section="HPF")
 
         elif ftype == 'bandpass':
             f1 = fc-bw/2
             f2 = fc+bw/2
             logger.debug("{}: setting {} filter type, fc = {:.2f} GHz, bw = {:.2f} GHz.".format(self.__class__.__name__, ftype, fc, bw))
 
-            band_lpf = self._freq2band(f=f2, section="LPF")
-            bits_lpf = self._freq2bits(f=f2, section="LPF", band=band_lpf)
-            band_hpf = self._freq2band(f=f1, section="HPF")
-            bits_hpf = self._freq2bits(f=f1, section="HPF", band=band_hpf)
+            step_lpf = self._freq2step(f=f2, section="LPF")
+            step_hpf = self._freq2step(f=f1, section="HPF")
 
         elif ftype == 'bypass':
             logger.debug("{}: setting filter to bypass mode.".format(self.__class__.__name__))
 
-            band_lpf = 'bypass'
-            bits_lpf = 0
-            band_hpf = 'bypass'
-            bits_hpf = 0
+            step_lpf = self._freq2step(f=-1, section="LPF")
+            step_hpf = self._freq2step(f=-1, section="HPF")
     
         else:
             raise RuntimeError("%s: filter type %s not supported." % (self.__class__.__name__, ftype))
 
-        # WR0_SW register.
-        value = 0xc0 + (self._band2switch(section="HPF", band=band_hpf) << 3) + self._band2switch(section="LPF", band=band_lpf)
-        self.write_reg(reg="WR0_SW", value=value)
-
-        # WR0_FILTER register.
-        value = (bits_hpf << 4) + bits_lpf
-        self.write_reg(reg="WR0_FILTER", value=value)
+        self.set_filter_raw(step_hpf, step_lpf)
 
 # Power, Switch and Fan.
 class SwitchControl:
@@ -1532,6 +1536,12 @@ class AbsAdcDcChain(ABC):
     def get_gain(self):
         pass
 
+class AbsDacBalunChain(ABC):
+    pass
+
+class AbsAdcBalunChain(ABC):
+    pass
+
 class AdcRfChain111(AbsAdcRfChain):
     def __init__(self, ch, switches, attn_spi):
         # Channel number.
@@ -1678,6 +1688,12 @@ class FilterChain(Chain216):
             # Set filter.
             self.filter.set_filter(fc=fc, bw=bw, ftype=ftype)
 
+    def set_filter_raw(self, hpf=-1, lpf=-1):
+        # Enable this daughter card.
+        with self.soc.board_sel.enable_context(self.card_num):
+            # Set filter.
+            self.filter.set_filter_raw(hpf=hpf, lpf=lpf)
+
     def read_filter(self, reg=""):
         logger.debug("{}: reading register {}".format(self.__class__.__name__, reg))
 
@@ -1786,11 +1802,20 @@ class AdcDcChain216(AbsAdcDcChain, Chain216):
         with self.soc.board_sel.enable_context(self.card_num):
             return self.gain.get_gain()
 
+class DacBalunChain216(AbsDacBalunChain, Chain216):
+    def __init__(self, soc, card, global_ch, card_num, card_ch):
+        super().__init__(soc, card, global_ch, card_num, card_ch)
+
+class AdcBalunChain216(AbsAdcBalunChain, Chain216):
+    def __init__(self, soc, card, global_ch, card_num, card_ch):
+        super().__init__(soc, card, global_ch, card_num, card_ch)
+
 class DaughterCard216(ABC):
     NCH = None # channels per daughter card
     CARDNUM_OFFSET = None # DAC cards are 0-3, ADC cards are 4-7
     CHAIN_CLASS = None # signal chain class to instantiate for each channel
     GPIO_OUTPUTS = [None]*4 # nets controlled by the daughter card's GPIO chip
+    NAME = '' # name for this card type
     def __init__(self, card_num, soc, gpio):
         self.card_num = card_num
         self.soc = soc
@@ -1815,7 +1840,7 @@ class DacRfCard216(DaughterCard216):
     CHAIN_CLASS = DacRfChain216
     # disable all outputs by default
     GPIO_OUTPUTS = [("RFOUT5V0_EN%d"%(i), 0) for i in range(2)] + [None]*2
-
+    NAME = 'RF Out'
     def disable_all(self):
         for i in range(2):
             self.switch_control["RFIN5V0CH%d_EN"%(i)] = 0
@@ -1826,6 +1851,14 @@ class DacDcCard216(DaughterCard216):
     CHAIN_CLASS = DacDcChain216
     # power-on all outputs by default, because in power-down state the LMH5401 just lets through the DAC common-mode voltage
     GPIO_OUTPUTS = [("PD%d"%(i), 0) for i in range(4)]
+    NAME = 'DC Out'
+
+class DacBalunCard216(DaughterCard216):
+    NCH = 4
+    CARDNUM_OFFSET = 0
+    CHAIN_CLASS = DacBalunChain216
+    GPIO_OUTPUTS = [None]*4
+    NAME = 'Balun Out'
 
 class AdcRfCard216(DaughterCard216):
     NCH = 2
@@ -1833,6 +1866,7 @@ class AdcRfCard216(DaughterCard216):
     CHAIN_CLASS = AdcRfChain216
     # disable all outputs by default
     GPIO_OUTPUTS = [("RFIN5V0CH%d_EN"%(i), 0) for i in range(2)] + [None]*2
+    NAME = 'RF In'
 
 class AdcDcCard216(DaughterCard216):
     NCH = 2
@@ -1840,6 +1874,14 @@ class AdcDcCard216(DaughterCard216):
     CHAIN_CLASS = AdcDcChain216
     # power-down all outputs by default
     GPIO_OUTPUTS = [("PD%d"%(i), 1) for i in range(2)] + [None]*2
+    NAME = 'DC In'
+
+class AdcBalunCard216(DaughterCard216):
+    NCH = 2
+    CARDNUM_OFFSET = 4
+    CHAIN_CLASS = AdcBalunChain216
+    GPIO_OUTPUTS = [None]*4
+    NAME = 'Balun In'
 
 class BoardSelection:
     """
@@ -1908,9 +1950,9 @@ class RFQickSoc(QickSoc):
         gen_ch : int
             DAC channel (index in 'gens' list)
         att1 : float
-            Attenuation for first stage (0-31.75 dB)
+            Attenuation for first stage (0 through 31.75 dB in 0.25-dB increments)
         att2 : float
-            Attenuation for second stage (0-31.75 dB)
+            Attenuation for second stage (0 through 31.75 dB in 0.25-dB increments)
 
         Returns
         -------
@@ -1921,7 +1963,7 @@ class RFQickSoc(QickSoc):
         """
         rfb_ch = self.gens[gen_ch].rfb_ch
         if not isinstance(rfb_ch, AbsDacRfChain):
-            raise RuntimeError("generator %d is not connected to an RF signal chain")
+            raise RuntimeError("generator %d is not connected to an RF signal chain" % (gen_ch))
         return rfb_ch.enable_rf(att1, att2)
 
     def rfb_set_gen_dc(self, gen_ch):
@@ -1934,7 +1976,44 @@ class RFQickSoc(QickSoc):
         """
         rfb_ch = self.gens[gen_ch].rfb_ch
         if not isinstance(rfb_ch, AbsDacDcChain):
-            raise RuntimeError("generator %d is not connected to a DC signal chain")
+            raise RuntimeError("generator %d is not connected to an RF signal chain" % (gen_ch))
+        rfb_ch.enable_dc()
+
+    def rfb_set_dac_rf(self, dac_port, att1, att2):
+        """Enable and configure a QICK box or RF board DAC port for RF output.
+
+        Parameters
+        ----------
+        dac_port : int
+            QICK box or RF board DAC port number (0-15 for ZCU216, 0-7 for ZCU111)
+        att1 : float
+            Attenuation for first stage (0 through 31.75 dB in 0.25-dB increments)
+        att2 : float
+            Attenuation for second stage (0 through 31.75 dB in 0.25-dB increments)
+
+        Returns
+        -------
+        float
+            actual (rounded) att1 value that was set
+        float
+            actual (rounded) att2 value that was set
+        """
+        rfb_ch = self.dac_chains[dac_port]
+        if not isinstance(rfb_ch, AbsDacRfChain):
+            raise RuntimeError("DAC port %d does not have an RF signal chain" % (dac_port))
+        return rfb_ch.enable_rf(att1, att2)
+
+    def rfb_set_dac_dc(self, dac_port):
+        """Enable and configure a QICK box or RF board DAC port for DC output.
+
+        Parameters
+        ----------
+        dac_port : int
+            QICK box or RF board DAC port number (0-15 for ZCU216, 0-7 for ZCU111)
+        """
+        rfb_ch = self.dac_chains[dac_port]
+        if not isinstance(rfb_ch, AbsDacDcChain):
+            raise RuntimeError("DAC port %d does not have a DC signal chain" % (dac_port))
         rfb_ch.enable_dc()
 
     def rfb_set_ro_rf(self, ro_ch, att):
@@ -1946,7 +2025,7 @@ class RFQickSoc(QickSoc):
         ro_ch : int
             ADC channel (index in 'avg_bufs' list)
         att : float
-            Attenuation (0 to 31.75 dB)
+            Attenuation (0 through 31.75 dB in 0.25-dB increments)
 
         Returns
         -------
@@ -1955,7 +2034,7 @@ class RFQickSoc(QickSoc):
         """
         rfb_ch = self.avg_bufs[ro_ch].rfb_ch
         if not isinstance(rfb_ch, AbsAdcRfChain):
-            raise RuntimeError("readout %d is not connected to an RF signal chain")
+            raise RuntimeError("readout %d is not connected to an RF signal chain" % (ro_ch))
         return rfb_ch.enable_rf(att)
 
     def rfb_set_ro_dc(self, ro_ch, gain):
@@ -1967,7 +2046,7 @@ class RFQickSoc(QickSoc):
         ro_ch : int
             ADC channel (index in 'readouts' list)
         gain : float
-            Gain (-6 to 26 dB)
+            Gain (-6 through 26 dB in 1-dB increments)
 
         Returns
         -------
@@ -1976,7 +2055,49 @@ class RFQickSoc(QickSoc):
         """
         rfb_ch = self.avg_bufs[ro_ch].rfb_ch
         if not isinstance(rfb_ch, AbsAdcDcChain):
-            raise RuntimeError("readout %d is not connected to a DC signal chain")
+            raise RuntimeError("readout %d is not connected to a DC signal chain" % (ro_ch))
+        return rfb_ch.enable_dc(gain)
+
+    def rfb_set_adc_rf(self, adc_port, att):
+        """Enable and configure an RF-board RF input channel.
+        Will fail if this is not an RF input.
+
+        Parameters
+        ----------
+        adc_port : int
+            QICK box or RF board ADC port number (0-7 for ZCU216, 0-3 for ZCU111)
+        att : float
+            Attenuation (0 through 31.75 dB in 0.25-dB increments)
+
+        Returns
+        -------
+        float
+            actual (rounded) value that was set
+        """
+        rfb_ch = self.adc_chains[adc_port]
+        if not isinstance(rfb_ch, AbsAdcRfChain):
+            raise RuntimeError("ADC port %d does not have a RF signal chain" % (adc_port))
+        return rfb_ch.enable_rf(att)
+
+    def rfb_set_adc_dc(self, adc_port, gain):
+        """Enable and configure an RF-board DC input channel.
+        Will fail if this is not a DC input.
+
+        Parameters
+        ----------
+        adc_port : int
+            QICK box or RF board ADC port number (0-7 for ZCU216, 4-7 for ZCU111)
+        gain : float
+            Gain (-6 through 26 dB in 1-dB increments)
+
+        Returns
+        -------
+        float
+            actual (rounded) value that was set
+        """
+        rfb_ch = self.adc_chains[adc_port]
+        if not isinstance(rfb_ch, AbsAdcDcChain):
+            raise RuntimeError("ADC port %d does not have a DC signal chain" % (adc_port))
         return rfb_ch.enable_dc(gain)
 
     def rfb_set_bias(self, bias_ch, v):
@@ -2064,10 +2185,10 @@ class RFQickSoc111V1(RFQickSoc):
         if not no_tproc:
             # Link gens/readouts to the corresponding RF board channels.
             for gen in self.gens:
-                tile, block = [int(a) for a in gen.dac]
+                tile, block = [int(a) for a in gen['dac']]
                 gen.rfb_ch = self.dac_chains[4*tile + block]
             for avg_buf in self.avg_bufs:
-                tile, block = [int(a) for a in avg_buf.readout.adc]
+                tile, block = [int(a) for a in avg_buf.readout['adc']]
                 avg_buf.rfb_ch = self.adc_chains[2*tile + block]
 
     def rfb_set_lo(self, f):
@@ -2157,28 +2278,19 @@ class RFQickSoc216V1(RFQickSoc):
     def __init__(self, bitfile, **kwargs):
         super().__init__(bitfile, **kwargs)
 
-        self['extra_description'].append("\nDaughter cards detected:")
-        with suppress(AttributeError):
-            for slot, card in enumerate(self.dac_cards):
-                if card is None:
-                    self['extra_description'].append(f"\tslot {slot}: No card detected")
-                else:
-                    try:
-                        channels = [chain.global_ch for chain in card.chains]
-                    except AttributeError:
-                        channels = "[UNKNOWN]"
-                    self['extra_description'].append(f"\tslot {slot}: DAC card {type(card)} has channels {channels}")
-
-            for raw_slot, card in enumerate(self.adc_cards):
-                slot = raw_slot + 4
-                if card is None:
-                    self['extra_description'].append(f"\tslot {slot}: No card detected")
-                else:
-                    try:
-                        channels = [chain.global_ch for chain in card.chains]
-                    except AttributeError:
-                        channels = "[UNKNOWN]"
-                    self['extra_description'].append(f"\tslot {slot}: ADC card {type(card)} has channels {channels}")
+        self['extra_description'].append("\nQICK box daughter cards detected:")
+        for slot, card in enumerate(self.adc_cards):
+            if card is None:
+                self['extra_description'].append(f"\tADC slot {slot}: No card detected")
+            else:
+                channels = [chain.global_ch for chain in card.chains]
+                self['extra_description'].append(f"\tADC slot {slot}: {card.NAME} card has ports {channels}")
+        for slot, card in enumerate(self.dac_cards):
+            if card is None:
+                self['extra_description'].append(f"\tDAC slot {slot}: No card detected")
+            else:
+                channels = [chain.global_ch for chain in card.chains]
+                self['extra_description'].append(f"\tDAC slot {slot}: {card.NAME} card has ports {channels}")
 
     def rfb_config(self, no_tproc):
         """
@@ -2208,6 +2320,12 @@ class RFQickSoc216V1(RFQickSoc):
         self.biases = [BiasDAC11001(self.bias_spi, ch_en=ii) for ii in range(8)]
         self.rfb_enable_bias()
 
+        # ADC channels.
+        self.adc_chains = []
+
+        # DAC channels.
+        self.dac_chains = []
+
         # DAC daughter cards are the lower 4.
         self.dac_cards = []
         for card_num in range(4):
@@ -2219,8 +2337,14 @@ class RFQickSoc216V1(RFQickSoc):
                     card = DacDcCard216(card_num, self, gpio)
                 elif card_id == 3:
                     card = DacRfCard216(card_num, self, gpio)
+                elif card_id == 6:
+                    card = DacBalunCard216(card_num, self, gpio)
                 else:
                     card = None
+            if card is None:
+                self.dac_chains.extend([None]*4)
+            else:
+                self.dac_chains.extend(card.chains)
             self.dac_cards.append(card)
 
         # ADC daughter cards are the upper 4.
@@ -2237,15 +2361,21 @@ class RFQickSoc216V1(RFQickSoc):
                     card = AdcDcCard216(card_num, self, gpio)
                 elif card_id == 2:
                     card = AdcRfCard216(card_num, self, gpio)
+                elif card_id == 5:
+                    card = AdcBalunCard216(card_num, self, gpio)
                 else:
                     card = None
+            if card is None:
+                self.adc_chains.extend([None]*2)
+            else:
+                self.adc_chains.extend(card.chains)
             self.adc_cards.append(card)
 
         # Link gens/readouts to the corresponding RF board channels.
         if not no_tproc:
             # Each DAC tile maps to a daughter card, in order.
             for gen in self.gens:
-                tile, block = [int(a) for a in gen.dac]
+                tile, block = [int(a) for a in gen['dac']]
                 card = self.dac_cards[tile]
                 if card is not None:
                     gen.rfb_ch = card.chains[block]
@@ -2253,13 +2383,19 @@ class RFQickSoc216V1(RFQickSoc):
                     gen.rfb_ch = None
             # Each of the middle two ADC tiles (225+226) maps to a pair of daughter cards.
             for avg_buf in self.avg_bufs:
-                tile, block = [int(a) for a in avg_buf.readout.adc]
+                tile, block = [int(a) for a in avg_buf.readout['adc']]
                 card = self.adc_cards[2*(tile-1) + block//2]
                 chain_num = block % 2
                 if card is not None:
                     avg_buf.rfb_ch = card.chains[chain_num]
                 else:
                     avg_buf.rfb_ch = None
+
+        # DC-in ADCs need to be restarted after initial power-up
+        for tile in self['rf']['tiles']['adc']:
+            self.rf.restart_adc_tile(tile)
+        # now, clear any ADC interrupts
+        self.clear_interrupts(error_on_interrupt=False, error_on_persist=False)
 
     def rfb_enable_bias(self):
         """Enable all eight main-board bias outputs (by turning on DAC_BIAS_SWEN).
@@ -2276,12 +2412,12 @@ class RFQickSoc216V1(RFQickSoc):
         self.bias_gpio.channel1.write(0, 0x1)
 
     def rfb_set_gen_filter(self, gen_ch, fc, bw=1, ftype='bandpass'):
-        """Set the programmable Analog Filter of the chain.
+        """Set the programmable analog filter of the QICK box DAC port connected to a specified generator.
 
         Parameters
         ----------
         gen_ch : int
-            DAC channel (index in 'gens' list)
+            generator channel (index in 'gens' list)
         fc : float
             Center frequency for bandpass, cut-off frequency of lowpass and highpass.
         bw : float
@@ -2289,16 +2425,18 @@ class RFQickSoc216V1(RFQickSoc):
         ftype : str
             Filter type: bypass, lowpass, highpass or bandpass.
         """
-        self.gens[gen_ch].rfb_ch.set_filter(fc = fc, bw = bw, ftype = ftype)
+        rfb_ch = self.gens[gen_ch].rfb_ch
+        if not isinstance(rfb_ch, FilterChain):
+            raise RuntimeError("generator %d is not connected to an RF signal chain" % (gen_ch))
+        rfb_ch.set_filter(fc = fc, bw = bw, ftype = ftype)
 
     def rfb_set_ro_filter(self, ro_ch, fc, bw=1, ftype='bandpass'):
-        """Enable and configure an RF-board RF input channel.
-        Will fail if this is not an RF input.
+        """Set the programmable analog filter of the QICK box ADC port connected to a specified readout channel.
 
         Parameters
         ----------
         ro_ch : int
-            ADC channel (index in 'avg_bufs' list)
+            readout channel (index in 'avg_bufs' list)
         fc : float
             Center frequency for bandpass, cut-off frequency of lowpass and highpass.
         bw : float
@@ -2306,5 +2444,181 @@ class RFQickSoc216V1(RFQickSoc):
         ftype : str
             Filter type: bypass, lowpass, highpass or bandpass.
         """
-        self.avg_bufs[ro_ch].rfb_ch.set_filter(fc = fc, bw = bw, ftype = ftype)
+        rfb_ch = self.avg_bufs[ro_ch].rfb_ch
+        if not isinstance(rfb_ch, FilterChain):
+            raise RuntimeError("readout %d is not connected to an RF signal chain" % (ro_ch))
+        rfb_ch.set_filter(fc = fc, bw = bw, ftype = ftype)
 
+    def rfb_set_dac_filter(self, dac_port, fc, bw=1, ftype='bandpass'):
+        """Set the programmable analog filter of the specified QICK box DAC port.
+
+        Parameters
+        ----------
+        dac_port : int
+            QICK box DAC port number (0-15)
+        fc : float
+            Center frequency for bandpass, cut-off frequency of lowpass and highpass.
+        bw : float
+            Bandwidth.
+        ftype : str
+            Filter type: bypass, lowpass, highpass or bandpass.
+        """
+        rfb_ch = self.dac_chains[dac_port]
+        if not isinstance(rfb_ch, FilterChain):
+            raise RuntimeError("DAC port %d does not have a RF signal chain" % (dac_port))
+        rfb_ch.set_filter(fc = fc, bw = bw, ftype = ftype)
+
+    def rfb_set_adc_filter(self, adc_port, fc, bw=1, ftype='bandpass'):
+        """Set the programmable analog filter of the specified QICK box ADC port.
+
+        Parameters
+        ----------
+        adc_port : int
+            QICK box ADC port number (0-7)
+        fc : float
+            Center frequency for bandpass, cut-off frequency of lowpass and highpass.
+        bw : float
+            Bandwidth.
+        ftype : str
+            Filter type: bypass, lowpass, highpass or bandpass.
+        """
+        rfb_ch = self.adc_chains[adc_port]
+        if not isinstance(rfb_ch, FilterChain):
+            raise RuntimeError("ADC port %d does not have a RF signal chain" % (adc_port))
+        rfb_ch.set_filter(fc = fc, bw = bw, ftype = ftype)
+
+    def rfb_set_dac_filter_raw(self, dac_port, hpf=-1, lpf=-1):
+        """Set the programmable analog filter of the specified QICK box DAC port.
+        Filter cutoffs are specified in terms of filter steps.
+
+        Parameters
+        ----------
+        dac_port : int
+            QICK box DAC port number (0-15)
+        hpf : int
+            High-pass filter setting. -1 to bypass, 0 through 63 to enable, with 3 dB cutoff from 1.75 to 19.90 GHz.
+        lpf : int
+            Low-pass filter setting. -1 to bypass, 0 through 63 to enable, with 3 dB cutoff from 2.05 to 18.85 GHz.
+        """
+        rfb_ch = self.dac_chains[dac_port]
+        if not isinstance(rfb_ch, FilterChain):
+            raise RuntimeError("DAC port %d does not have a RF signal chain" % (dac_port))
+        rfb_ch.set_filter_raw(hpf, lpf)
+
+    def rfb_set_adc_filter_raw(self, adc_port, hpf=-1, lpf=-1):
+        """Set the programmable analog filter of the specified QICK box ADC port.
+        Filter cutoffs are specified in terms of filter steps.
+
+        Parameters
+        ----------
+        adc_port : int
+            QICK box ADC port number (0-7)
+        hpf : int
+            High-pass filter setting. -1 to bypass, 0 through 63 to enable, with 3 dB cutoff from 1.75 to 19.90 GHz.
+        lpf : int
+            Low-pass filter setting. -1 to bypass, 0 through 63 to enable, with 3 dB cutoff from 2.05 to 18.85 GHz.
+        """
+        rfb_ch = self.adc_chains[adc_port]
+        if not isinstance(rfb_ch, FilterChain):
+            raise RuntimeError("ADC port %d does not have a RF signal chain" % (adc_port))
+        rfb_ch.set_filter_raw(hpf, lpf)
+
+    def rfb_set_rfadc_attenuator(self, adc_port, att):
+        """Set the programmable attenuator of the RFSoC RF-ADC connected to the specified QICK box ADC port.
+
+        Parameters
+        ----------
+        adc_port : int
+            QICK box ADC port number (0-7)
+        att : float
+            Attenuation value (0 through 27 dB in 1-dB increments)
+        """
+        adcname = "%d%d"%(adc_port//4 + 1, adc_port%4)
+        return self.set_adc_attenuator(adcname, att)
+
+    def clear_interrupts(self, max_attempts=5, error_on_interrupt=False, error_on_persist=True):
+        """
+        Check all ADCs for interrupts, and attempt to clear them.
+
+        https://docs.amd.com/r/en-US/pg269-rf-data-converter/XRFdc_IntrEnable
+        https://docs.amd.com/r/en-US/pg269-rf-data-converter/Interrupt-Handling
+        https://github.com/Xilinx/embeddedsw/blob/master/XilinxProcessorIPLib/drivers/rfdc/src/xrfdc_hw.h
+
+        Parameters
+        ----------
+        max_attempts : int
+            number of times to attempt to clear interrupts before giving up
+        error_on_interrupt : bool
+            if True, raise an error if any ADC has an interrupt raised
+        error_on_persist : bool
+            if True, raise an error if any ADC has an interrupt that persists after `max_attempts` clears
+
+        Returns
+        -------
+        bool
+            True if all interrupts were successfully cleared
+        """
+        # 0x0000F000 is only used by DAC, I think
+        # 0x03000000 is not used?
+        interrupt_masks = [
+            (0x0000000F, "XRFDC_IXR_FIFOUSRDAT_MASK"), # FIFO over/underflow, linked to XRFDC_ADC_FIFO_OVR_MASK?
+            (0x00000FF0, "XRFDC_ADC_IXR_DATAPATH_MASK"), # overflow/saturation in datapath (e.g. decimation), linked to XRFDC_ADC_DAT_OVR_MASK?
+            (0x00FF0000, "XRFDC_SUBADC_IXR_DCDR_MASK"), # analog input over/under full-scale range for individual sub-ADCs, linked to OVR_RANGE interrupt
+            (0x04000000, "XRFDC_ADC_OVR_VOLTAGE_MASK"), # analog input exceeding ADC safe range - gen3 RFSoC
+            (0x08000000, "XRFDC_ADC_OVR_RANGE_MASK"), # analog input exceeding ADC full-scale range
+            (0x10000000, "XRFDC_ADC_CMODE_OVR_MASK"), # analog input common-mode voltage above spec - gen3 RFSoC
+            (0x20000000, "XRFDC_ADC_CMODE_UNDR_MASK"), # analog input common-mode voltage below spec - gen3 RFSoC
+            (0x40000000, "XRFDC_ADC_DAT_OVR_MASK"),
+            (0x80000000, "XRFDC_ADC_FIFO_OVR_MASK"),
+        ]
+        arr = xrfdc._ffi.new("unsigned int [1]")
+        allnames = defaultdict(set)
+        for attempts in range(max_attempts):
+            names = defaultdict(set)
+            for adcname, cfg in self['rf']['adcs'].items():
+                tile, block = cfg['index']
+
+                status = xrfdc._lib.XRFdc_GetIntrStatus(self.rf._instance, xrfdc._lib.XRFDC_ADC_TILE, tile, block, arr)
+                if status != 0: raise RuntimeError("error in reading interrupts: %d" % (status))
+
+                interrupts = arr[0]
+                if interrupts == 0: continue
+                for mask, name in interrupt_masks:
+                    if (mask & interrupts) != 0:
+                        interrupts &= 0xFFFFFFFF - mask
+                        names[adcname].add(name)
+                if interrupts != 0: logger.warning("unrecognized interrupts on tile %s block %s: %s" %(*adcname, interrupts))
+                allnames[adcname].update(names[adcname])
+                logger.info("attempt %d, interrupts on tile %s block %s: %s %s"%(attempts, *adcname, hex(arr[0]), names[adcname]))
+
+                status = xrfdc._lib.XRFdc_IntrClr(self.rf._instance, xrfdc._lib.XRFDC_ADC_TILE, tile, block, 0xFFFFFFFF)
+                if status != 0: raise RuntimeError("error in clearing interrupts: %d" % (status))
+            if not names: break
+        if allnames:
+            msg = "The following ADC interrupts were raised:"
+            for adcname, ints in allnames.items():
+                msg += "\nADC tile %s block %s: %s" %(*adcname, ints)
+            if names:
+                msg += "\nThe following ADC interrupts persisted after %d clears:" % (max_attempts)
+                for adcname, ints in names.items():
+                    msg += "\nADC tile %s block %s: %s" %(*adcname, ints)
+            else:
+                msg += "\nThe ADC interrupts were cleared after %d attempts." % (attempts)
+            msg += "\nMost ADC interrupts indicate that at some point the input signal to the ADC exceeded the ADC's voltage range."
+            msg += "\nYou should reduce the amplification going into the ADC; filtering may also help."
+            msg += "\nSee https://docs.amd.com/r/en-US/pg269-rf-data-converter/Interrupt-Handling"
+
+            if error_on_persist and names:
+                raise ADCInterruptError(msg)
+            elif error_on_interrupt and allnames:
+                raise ADCInterruptError(msg)
+            else:
+                logger.warning(msg)
+        return not names
+
+    def prepare_round(self):
+        # if an ADC is already in interrupt state, don't run the program
+        self.clear_interrupts(error_on_interrupt=True)
+
+    def cleanup_round(self):
+        self.clear_interrupts()

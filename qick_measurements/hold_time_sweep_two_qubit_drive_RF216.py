@@ -346,23 +346,27 @@ def hold_time_sweep(soc,soccfg,instruments,settings):
     soc.rfb_set_gen_rf(cav_ch['ID'], cav_ch['Atten_1'], cav_ch['Atten_2'])
     soc.rfb_set_gen_rf(qub_ch['ID'], qub_ch['Atten_1'], qub_ch['Atten_2'])
     # Set attenuator on ADC.
-    soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
+    if exp_globals['Readout_Card'] == "ADC_Card":
+        soc.rfb_set_ro_rf(ro_ch['ID'], ro_ch['Atten'])
     
     if exp_settings['filter'] == 'all_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+        if exp_globals['Readout_Card'] == "ADC_Card":
+            soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
         
         soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bandpass', bw=qub_ch['BW'])
         
     elif exp_settings['filter'] == 'no_qubit_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['cav_channel']['BW'])
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
+        if exp_globals['Readout_Card'] == "ADC_Card":
+            soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bandpass', bw=exp_globals['ro_channel']['BW'])
     
         soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bypass')
         
     elif exp_settings['filter'] == 'no_filter':
         soc.rfb_set_gen_filter(config['cav_channel'], fc=config['cav_freq']/1000, ftype='bypass')
-        soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
+        if exp_globals['Readout_Card'] == "ADC_Card":
+            soc.rfb_set_ro_filter(config['ro_channel'], fc=config['cav_freq']/1000, ftype='bypass')
         
         soc.rfb_set_gen_filter(config['qub_channel'], fc=config['qub_freq']/1000, ftype='bypass')
         
@@ -394,7 +398,7 @@ def hold_time_sweep(soc,soccfg,instruments,settings):
         
         prog = HoldTimeSweep(soccfg,reps = exp_settings['reps'], final_delay = None, final_wait = 0, cfg = config)
     
-        iq_list = prog.acquire(soc, rounds = exp_settings['rounds'], load_pulses=True, progress=False)
+        iq_list = prog.acquire(soc, rounds = exp_settings['rounds'], progress=False)#load_pulses=True,
         
         Is[h] = iq_list[0][0][0]
         Qs[h] = iq_list[0][0][1]

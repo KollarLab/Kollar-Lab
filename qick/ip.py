@@ -271,13 +271,15 @@ class QickMetadata:
                 next_port = 's_tproc_axis'
             elif next_type == "axis_resampler_2x1_v1":
                 next_port = 's_axis'
+            elif next_type == "axis_reorder_iq_v1":
+                next_port = 's_axis'
             else:
                 raise RuntimeError("failed to trace back from %s - unrecognized IP block %s" % (start_block, next_block))
 
     def trace_forward(self, start_block, start_port, goal_types):
         """Follow the AXI-Stream bus forwards from a given block and port.
         If a broadcaster is encountered, follow all outputs.
-        Raise an error if ~=1 matching block is found.
+        Raise an error if !=1 matching block is found.
 
         Parameters
         ----------
@@ -303,24 +305,49 @@ class QickMetadata:
 
         while to_check:
             block, port = to_check.pop(0)
-            ((block, port),) = self.trace_bus(block, port)
+            #print("block: %s, port: %s" % (block, port))
+            trace_result = self.trace_bus(block, port)
+            # if the port we tried to trace is unconnected, mark as a dead end
+            if len(trace_result)==0:
+                dead_ends.append(block)
+                continue
+            ((block, port),) = trace_result
             blocktype = self.mod2type(block)
             if blocktype in goal_types:
                 found.append((block, port, blocktype))
             elif blocktype == "axis_broadcaster":
                 for iOut in range(int(self.get_param(block, 'NUM_MI'))):
                     to_check.append((block, "M%02d_AXIS" % (iOut)))
+            elif blocktype == "axis_combiner" and port == 'S00_AXIS':
+                # this is used for xtalk with IQ generators - we only want to trace the "primary" path
+                to_check.append((block, "M_AXIS"))
             elif blocktype == "axis_clock_converter":
                 to_check.append((block, "M_AXIS"))
             elif blocktype == "axis_register_slice":
                 to_check.append((block, "M_AXIS"))
             elif blocktype == "axis_register_slice_nb":
                 to_check.append((block, "m_axis"))
+            elif blocktype == "axis_reorder_iq_v1":
+                to_check.append((block, "m_axis"))
+            elif blocktype == "qick_xtalk" and port == 'wave_i':
+                # we only want to trace the "primary" xtalk port
+                to_check.append((block, "wave_o"))
             else:
+                # if we traced to a block that we don't recognize, mark as a dead end
                 dead_ends.append(block)
         if len(found) != 1:
             raise RuntimeError("traced forward from %s for one block of type %s, but found %s (and dead ends %s)" % (start_block, goal_types, found, dead_ends))
         return found[0]
+
+    def list_outputs(self, block, port, goal_types):
+        """Given a port that might go directly to one block or be broadcast to multiple blocks, return a list of (block, port, blocktype) for the destination blocks.
+        """
+        outputs = [self.trace_forward(block, port, goal_types+["axis_broadcaster"])]
+        if outputs[0][2] == "axis_broadcaster":
+            block = outputs[0][0]
+            nouts = int(self.get_param(block, 'C_NUM_MI_SLOTS'))
+            outputs = [self.trace_forward(block, 'M%02d_AXIS' % (i), goal_types) for i in range(nouts)]
+        return outputs
 
     def _analyze_clkwiz(self, blockname):
         """Compute the range of valid input frequencies to a clocking wizard, based on the VCO range.
@@ -460,6 +487,31 @@ class QickMetadata:
                             'src_range': src_range
                             }
         raise RuntimeError("tried to trace clock %s from IP block %s, but this clock doesn't seem to come from Zynq PS or RFDC"%(start_port, start_block))
+
+    def trace_trigger(self, start_block, start_port):
+        """Helper function for finding the tProc port that triggers a buffer.
+        """
+        # which tProc output bit triggers this buffer?
+        ((block, port),) = self.trace_sig(start_block, start_port)
+        blocktype = self.mod2type(block)
+        if blocktype=='qick_vec2bit' or 'vect2bits' in blocktype:
+            # vect2bits/qick_vec2bit port names are of the form 'dout14'
+            trigger_bit = int(port[4:])
+
+            # which tProc output port triggers this buffer?
+            # three possibilities:
+            # tproc v1 output port -> axis_set_reg -> vect2bits -> buffer
+            # tproc v2 data port -> vect2bits -> buffer
+            # tproc v3 trigger port -> buffer
+            ((block, port),) = self.trace_sig(block, 'din')
+            if self.mod2type(block) == "axis_set_reg":
+                ((block, port),) = self.trace_bus(block, 's_axis')
+            # ask the tproc to translate this port name to a channel number
+            trigger_port, trigger_type = self.soc._get_block(block).port2ch(port)
+        else:
+            trigger_bit = 0
+            trigger_port, trigger_type = self.soc._get_block(block).port2ch(port)
+        return trigger_type, trigger_port, trigger_bit
 
 class BusParser:
     """Parses the HWH XML file to extract information on the buses connecting IP blocks.

@@ -4,14 +4,14 @@ Drivers for qick_processor Peripherals.
 """
 from pynq.buffer import allocate
 import numpy as np
-from qick import SocIP
-import re
+from qick.ip import SocIP
 
 class QICK_Time_Tagger(SocIP):
     """
     QICK_Time_Tagger class
     """
-    bindto = ['Fermi:user:qick_time_tagger:1.0']
+    bindto = ['Fermi:user:qick_time_tagger:1.0',
+              'QICK:QICK:qick_time_tagger:1.0']
 
     def __init__(self, description):
         """
@@ -24,6 +24,8 @@ class QICK_Time_Tagger(SocIP):
 
         # DMA block
         self.dma = None
+        self.switch = None
+        self.switch_ch = None
 
         # DMA buffer
         self.buff_rd = None
@@ -47,13 +49,6 @@ class QICK_Time_Tagger(SocIP):
             'qtt_debug'    :15,
         }
         
-        # dict to map from memory names to IDs and counter names
-        self.MEMS = {}
-        for i in range(4):
-            self.MEMS['TAG%d'%(i)] = (i, 'tag%d_qty'%(i))
-        self.MEMS['ARM'] = (4, 'arm_qty')
-        self.MEMS['SMP'] = (5, 'smp_qty')
-
         # state names
         self.DMA_STATES = ['ST_IDLE','ST_TX','ST_LAST','ST_END']
 
@@ -66,6 +61,13 @@ class QICK_Time_Tagger(SocIP):
             self.cfg[param] = int(description['parameters'][param.upper()])
         self.cfg['debug']  = int(description['parameters']['DEBUG'])
 
+        # dict to map from memory names to IDs and counter names
+        self.MEMS = {}
+        for i in range(4):
+            self.MEMS['TAG%d'%(i)] = (i, 'tag%d_qty'%(i), self['tag_mem_size'])
+        self.MEMS['ARM'] = (4, 'arm_qty', self['arm_mem_size'])
+        self.MEMS['SMP'] = (5, 'smp_qty', self['smp_mem_size'])
+
     def _init_firmware(self):
         # Initial Values 
         self.qtt_ctrl = 0
@@ -77,22 +79,42 @@ class QICK_Time_Tagger(SocIP):
     def configure_connections(self, soc):
         self.cfg['f_fabric'] = soc.metadata.get_fclk(self['fullpath'], 'adc_clk')
 
-        ((block, port),) = soc.metadata.trace_bus(self['fullpath'], "m_axis_dma")
-        self.dma = soc._get_block(block)
+        # which switch_avg port does this buffer drive?
+        dma_path, switch_path, self.switch_ch = soc.metadata.trace_dma('forward', self['fullpath'], 'm_axis_dma')
+        self.dma = soc._get_block(dma_path)
+        if switch_path is not None:
+            self.switch = soc._get_block(switch_path)
 
         dma_maxlen = 2**int(self.dma.description["parameters"]["c_sg_length_width"])//4 - 1
         buflen = max(self['tag_mem_size'], self['arm_mem_size'], self['smp_mem_size'])
         buflen = min(buflen, dma_maxlen)
         self.buff_rd = allocate(shape=buflen, dtype=np.int32)
 
-        for iADC in range(4):
+        for iADC in range(self['adc_qty']):
             try:
                 block, port, _ = soc.metadata.trace_back(self['fullpath'], "s%d_axis_adc%d"%(iADC, iADC), ["usp_rf_data_converter"])
                 # port names are of the form 'm02_axis' where the block number is always even
                 adc = port[1:3]
-                self.cfg['adcs'].append([adc, soc._describe_adc(adc)])
+                self.cfg['adcs'].append(adc)
             except: # skip disconnected ADC Ports
-                self.cfg['adcs'].append([None, "not connected"])
+                self.cfg['adcs'].append(None)
+
+        try:
+            trigcfg = {}
+            trigcfg['type'], trigcfg['port'], trigcfg['bit'] = soc.metadata.trace_trigger(self['fullpath'], 'arm_i')
+            self.cfg['trigger'] = trigcfg
+        except:
+            self.cfg['trigger'] = None
+
+        try:
+            block, port, _ = soc.metadata.trace_back(self['fullpath'], "qick_peripheral", ["qick_processor"])
+            # port names are 'QPeriphA/B'
+            self.cfg['peripheral'] = port[-1]
+        except:
+            self.cfg['peripheral'] = None
+
+        # now that the DMA is connected, let's flush the memories
+        self.flush_mems()
                 
     def __str__(self):
         lines = []
@@ -108,7 +130,7 @@ class QICK_Time_Tagger(SocIP):
         lines.append("----------\n")
         return "\n".join(lines)
     
-    def read_mem(self, mem_sel:str, length=None):
+    def read_mem(self, mem_sel:str, length=None, warn_full=True):
         """
         Read selected time-tagger memory using DMA.
 
@@ -118,39 +140,45 @@ class QICK_Time_Tagger(SocIP):
             TAG0, TAG1, TAG2, TAG3, ARM, SMP
         length : int
             Number of values to read.
-            If None, read as many as possible (all the values, or the DMA max.
+            If None, read all the values.
         """
         if mem_sel not in self.MEMS:
             raise RuntimeError('Source Memory error. Options are TAG0, TAG1, TAG2, TAG3, ARM, SMP current Value : %s' % (mem_sel))
-        mem_id, mem_counter = self.MEMS[mem_sel]
+        mem_id, mem_counter, mem_size = self.MEMS[mem_sel]
 
-        # Configure FIFO Read.
         if length is None:
-            length = min(getattr(self, mem_counter), len(self.buff_rd))
-        self.dma_cfg = mem_id + 16*length
+            length = getattr(self, mem_counter)
+            if warn_full and length >= mem_size-1:
+                self.logger.warning("Memory %s is at its max capacity of %d words. Some data was probably lost." % (mem_sel, mem_size))
+        data = np.zeros(length, dtype=np.int32)
+
+        already_read = 0
+        while length > already_read:
+            thislen = min(length - already_read, len(self.buff_rd))
+            self.logger.info("reading %d words from %s" % (thislen, mem_sel))
+            # Configure FIFO Read.
+            self.dma_cfg = mem_id + 16*thislen
        
-        if length==0:
-            print('No Data to read in ', mem_sel)
-            return np.array([])
-        else:
+            # Route switch to channel.
+            if self.switch is not None:
+                self.switch.sel(slv=self.switch_ch)
             #Start DMA Transfer
             self.qtt_ctrl     = 32
             # DMA data.
-            self.dma.recvchannel.transfer(self.buff_rd, nbytes=int(length*4))
+            self.dma.recvchannel.transfer(self.buff_rd, nbytes=int(thislen*4))
             self.dma.recvchannel.wait()
-            # truncate, copy, convert PynqBuffer to ndarray
-            return np.array(self.buff_rd[:length], copy=True)
+            # truncate, copy
+            np.copyto(data[already_read:already_read+thislen], self.buff_rd[:thislen])
+            already_read += thislen
+
+        return data
     
     def flush_mems(self, verbose=False):
         """Flush the time-tagger memories by reading them.
         This does not clear the tag queue to the tProc, only the memories readable by DMA.
         """
-        for memname, (_, countname) in self.MEMS.items():
-            while True:
-                to_read = getattr(self, countname)
-                if verbose: print(memname, to_read)
-                if to_read == 0: break
-                self.read_mem(memname)
+        for memname in self.MEMS:
+            data = self.read_mem(memname, warn_full=False)
 
     def set_config(self, filt, slope, interp, wr_smp, invert):
         """
@@ -294,7 +322,8 @@ class QICK_Com(SocIP):
     QCOM_RX_DT       Read Only    32-Bits
     QCOM_DEBUG       Read Only    32-Bits
     """
-    bindto = ['Fermi:user:qick_com:1.0']
+    bindto = ['Fermi:user:qick_com:1.0',
+              'QICK:QICK:qick_com:1.0']
 
     def _init_config(self, description):
         self.REGISTERS = {
@@ -413,7 +442,8 @@ class QICK_Net(SocIP):
     :param axi_dma: axi_dma address
     :type axi_dma: int
     """
-    bindto = ['Fermi:user:qick_network:1.0']
+    bindto = ['Fermi:user:qick_network:1.0',
+              'QICK:QICK:qick_network:1.0']
 
 
     main_list = ['M_NOT_READY','M_IDLE','M_LOC_CMD','M_NET_CMD','M_WRESP','M_WACK','M_NET_RESP','M_NET_ANSW','M_CMD_EXEC','M_ERROR']
@@ -674,3 +704,209 @@ class QICK_Net(SocIP):
         print( ' T4   : ' + str(cmd4_st) + ' - ' + cmd_list[cmd4_st])
         print( ' T5   : ' + str(cmd5_st) + ' - ' + cmd_list[cmd5_st])
         
+class QICK_XTalk_Compensation(SocIP):
+    """
+    QICK_XTalk_Compensation class
+    ####################
+    QICK XTALK xREG
+    ####################
+    CTRL           Write / Read 4-Bits
+    CFG            Write / Read 4-Bits
+    K1             Write / Read 18-Bits
+    K2             Write / Read 18-Bits
+    K3             Write / Read 18-Bits
+    K4             Write / Read 18-Bits
+    K5             Write / Read 18-Bits
+    K6             Write / Read 18-Bits
+    K7             Write / Read 18-Bits
+    K8             Write / Read 18-Bits
+    K9             Write / Read 18-Bits
+    K10            Write / Read 18-Bits
+    XCOM_STATUS    Read Only    32-Bits
+    XCOM_DEBUG     Read Only    32-Bits
+    """
+    bindto = ['Fermi:user:qick_xtalk:1.0',
+              'QICK:QICK:qick_xtalk:1.0']
+
+    def _init_config(self, description):
+        self.REGISTERS = {
+            'xtalk_ctrl':0 ,
+            'xtalk_cfg' :1 ,
+            'k1'        :2 ,
+            'k2'        :3 ,
+            'k3'        :4 ,
+            'k4'        :5 ,
+            'k5'        :6 ,
+            'k6'        :7 ,
+            'k7'        :8 ,
+            'k8'        :9 ,
+            'k9'        :10 ,
+            'k10'       :11 ,
+            'status'    :14,
+            'debug'     :15
+            }
+
+        # Parameters
+        self.cfg['channels']     = int(description['parameters']['CH_QTY'])
+        self.cfg['coeff_dw']     = int(description['parameters']['COEF_DW'])
+
+    def _init_firmware(self):
+    # Initial Values
+        self.xtalk_ctrl  = 0
+        self.xtalk_cfg   = 0
+        self.k1    = 0
+        self.k2    = 0
+        self.k3    = 0
+        self.k4    = 0
+        self.k5    = 0
+        self.k6    = 0
+        self.k7    = 0
+        self.k8    = 0
+        self.k9    = 0
+        self.k10   = 0
+
+    def __str__(self):
+        lines = []
+        lines.append('---------------------------------------------')
+        lines.append(' QICK XTalk INFO ')
+        lines.append('---------------------------------------------')
+        lines.append("----------\n")
+        return "\n".join(lines)
+
+    def bin_to_dec(self, binary, dw):
+        fraction_multiplication = pow(2,(dw-1))
+        value = int(binary, 2)
+        # Adjust for two's complement if necessary
+        if value >= (1 << (dw - 1)):
+            value -= (1 << dw)
+        value = value / fraction_multiplication
+        return value
+
+    def dec_to_bin(self, value, dw):
+        fraction_multiplication = pow(2,(dw-1))
+        if value < 0:
+            int_num = (1 << dw) + value
+            int_num = int(int_num * fraction_multiplication)
+        else:
+            int_num = int(value * fraction_multiplication)
+        # Calculates the binary representation with fixed width
+        bin_num = format(int_num & ((1 << dw) - 1), f'0{dw}b')
+        if bin_num[0] == '1':  # Negative number
+            bin_pad =  '1' * (32 - dw) + bin_num
+        else:  # Positive number
+            bin_pad =  '0' * (32 - dw) + bin_num
+        frac_num = self.bin_to_dec(bin_num, dw)
+        print('K parameter wanted:', "{:.8f}".format(value) , 'Stored :', "{:.8f}".format(frac_num) )
+        return bin_pad
+
+    def set_k1 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k1   = dt_int_32
+
+    def set_k2 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k2   = dt_int_32
+
+    def set_k3 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k3   = dt_int_32
+
+    def set_k4 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k4   = dt_int_32
+
+    def set_k5 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k5   = dt_int_32
+
+    def set_k6 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k6   = dt_int_32
+
+    def set_k7 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k7   = dt_int_32
+
+    def set_k8 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k8   = dt_int_32
+
+    def set_k9 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k9   = dt_int_32
+
+    def set_k10 (self, dt):
+        if (dt > 1) or (dt < -1):
+            raise RuntimeError('K parameter should be less than 1 (1, -1) current Value : %d' % (dt))
+        else:
+            dw = self.cfg['coeff_dw']
+            dt_int_bin = self.dec_to_bin(dt, dw)
+            dt_int_32  = int(dt_int_bin, 2)
+            self.k10   = dt_int_32
+
+    def print_axi_regs(self):
+        print('---------------------------------------------')
+        print('--- AXI Registers')
+        for xreg in self.REGISTERS.keys():
+            reg_num = getattr(self, xreg)
+            reg_bin = '{:039_b}'.format(reg_num)
+            print(f'{xreg:>10}', f'{reg_num:>11}'+' - '+f'{reg_bin:>33}' )
+
+    def print_status(self):
+        status_num = self.status
+        status_bin = '{:032b}'.format(status_num)
+        print('---------------------------------------------')
+        print('--- AXI XTalk Register STATUS')
+        print( ' status_bin     : ' + status_bin )
+
+    def print_debug(self):
+        debug_num = self.debug
+        debug_bin = '{:032b}'.format(debug_num)
+        print('---------------------------------------------')
+        print('--- AXI XTalk DEBUG')
+        print( ' debug_bin : ' + debug_bin    )

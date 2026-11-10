@@ -557,9 +557,21 @@ class Label(Macro):
         logger.debug("adding label %s" % (self.label))
         prog._add_label(self.label)
 
+class WriteLabel(Macro):
+    # write a program memory address to the special s_addr register
+    # label
+    def expand(self, prog):
+        return [AsmInst(inst={'CMD':'REG_WR', 'DST':'s15', 'SRC':'label', 'LABEL':self.label}, addr_inc=1)]
+
 class End(Macro):
     def expand(self, prog):
-        return [AsmInst(inst={'CMD':'JUMP', 'ADDR':f'&{prog.p_addr}'}, addr_inc=1)]
+        if prog.tproccfg['pmem_size'] > 2**11:
+            insts = []
+            insts.append(WriteLabel(label='NEXT'))
+            insts.append(AsmInst(inst={'CMD':'JUMP', 'ADDR':'s15'}, addr_inc=1))
+            return insts
+        else:
+            return [AsmInst(inst={'CMD':'JUMP', 'LABEL':'HERE'}, addr_inc=1)]
 
 # register operations
 
@@ -649,10 +661,37 @@ class ReadInput(Macro):
         tproc_input = prog.soccfg['readouts'][self.ro_ch]['tproc_ch']
         return [AsmInst(inst={'CMD':"DPORT_RD", 'DST':str(tproc_input)}, addr_inc=1)]
 
+class Jump(Macro):
+    # label
+    def expand(self, prog):
+        insts = []
+        if prog.tproccfg['pmem_size'] > 2**11:
+            # NOTE: to jump to address > 11bits, use s_addr/s15 reg
+            insts.append(WriteLabel(label=self.label))
+            insts.append(AsmInst(inst={'CMD':'JUMP', 'ADDR':'s15'}, addr_inc=1))
+        else:
+            insts.append(AsmInst(inst={'CMD':'JUMP', 'LABEL':self.label}, addr_inc=1))
+        return insts
+
+class Call(Macro):
+    # label
+    def expand(self, prog):
+        insts = []
+        if prog.tproccfg['pmem_size'] > 2**11:
+            # NOTE: to jump to address > 11bits, use s_addr/s15 reg
+            insts.append(WriteLabel(label=self.label))
+            insts.append(AsmInst(inst={'CMD':'CALL', 'ADDR':'s15'}, addr_inc=1))
+        else:
+            insts.append(AsmInst(inst={'CMD':'CALL', 'LABEL':self.label}, addr_inc=1))
+        return insts
+
 class CondJump(Macro):
     # arg1, arg2, op, test, label
     def expand(self, prog):
         insts = []
+        if prog.tproccfg['pmem_size'] > 2**11:
+            # NOTE: to jump to address > 11bits, use s_addr/s15 reg
+            insts.append(WriteLabel(label=self.label))
         arg1 = prog._get_reg(self.arg1)
         if self.arg2 is not None:
             if self.op is None:
@@ -672,7 +711,10 @@ class CondJump(Macro):
             if self.op is not None:
                 raise RuntimeError("an operation was supplied, but no second operand")
             insts.append(AsmInst(inst={'CMD': 'TEST', 'OP': arg1, 'UF': '1'}, addr_inc=1))
-        insts.append(AsmInst(inst={'CMD': 'JUMP', 'IF': self.test, 'LABEL': self.label}, addr_inc=1))
+        if prog.tproccfg['pmem_size'] > 2**11:
+            insts.append(AsmInst(inst={'CMD': 'JUMP', 'IF': self.test, 'ADDR':'s15'}, addr_inc=1))
+        else:
+            insts.append(AsmInst(inst={'CMD': 'JUMP', 'IF': self.test, 'LABEL': self.label}, addr_inc=1))
         return insts
 
 # loops
@@ -730,9 +772,17 @@ class CloseLoop(Macro):
         # increment and test the loop counter
         reg = prog.reg_dict[lname].full_addr()
         # test i-n
+
+        if prog.tproccfg['pmem_size'] > 2**11:
+            # NOTE: to jump to address > 11bits, use s_addr/s15 reg
+            insts.append(WriteLabel(label=label))
+
         insts.append(AsmInst(inst={'CMD':'TEST', 'OP':'%s - #%d'%(reg, lcount-1)}, addr_inc=1))
         # if i!=n, jump to the start and increment i
-        insts.append(AsmInst(inst={'CMD':'JUMP', 'LABEL':label, 'IF':'NZ', 'WR':'%s op'%(reg), 'OP':'%s + #1'%(reg)}, addr_inc=1))
+        if prog.tproccfg['pmem_size'] > 2**11:
+            insts.append(AsmInst(inst={'CMD':'JUMP', 'ADDR':'s15', 'IF':'NZ', 'WR':'%s op'%(reg), 'OP':'%s + #1'%(reg)}, addr_inc=1))
+        else:
+            insts.append(AsmInst(inst={'CMD':'JUMP', 'LABEL':label, 'IF':'NZ', 'WR':'%s op'%(reg), 'OP':'%s + #1'%(reg)}, addr_inc=1))
 
         # if we swept a parameter, we should restore it to its original value
         for wname, spans_to_apply in wave_sweeps:
@@ -859,31 +909,45 @@ class Wait(TimedMacro):
         wait_rounded = self.convert_time(prog, wait, "t")
         # TODO: we could do something with this value
     def expand(self, prog):
+        insts = []
         t_reg = self.t_regs["t"]
         if t_reg is None:
             # if this was a wait_auto and we have no relevant channels, it should compile to nothing
-            return []
+            pass
         elif isinstance(t_reg, int):
             if check_bytes(t_reg, 3):
+                # we can use the assembler's built-in WAIT (note that WAIT is a directive, and takes up two instructions)
                 src = '@%d'%(t_reg)
-                return [AsmInst(inst={'CMD':'WAIT', 'ADDR':f'&{prog.p_addr + 1}', 'C_OP':'time', 'TIME': src}, addr_inc=2)]
+                if prog.tproccfg['pmem_size'] > 2**11:
+                    # NOTE: to allow jump to address > 11bits user s_addr/s15 reg
+                    # the wait expands to three instructions (write s15, test, jump) and we need to jump to the last of them, so we write HERE+2 to s15
+                    insts.append(WriteLabel(label='SKIP'))
+                    insts.append(AsmInst(inst={'CMD':'WAIT', 'ADDR':'s15', 'C_OP':'time', 'TIME': src}, addr_inc=2))
+                else:
+                    insts.append(AsmInst(inst={'CMD':'WAIT', 'C_OP':'time', 'TIME': src}, addr_inc=2))
             elif check_bytes(t_reg, 4):
                 # we need to write to a scratch register
                 # WAIT with a register argument is not supported by the assembler, but we can translate to basic instructions ourselves
-                insts = []
                 # constrain the value to signed 32-bit
                 trunc = np.int64(t_reg).astype(np.int32)
                 prog.add_reg("scratch", allow_reuse=True)
                 src = prog._get_reg("scratch")
                 insts.append(WriteReg(dst="scratch", src=trunc-Assembler.WAIT_TIME_OFFSET))
-                insts.append(AsmInst(inst={'CMD': 'TEST', 'OP': 's11 - %s'%(src)}, addr_inc=1))
-                # note that because this translates to three instructions, ADDR needs to be incremented by 2 (as opposed to 1 in the literal-time case)
-                insts.append(AsmInst(inst={'CMD': 'JUMP', 'OP': 's11 - %s'%(src), 'IF': 'S', 'UF': '1', 'ADDR':f'&{prog.p_addr + 2}'}, addr_inc=1))
-                return insts
+                if prog.tproccfg['pmem_size'] > 2**11:
+                    # NOTE: to allow jump to address > 11bits user s_addr/s15 reg
+                    # the wait expands to four instructions (write time, write s15, test, jump) and we need to jump to the last of them, so we write HERE+2 to s15
+                    insts.append(WriteLabel(label='SKIP'))
+                    insts.append(AsmInst(inst={'CMD': 'TEST', 'OP': 's11 - %s'%(src)}, addr_inc=1))
+                    insts.append(AsmInst(inst={'CMD': 'JUMP', 'OP': 's11 - %s'%(src), 'IF': 'S', 'UF': '1', 'ADDR':'s15'}, addr_inc=1))
+                else:
+                    # the wait expands to three instructions (write time, test, jump)
+                    insts.append(AsmInst(inst={'CMD': 'TEST', 'OP': 's11 - %s'%(src)}, addr_inc=1))
+                    insts.append(AsmInst(inst={'CMD': 'JUMP', 'OP': 's11 - %s'%(src), 'IF': 'S', 'UF': '1', 'LABEL':'HERE'}, addr_inc=1))
             else:
                 raise RuntimeError("WAIT argument (%d ticks) is too big to fit in a 32-bit signed int"%(t_reg))
         else:
             raise RuntimeError("WAIT can only take a scalar argument, not a sweep")
+        return insts
 
 class Resync(TimedMacro):
     # t, auto, gens, ros (last two only defined if auto=True)
@@ -941,10 +1005,18 @@ class Pulse(TimedMacro):
         insts = []
         pulse = prog.pulses[self.name]
         tproc_ch = prog.soccfg['gens'][self.ch]['tproc_ch']
-        insts.append(self.set_timereg(prog, "t"))
+        t_reg = self.t_regs['t']
+        # if the time is in a register, we need to copy it to the time register
+        # otherwise, we can save an instruction by using a immediate value
+        # TODO: clean this up a bit, maybe fold this into set_timereg somehow?
+        imm_time = isinstance(t_reg, Integral)
+        if not imm_time:
+            insts.append(self.set_timereg(prog, "t"))
         for wave in pulse.get_wavenames():
             idx = prog.wave2idx[wave]
             insts.append(AsmInst(inst={'CMD':'WPORT_WR', 'DST':str(tproc_ch) ,'SRC':'wmem', 'ADDR':'&'+str(idx)}, addr_inc=1))
+            # add the immediate value
+            if imm_time: insts[-1].inst['TIME'] = '@'+str(t_reg)
         return insts
 
 class ConfigReadout(TimedMacro):
@@ -957,10 +1029,19 @@ class ConfigReadout(TimedMacro):
         insts = []
         pulse = prog.pulses[self.name]
         tproc_ch = prog.soccfg['readouts'][self.ch]['tproc_ctrl']
-        insts.append(self.set_timereg(prog, "t"))
+        t_reg = self.t_regs['t']
+        # if the time is in a register, we need to copy it to the time register
+        # otherwise, we can save an instruction by using a immediate value
+        # TODO: clean this up a bit, maybe fold this into set_timereg somehow?
+        imm_time = isinstance(t_reg, Integral)
+        if not imm_time:
+            insts.append(self.set_timereg(prog, "t"))
         for wave in pulse.get_wavenames():
             idx = prog.wave2idx[wave]
-            insts.append(AsmInst(inst={'CMD':'WPORT_WR', 'DST':str(tproc_ch) ,'SRC':'wmem', 'ADDR':'&'+str(idx)}, addr_inc=1))
+            if imm_time:
+                insts.append(AsmInst(inst={'CMD':'WPORT_WR', 'DST':str(tproc_ch) ,'SRC':'wmem', 'ADDR':'&'+str(idx), 'TIME':'@'+str(t_reg)}, addr_inc=1))
+            else:
+                insts.append(AsmInst(inst={'CMD':'WPORT_WR', 'DST':str(tproc_ch) ,'SRC':'wmem', 'ADDR':'&'+str(idx)}, addr_inc=1))
         return insts
 
 class Trigger(TimedMacro):
@@ -969,6 +1050,7 @@ class Trigger(TimedMacro):
         if self.width is None: self.width = prog.cycles2us(10)
         if self.ros is None: self.ros = []
         if self.pins is None: self.pins = []
+        if self.tts is None: self.tts = []
         self.outdict = defaultdict(int)
         self.trigset = set()
 
@@ -1001,8 +1083,14 @@ class Trigger(TimedMacro):
                 prog.set_timestamp(self.t + ro_length, ro_ch=ro)
             # update trigger count for this readout
             prog.ro_chs[ro]['trigs'] += 1
+        for tt in self.tts:
+            tt_trigcfg = prog.soccfg['time_taggers'][tt]['trigger']
+            if tt_trigcfg['type'] == 'dport':
+                self.outdict[tt_trigcfg['port']] |= (1 << tt_trigcfg['bit'])
+            else:
+                self.trigset.add(tt_trigcfg['port'])
         for pin in self.pins:
-            porttype, portnum, pinnum, _ = prog.soccfg['tprocs'][0]['output_pins'][pin]
+            porttype, portnum, pinnum, _ = prog.tproccfg['output_pins'][pin]
             if porttype == 'dport':
                 self.outdict[portnum] |= (1 << pinnum)
             else:
@@ -1010,21 +1098,32 @@ class Trigger(TimedMacro):
 
     def expand(self, prog):
         insts = []
-        if self.t is not None:
+        t_reg = self.t_regs['t']
+        width_reg = self.t_regs['width']
+        # if the time or width is in a register, we need to use the time register
+        # otherwise, we can save an instruction by using immediate values
+        # TODO: clean this up a bit, maybe fold this into set_timereg somehow?
+        imm_time = t_reg is not None and isinstance(t_reg, Integral) and isinstance(width_reg, Integral)
+        if self.t is not None and not imm_time:
             insts.append(self.set_timereg(prog, "t"))
         if self.outdict:
             for outport, out in self.outdict.items():
                 insts.append(AsmInst(inst={'CMD':'DPORT_WR', 'DST':str(outport), 'SRC':'imm', 'DATA':str(out)}, addr_inc=1))
+                if imm_time: insts[-1].inst['TIME'] = '@'+str(t_reg)
         if self.trigset:
             for outport in self.trigset:
                 insts.append(AsmInst(inst={'CMD':'TRIG', 'SRC':'set', 'DST':str(outport)}, addr_inc=1))
-        insts.append(self.inc_timereg(prog, "width"))
+                if imm_time: insts[-1].inst['TIME'] = '@'+str(t_reg)
+        if not imm_time:
+            insts.append(self.inc_timereg(prog, "width"))
         if self.outdict:
             for outport, out in self.outdict.items():
                 insts.append(AsmInst(inst={'CMD':'DPORT_WR', 'DST':str(outport), 'SRC':'imm', 'DATA':'0'}, addr_inc=1))
+                if imm_time: insts[-1].inst['TIME'] = '@'+str(t_reg+width_reg)
         if self.trigset:
             for outport in self.trigset:
                 insts.append(AsmInst(inst={'CMD':'TRIG', 'SRC':'clr', 'DST':str(outport)}, addr_inc=1))
+                if imm_time: insts[-1].inst['TIME'] = '@'+str(t_reg+width_reg)
         return insts
 
 class AsmV2:
@@ -1103,14 +1202,14 @@ class AsmV2:
     def jump(self, label):
         """Do a JUMP instruction, jumping to the location of the specified label.
         """
-        self.asm_inst({'CMD': 'JUMP', 'LABEL': label})
+        self.append_macro(Jump(label=label))
 
     def call(self, label):
         """Do a CALL instruction, storing the current program counter and jumping to the location of the specified label.
         The next RET instruction will cause the program to jump back to the CALL.
         This is used to call subroutines, where a subroutine is defined as a block of code starting with a label and ending with a RET.
         """
-        self.asm_inst({'CMD': 'CALL', 'LABEL': label})
+        self.append_macro(Call(label=label))
 
     def ret(self):
         """Do a RET instruction, returning from a CALL.
@@ -1426,29 +1525,34 @@ class AsmV2:
         """
         self.append_macro(ConfigReadout(ch=ch, name=name, t=t, tag=tag))
 
-    def trigger(self, ros=None, pins=None, t=0, width=None, ddr4=False, mr=False, tag=None):
+    def trigger(self, ros=None, tts=None, pins=None, t=0, width=None, ddr4=False, mr=False, tag=None):
         """Pulse readout triggers and output pins.
 
         Parameters
         ----------
         ros : list of int
-            readout channels to trigger (index in 'readouts' list)
+            Readout channels to trigger (index in 'readouts' list).
+        tts : list of int
+            Time tagger blocks to arm (index in 'time_taggers' list).
+            Note that the time tagger captures data only for the duration of the arm signal;
+            you must therefore pay attention to the `width` parameter.
+            This differs from the other readouts and buffers, which don't care about the width of the trigger pulse.
         pins : list of int
-            output pins to trigger (index in output pins list in QickCOnfig printout)
+            Output pins to trigger (index in output pins list in QickConfig printout).
         t : float, QickParam, or None
-            time (us)
-            if None, the current value of the time register (s_out_time) will be used
-            in this case, the channel timestamps will not be updated
+            Time (us).
+            If None, the current value of the time register (s_out_time) will be used;
+            in this case, the channel timestamps will not be updated.
         width : float or QickParam
-            pulse width (us), default of 10 cycles of the tProc timing clock
+            Pulse width (us), default of 10 cycles of the tProc timing clock.
         ddr4 : bool
-            trigger the DDR4 buffer
+            Trigger the DDR4 buffer.
         mr : bool
-            trigger the MR buffer
+            Trigger the MR buffer.
         tag: str
             arbitrary name for use with get_time_param()
         """
-        self.append_macro(Trigger(ros=ros, pins=pins, t=t, width=width, ddr4=ddr4, mr=mr, tag=tag))
+        self.append_macro(Trigger(ros=ros, tts=tts, pins=pins, t=t, width=width, ddr4=ddr4, mr=mr, tag=tag))
 
 
 class AbsRegisterManager(ABC):
@@ -1554,7 +1658,6 @@ class AbsGenManager(AbsRegisterManager):
         self.tproc_ch = chcfg['tproc_ch']
         self.tmux_ch = chcfg.get('tmux_ch') # default to None if undefined
         self.f_clk = chcfg['f_fabric']
-        self.samps_per_clk = self.chcfg['samps_per_clk']
 
         # dictionary of defined envelopes
         self.envelopes = prog.envelopes[gen_ch]['envs']
@@ -1617,12 +1720,16 @@ class StandardGenManager(AbsGenManager):
 
     def params2wave(self, freqreg, phasereg, gainreg, lenreg, env=0, mode=None, outsel=None, stdysel=None, phrst=None):
         confreg = self.cfg2reg(outsel=outsel, mode=mode, stdysel=stdysel, phrst=phrst)
+        # range-check the length
+        maxlen = lenreg
+        minlen = lenreg
         if isinstance(lenreg, QickRawParam):
-            if lenreg.maxval() >= 2**16 or lenreg.minval() < 3:
-                raise RuntimeError("Pulse length of %d cycles is out of range (exceeds 16 bits, or less than 3) - use multiple pulses, or zero-pad the envelope" % (lenreg))
-        else:
-            if lenreg >= 2**16 or lenreg < 3:
-                raise RuntimeError("Pulse length of %d cycles is out of range (exceeds 16 bits, or less than 3) - use multiple pulses, or zero-pad the envelope" % (lenreg))
+            maxlen = lenreg.maxval()
+            minlen = lenreg.minval()
+        if maxlen >= 2**16:
+            raise RuntimeError("Pulse length of %d cycles exceeds the max of 2**16 - use multiple pulses or a periodic pulse?" % (maxlen))
+        if minlen < 3:
+            raise RuntimeError("Pulse length of %d cycles is shorter than the min of 3 - zero-pad the envelope?" % (minlen))
         wavereg = Waveform(freqreg, phasereg, env, gainreg, lenreg, confreg)
         return wavereg
 
@@ -1654,6 +1761,14 @@ class StandardGenManager(AbsGenManager):
         phrst_gens = ['axis_signal_gen_v6', 'axis_sg_int4_v1', 'axis_sg_int4_v2']
         if par.get('phrst') is not None and self.chcfg['type'] not in phrst_gens:
             raise RuntimeError("phrst not supported for %s, only for %s" % (self.chcfg['type'], phrst_gens))
+
+        if not self.chcfg['has_dds'] :
+            if par['freq'].maxval() != 0 or par['freq'].minval()!=0:
+                raise RuntimeError("gen %d has a pulse with a nonzero freq, but this generator has no DDS" % (self.ch))
+            if par['phase'].maxval() != 0 or par['phase'].minval()!=0:
+                raise RuntimeError("gen %d has a pulse with a nonzero phase, but this generator has no DDS" % (self.ch))
+            if par.get('phrst') == 1:
+                raise RuntimeError("gen %d has a pulse with phrst, but this generator has no DDS" % (self.ch))
 
         pulse = QickPulse(self.prog, self, par)
 
@@ -1688,8 +1803,8 @@ class StandardGenManager(AbsGenManager):
 
         if 'envelope' in par:
             env = self.envelopes[par['envelope']]
-            env_length = env['data'].shape[0] // self.samps_per_clk
-            env_addr = env['addr'] // self.samps_per_clk
+            env_length = env['data'].shape[0] // self.chcfg['samps_per_clk']
+            env_addr = env['addr'] // self.chcfg['samps_per_clk']
 
         waves = []
         if par['style']=='const':
@@ -1818,10 +1933,13 @@ class ReadoutManager(AbsRegisterManager):
         # if the matching generator has a mixer, that frequency needs to be added to this one
         # it should already be rounded to the readout and mixer frequency steps, so no additional rounding is needed
         # the relevant quantization step is still going to be the readout+generator step
-        if 'gen_ch' in par and 'mixer_freq' in self.prog.gen_chs[par['gen_ch']]:
+        gen_ch = par.get('gen_ch')
+        if gen_ch is not None and gen_ch not in self.prog.gen_chs:
+            raise RuntimeError("readout %d is frequency-matched to generator %d, but that generator is not declared in this program"%(self.ch, gen_ch))
+        if gen_ch is not None and 'mixer_freq' in self.prog.gen_chs[gen_ch]:
             # the mixer_freq should already be rounded to a valid RO freq (by specifying ro_ch in declare_gen)
             # but we round here anyway - TODO: we could warn if it's not rounded
-            mixer_freq = self.prog.gen_chs[par['gen_ch']]['mixer_freq']['rounded']
+            mixer_freq = self.prog.gen_chs[gen_ch]['mixer_freq']['rounded']
             mixer_freq = self.prog.roundfreq(mixer_freq, [self.chcfg])
         else:
             mixer_freq = 0
@@ -1829,7 +1947,7 @@ class ReadoutManager(AbsRegisterManager):
             f_dds = par['freq'] - mixer_freq
         else:
             f_dds = par['freq']
-        freqreg = self.prog.freq2reg_adc(ro_ch=self.ch, f=f_dds, gen_ch=par.get('gen_ch'))
+        freqreg = self.prog.freq2reg_adc(ro_ch=self.ch, f=f_dds, gen_ch=gen_ch)
         freqreg += self.prog.freq2reg_adc(ro_ch=self.ch, f=mixer_freq)
         if self.prog.FLIP_DOWNCONVERSION: freqreg *= -1
 
@@ -1918,7 +2036,7 @@ class QickProgramV2(AsmV2, AbsQickProgram):
     FLIP_DOWNCONVERSION = True
 
     # supported revisions of the tProc v2 core
-    ASM_REVISIONS = [21, 22, 23, 24]
+    ASM_REVISIONS = [21, 22, 23, 24, 25, 26, 27]
 
     def __init__(self, soccfg):
         super().__init__(soccfg)
@@ -1944,7 +2062,7 @@ class QickProgramV2(AsmV2, AbsQickProgram):
         # * declare_gen, declare_readout
         # * add_pulse
         # * macros
-        # 
+        #
         # user commands can add macros and/or waveforms+pulses to the program
         # macros are user commands
         # preprocessing: allocate registers, convert params from physical units to ASM values, define the timeline
@@ -1999,12 +2117,12 @@ class QickProgramV2(AsmV2, AbsQickProgram):
         # low-level ASM management
 
         # the initial values here are copied from command_recognition() and label_recognition() in tprocv2_assembler.py
-        self.prog_list = [{'P_ADDR':1, 'LINE':2, 'CMD':'NOP'}]
-        self.labels = {'s15': 's15'} # register 15 predefinition
+        self.prog_list = [{'CMD':'NOP', 'P_ADDR':0}]
+        self.labels = {}
         # address in program memory
         self.p_addr = 1
         # line number
-        self.line = 2
+        self.line = 1
 
     def load_prog(self, progdict):
         # note that we only dump+load the raw waveforms and ASM (the low-level stuff that gets converted to binary)
@@ -2050,6 +2168,14 @@ class QickProgramV2(AsmV2, AbsQickProgram):
         self.binprog['pmem'] = self._compile_prog()
         self.binprog['wmem'] = self._compile_waves()
         self.binprog['dmem'] = self.compile_datamem()
+        # check that the program will fit
+        for name in ['pmem', 'wmem', 'dmem']:
+            progsize = 0
+            if self.binprog[name] is not None:
+                progsize = len(self.binprog[name])
+            memsize = self.tproccfg[name+'_size']
+            if progsize > memsize:
+                raise RuntimeError("compiled program uses %d words of %s, but the size of that tProc memory is only %d"%(progsize, name, memsize))
 
     def _make_asm(self):
         # convert the high-level program definition (macros and pulses) to low-level (ASM and waveform list)
@@ -2096,6 +2222,8 @@ class QickProgramV2(AsmV2, AbsQickProgram):
     def _add_label(self, label):
         if label in self.labels:
             raise RuntimeError("label %s is already defined"%(label))
+        if label in ['PREV', 'HERE', 'NEXT', 'SKIP']:
+            raise RuntimeError("label %s is a reserved word"%(label))
         self.line += 1
         self.labels[label] = '&%d' % (self.p_addr)
 
@@ -2280,8 +2408,8 @@ class QickProgramV2(AsmV2, AbsQickProgram):
             Selects the output source. The input is real, the output is complex. If "product" (the default), the output is the product of input and DDS. If "dds", the output is the DDS only. If "input", the output is from the input. If "zero", the output is always zero.
         length : float or QickParam
             The duration (us) of the config pulse. The default is the shortest possible length.
-        gen_ch : int
-            generator channel (use None if you don't want the downconversion frequency to be rounded to a valid DAC frequency or be offset by the DAC mixer frequency)
+        gen_ch : int or None
+            generator channel (omit or use None if you don't want the downconversion frequency to be rounded to a valid DAC frequency or be offset by the DAC mixer frequency)
         """
         if isinstance(ch, Number):
             ch = [ch]
@@ -2451,15 +2579,16 @@ class QickProgramV2(AsmV2, AbsQickProgram):
                 return name
 
         assigned_addrs = set([v.addr for v in self.reg_dict.values()])
+        n_dreg = self.tproccfg['dreg_qty']
         if addr is None:
             addr = 0
             while addr in assigned_addrs:
                 addr += 1
-            if addr >= self.soccfg['tprocs'][0]['dreg_qty']:
-                raise RuntimeError(f"all data registers are assigned.")
+            if addr >= n_dreg:
+                raise RuntimeError(f"this program uses more data registers than are available in the tProc ({n_dreg}).")
         else:
-            if addr < 0 or addr >= self.soccfg['tprocs'][0]['dreg_qty']:
-                raise ValueError(f"register address must be smaller than {self.soccfg['tprocs'][0]['dreg_qty']}")
+            if addr < 0 or addr >= n_dreg:
+                raise ValueError(f"register address must be >=0, <{n_dreg}")
             if addr in assigned_addrs:
                 raise ValueError(f"register at address {addr} is already occupied.")
         reg = QickRegisterV2(addr=addr, init=init)
@@ -2503,11 +2632,42 @@ class QickProgramV2(AsmV2, AbsQickProgram):
             elif name[0]=='w': # waveform register
                 return addr<6
             elif name[0]=='r': # data register
-                return addr<self.soccfg['tprocs'][0]['dreg_qty']
+                return addr<self.tproccfg['dreg_qty']
             else:
                 return False
         except ValueError:
             return False
+
+    def print_pmem2hex(self):
+        """Prints the content of the PMEM in Hexadecimal format to dump it in an RTL simulation using the command $readmemh()
+        """
+        if self.binprog is None:
+            raise RuntimeError("print_pmem2hex() can only be called on a program after it's been compiled")
+        # print(prog.binprog['pmem'])
+        print("// PMEM content")
+        for ls in self.binprog['pmem']:
+            # Convert to np.array and uint for %x to work correctly
+            l = np.uint32(np.array(ls))
+            # Take only 72 bits (18 nibbles)
+            s = "%02x%08x%08x" % (l[2], l[1], l[0])
+            print(s)
+
+    def print_wmem2hex(self):
+        """Prints the content of the WMEM in Hexadecimal format to dump it in an RTL simulation using the command $readmemh()
+        NOTE: AXIS Data to WMEM words mapping is done in qproc_mem_ctrl.sv
+        """
+        if self.binprog is None:
+            raise RuntimeError("print_wmem2hex() can only be called on a program after it's been compiled")
+
+        print("// WMEM content")
+        print("// %4s_%8s_%8s_%6s_%8s_%8s" % ('CONF','LEN','GAIN','ENV','PHASE','FREQ'))
+        for ls in self.binprog['wmem']:
+            # print(ls)
+            # Convert to np.array and uint for %x to work correctly
+            l = np.uint32(np.array(ls))
+            # Take only 168 bits (42 nibbles)
+            s = "___%04x_%08x_%08x_%06x_%08x_%08x" % (l[5], l[4], l[3], l[2], l[1], l[0])
+            print(s)
 
 class AcquireProgramV2(AcquireMixin, QickProgramV2):
     """Base class for tProc v2 programs with shot counting and readout acquisition.
@@ -2596,7 +2756,8 @@ class AveragerProgramV2(AcquireProgramV2):
         super().compile()
 
         # use the loop list to set up the data shape
-        self.setup_acquire(counter_addr=self.COUNTER_ADDR, loop_dims=[x[1] for x in self.loops], avg_level=0)
+        avg_level = len(self.loops)-1 if self.reps_innermost else 0
+        self.setup_acquire(counter_addr=self.COUNTER_ADDR, loop_dims=[x[1] for x in self.loops], avg_level=avg_level)
 
     def add_loop(self, name, count, exec_before=None, exec_after=None):
         """Add a loop level to the program.
@@ -2676,8 +2837,9 @@ class AveragerProgramV2(AcquireProgramV2):
             self.delay_auto(self.final_delay)
         self.inc_ext_counter(addr=self.COUNTER_ADDR)
 
-        # close the loops - order doesn't matter
-        for name, count, before, after in self.loops:
+        # close the loops in reverse order
+        # close_loop() doesn't care about order, but we need to make sure exec_after goes in the right place
+        for name, count, before, after in self.loops[::-1]:
             if after is not None: self.extend_macros(after)
             self.close_loop()
 

@@ -5,31 +5,6 @@ from pynq.buffer import allocate
 import numpy as np
 from qick.ip import SocIP, QickIP, DummyIP
 
-def _trace_trigger(soc, start_block):
-    """Helper function for finding the tProc port that triggers a buffer.
-    """
-    # which tProc output bit triggers this buffer?
-    ((block, port),) = soc.metadata.trace_sig(start_block, 'trigger')
-    blocktype = soc.metadata.mod2type(block)
-    if blocktype=='qick_vec2bit' or 'vect2bits' in blocktype:
-        # vect2bits/qick_vec2bit port names are of the form 'dout14'
-        trigger_bit = int(port[4:])
-
-        # which tProc output port triggers this buffer?
-        # three possibilities:
-        # tproc v1 output port -> axis_set_reg -> vect2bits -> buffer
-        # tproc v2 data port -> vect2bits -> buffer
-        # tproc v3 trigger port -> buffer
-        ((block, port),) = soc.metadata.trace_sig(block, 'din')
-        if soc.metadata.mod2type(block) == "axis_set_reg":
-            ((block, port),) = soc.metadata.trace_bus(block, 's_axis')
-        # ask the tproc to translate this port name to a channel number
-        trigger_port, trigger_type = soc._get_block(block).port2ch(port)
-    else:
-        trigger_bit = 0
-        trigger_port, trigger_type = soc._get_block(block).port2ch(port)
-    return trigger_type, trigger_port, trigger_bit
-
 RO_TYPES = ["axis_readout_v2", "axis_readout_v3", "axis_pfb_readout_v2", "axis_pfb_readout_v3", "axis_pfb_readout_v4", "axis_dyn_readout_v1"]
 BUF_TYPES = ['axis_avg_buffer', 'axis_weighted_buffer']
 
@@ -46,7 +21,6 @@ class AbsReadout(QickIP):
     def configure(self, rf):
         self.rf = rf
         # Sampling frequency.
-        self.cfg['adc'] = self.adc
         if self.B_PHASE is not None: self.cfg['b_phase'] = self.B_PHASE
         adccfg = self.rf['adcs'][self['adc']]
         for p in ['fs', 'fs_mult', 'fs_div', 'decimation', 'f_fabric']:
@@ -91,7 +65,8 @@ class AxisReadoutV2(SocIP, AbsReadout):
     :param fs: sampling frequency in MHz
     :type fs: float
     """
-    bindto = ['user.org:user:axis_readout_v2:1.0']
+    bindto = ['user.org:user:axis_readout_v2:1.0',
+              'QICK:QICK:axis_readout_v2:1.0']
 
     # Bits of DDS.
     B_DDS = 32
@@ -132,7 +107,7 @@ class AxisReadoutV2(SocIP, AbsReadout):
         # what RFDC port drives this readout?
         block, port, _ = soc.metadata.trace_back(self['fullpath'], 's_axis', ["usp_rf_data_converter"])
         # port names are of the form 'm02_axis' where the block number is always even
-        self.adc = port[1:3]
+        self.cfg['adc'] = port[1:3]
 
     def update(self):
         """
@@ -204,7 +179,7 @@ class AbsPFBReadout(SocIP, AbsReadout):
             ((block, port),) = soc.metadata.trace_bus(block, 'S00_AXIS')
 
         # port names are of the form 'm02_axis' where the block number is always even
-        self.adc = port[1:3]
+        self.cfg['adc'] = port[1:3]
 
     def configure(self, rf):
         super().configure(rf)
@@ -254,7 +229,8 @@ class AxisPFBReadoutV2(AbsPFBReadout):
 
     CH[0-3]SEL_REG : 3-bit ID mapping an output channel to an input.
     """
-    bindto = ['user.org:user:axis_pfb_readout_v2:1.0']
+    bindto = ['user.org:user:axis_pfb_readout_v2:1.0',
+              'QICK:QICK:axis_pfb_readout_v2:1.0']
 
     # Number of PFB channels.
     NCH = 8
@@ -333,7 +309,8 @@ class AxisPFBReadoutV3(AbsPFBReadout):
     FREQ[0-3]_REG   : 32-bit frequency of each output channel.
     PHASE[0-3]_REG  : 32-bit phase of each output channel.
     """
-    bindto = ['user.org:user:axis_pfb_readout_v3:1.0']
+    bindto = ['user.org:user:axis_pfb_readout_v3:1.0',
+              'QICK:QICK:axis_pfb_readout_v3:1.0']
 
     # Bits of DDS. 
     B_PHASE = 32
@@ -401,7 +378,8 @@ class AxisPFBReadoutV4(AxisPFBReadoutV3):
 
     This is identical to AxisPFBReadoutV3, but with 8 outputs instead of 4.
     """
-    bindto = ['user.org:user:axis_pfb_readout_v4:1.0']
+    bindto = ['user.org:user:axis_pfb_readout_v4:1.0',
+              'QICK:QICK:axis_pfb_readout_v4:1.0']
 
     # Number of outputs.
     NOUT = 8
@@ -441,7 +419,8 @@ class AbsDynReadout(AbsReadout, DummyIP):
             # which tmux port drives this generator?
             # port names are of the form 'm2_axis'
             self.cfg['tmux_ch'] = int(port.split('_')[0][1:])
-            ((block, port),) = soc.metadata.trace_bus(block, "s_axis")
+            #((block, port),) = soc.metadata.trace_bus(block, "s_axis")
+            block, port, _ = soc.metadata.trace_back(block, "s_axis", ["axis_tproc64x32_x8", "qick_processor"])
 
         # ask the tproc to translate this port name to a channel number
         self.cfg['tproc_ctrl'],_ = soc._get_block(block).port2ch(port)
@@ -450,9 +429,7 @@ class AbsDynReadout(AbsReadout, DummyIP):
         block, port, _ = soc.metadata.trace_back(self['fullpath'], 's1_axis', ["usp_rf_data_converter"])
 
         # port names are of the form 'm02_axis' where the block number is always even
-        self.adc = port[1:3]
-
-        #print("%s: ADC tile %s block %s, buffer %s"%(self['fullpath'], *self.adc, self.buffer['fullpath']))
+        self.cfg['adc'] = port[1:3]
 
 class AxisReadoutV3(AbsDynReadout):
     """tProc-controlled readout block.
@@ -531,7 +508,8 @@ class AxisAvgBuffer(SocIP):
     :param channel: readout channel selection
     :type channel: int
     """
-    bindto = ['user.org:user:axis_avg_buffer:1.0']
+    bindto = ['user.org:user:axis_avg_buffer:1.0',
+              'QICK:QICK:axis_avg_buffer:1.0']
 
     EDGE_COUNTER = False
     WEIGHTS = False
@@ -627,7 +605,7 @@ class AxisAvgBuffer(SocIP):
 
         self.switch_ch = switch_avg_ch
 
-        self.cfg['trigger_type'], self.cfg['trigger_port'], self.cfg['trigger_bit'] = _trace_trigger(soc, self['fullpath'])
+        self.cfg['trigger_type'], self.cfg['trigger_port'], self.cfg['trigger_bit'] = soc.metadata.trace_trigger(self['fullpath'], 'trigger')
 
         # which tProc input port does this buffer drive?
         try:
@@ -863,7 +841,8 @@ class AxisAvgBuffer(SocIP):
 
 class AxisAvgBufferV1pt1(AxisAvgBuffer):
 
-    bindto = ['user.org:user:axis_avg_buffer:1.1']
+    bindto = ['user.org:user:axis_avg_buffer:1.1',
+              'QICK:QICK:axis_avg_buffer:1.1']
 
     EDGE_COUNTER = True
 
@@ -911,16 +890,16 @@ class AxisAvgBufferV1pt1(AxisAvgBuffer):
 
 class AxisAvgBufferV1pt2(AxisAvgBufferV1pt1):
     """
-    AxisAvgBufferV1pt2 class
-
-    Same as AxisAvgBufferV1pt1 but Firmware has the first output sample bug fixed.
+    Same as AxisAvgBufferV1pt1 but firmware has the first output sample bug fixed.
     """
-    bindto = ['user.org:user:axis_avg_buffer:1.2']
+    bindto = ['user.org:user:axis_avg_buffer:1.2',
+              'QICK:QICK:axis_avg_buffer:1.2']
 
     FIRST_OUT_SAMPLE_BUG_FIX = True   # Bug is fixed in IP version >= 1.2
 
 class AxisWeightedBuffer(AxisAvgBufferV1pt1):
-    bindto = ['user.org:user:axis_weighted_buffer:1.2']
+    bindto = ['user.org:user:axis_weighted_buffer:1.2',
+              'QICK:QICK:axis_weighted_buffer:1.2']
 
     WEIGHTS = True
 
@@ -1049,6 +1028,14 @@ class AxisWeightedBuffer(AxisAvgBufferV1pt1):
         # Disable writes.
         self._stop_transfer()
 
+class AxisWeightedBufferV1pt3(AxisWeightedBuffer):
+    """
+    Same as AxisWeightedBuffer, but firmware has the first output sample bug fixed.
+    """
+    bindto = ['QICK:QICK:axis_weighted_buffer:1.3']
+
+    FIRST_OUT_SAMPLE_BUG_FIX = True   # Bug is fixed in IP version >= 1.3
+
 class MrBufferEt(SocIP):
     # Registers.
     # DW_CAPTURE_REG
@@ -1063,7 +1050,9 @@ class MrBufferEt(SocIP):
     # DR_START_REG needs to be de-assereted and asserted again to allow a new transfer.
     #
     bindto = ['user.org:user:mr_buffer_et:1.0',
-              'user.org:user:mr_buffer_et:1.1']
+              'user.org:user:mr_buffer_et:1.1',
+              'QICK:QICK:mr_buffer_et:1.0',
+              'QICK:QICK:mr_buffer_et:1.1']
 
     def __init__(self, description):
         super().__init__(description)
@@ -1085,7 +1074,7 @@ class MrBufferEt(SocIP):
         # Maximum number of samples
         self.cfg['maxlen'] = 2**self.N * self.NM
 
-        if description['type'] == 'user.org:user:mr_buffer_et:1.0':
+        if 'mr_buffer_et:1.0' in description['type']:
             self.cfg['junk_len'] = 8    # Firmware Bug present and junk data samples are returned from buffer
         else:
             self.cfg['junk_len'] = 0    # Firmware Bug was fixed so no need for this value anymore
@@ -1111,39 +1100,40 @@ class MrBufferEt(SocIP):
 
         # backtrace until we get to a switch or fullspeed-capable readout
         ro_types = ["axis_readout_v2", "axis_dyn_readout_v1"]
-        block, port, blocktype = soc.metadata.trace_back(self['fullpath'], 's00_axis', ro_types+["axis_switch"])
+        try:
+            block, port, blocktype = soc.metadata.trace_back(self['fullpath'], 's00_axis', ro_types+["axis_switch"])
 
-        # get the MR switch
-        if blocktype == "axis_switch":
-            sw_block = block
-            self.switch = soc._get_block(sw_block)
+            # get the MR switch
+            if blocktype == "axis_switch":
+                sw_block = block
+                self.switch = soc._get_block(sw_block)
 
-            # Number of slave interfaces.
-            NUM_SI_param = int(soc.metadata.get_param(sw_block, 'NUM_SI'))
+                # Number of slave interfaces.
+                NUM_SI_param = int(soc.metadata.get_param(sw_block, 'NUM_SI'))
 
-            # Back trace all slaves.
-            for iIn in range(NUM_SI_param):
-                inname = "S%02d_AXIS" % (iIn)
-                trace_result = soc.metadata.trace_back(sw_block, inname, ro_types)
-                # skip switch inputs that aren't connected to anything
-                if trace_result is None: continue
-                ro_block, port, blocktype = trace_result
+                # Back trace all slaves.
+                for iIn in range(NUM_SI_param):
+                    inname = "S%02d_AXIS" % (iIn)
+                    trace_result = soc.metadata.trace_back(sw_block, inname, ro_types)
+                    # skip switch inputs that aren't connected to anything
+                    if trace_result is None: continue
+                    ro_block, port, blocktype = trace_result
 
-                # trace the decimated output forward to find the avg_buf driven by this readout
-                block, port, blocktype = soc.metadata.trace_forward(ro_block, 'm1_axis', BUF_TYPES)
+                    # trace the decimated output forward to find the avg_buf driven by this readout
+                    block, port, blocktype = soc.metadata.trace_forward(ro_block, 'm1_axis', BUF_TYPES)
 
-                self.buf2switch[block] = iIn
+                    self.buf2switch[block] = iIn
+                    self.cfg['readouts'].append(block)
+            else:
+                # no switch, just wired to a single readout
+                # trace forward to find the avg_buf driven by this readout
+                block, port, blocktype = soc.metadata.trace_forward(block, 'm1_axis', BUF_TYPES)
+
+                self.buf2switch[block] = 0
                 self.cfg['readouts'].append(block)
-        else:
-            # no switch, just wired to a single readout
-            # trace forward to find the avg_buf driven by this readout
-            block, port, blocktype = soc.metadata.trace_forward(block, 'm1_axis', BUF_TYPES)
-
-            self.buf2switch[block] = 0
-            self.cfg['readouts'].append(block)
-
-
-        self.cfg['trigger_type'], self.cfg['trigger_port'], self.cfg['trigger_bit'] = _trace_trigger(soc, self['fullpath'])
+            self.cfg['trigger_type'], self.cfg['trigger_port'], self.cfg['trigger_bit'] = soc.metadata.trace_trigger(self['fullpath'], 'trigger')
+        except:
+            pass
 
     def route(self, ch):
         # Route switch to channel.
@@ -1186,10 +1176,13 @@ class AxisBufferDdrV1(SocIP):
     The driver assumes that input(s) to this buffer are also sent to avg_buffer blocks.
     """
     # AXIS Buffer DDR V1 Registers.
-    bindto = ['user.org:user:axis_buffer_ddr_v1:1.0']
+    bindto = ['user.org:user:axis_buffer_ddr_v1:1.0',
+              'QICK:QICK:axis_buffer_ddr_v1:1.0']
 
     # Stream Input Port.
     STREAM_IN_PORT  = "s_axis"
+
+    JUNK_SAMPLES_BUG_FIX = False   # Bug is present in IP version <= 1.0
 
     def __init__(self, description):
         # Initialize ip
@@ -1222,8 +1215,10 @@ class AxisBufferDdrV1(SocIP):
                          }
 
         self.cfg['burst_len'] = self.DATA_WIDTH*self.BURST_SIZE//32
-        self.cfg['junk_len'] = 50*self.DATA_WIDTH//32 + 1 # not clear where this 50 comes from, presumably some FIFO somewhere
-        self.cfg['junk_nt'] = int(np.ceil(self['junk_len']/self.cfg['burst_len']))
+        if self.JUNK_SAMPLES_BUG_FIX:
+            self.cfg['junk_len'] = 0
+        else:
+            self.cfg['junk_len'] = 50*self.DATA_WIDTH//32 + 1 # not clear where this 50 comes from, presumably some FIFO somewhere
 
     def _init_firmware(self):
         # Default registers.
@@ -1283,7 +1278,7 @@ class AxisBufferDdrV1(SocIP):
             self.buf2switch[block] = 0
             self.cfg['readouts'].append(block)
 
-        self.cfg['trigger_type'], self.cfg['trigger_port'], self.cfg['trigger_bit'] = _trace_trigger(soc, self['fullpath'])
+        self.cfg['trigger_type'], self.cfg['trigger_port'], self.cfg['trigger_bit'] = soc.metadata.trace_trigger(self['fullpath'], 'trigger')
 
     def rstop(self):
         self.rstart_reg = 0
@@ -1339,3 +1334,15 @@ class AxisBufferDdrV1(SocIP):
         self.wlen(nt)
         self.wstop()
         self.wstart()
+
+
+class AxisBufferDdrV1pt1(AxisBufferDdrV1):
+    """
+    Same as AxisBufferDdrV1 but firmware has the junk samples bug fixed.
+    """
+
+    # AXIS Buffer DDR V1 Registers.
+    bindto = ['QICK:QICK:axis_buffer_ddr:1.1']
+
+    JUNK_SAMPLES_BUG_FIX = True   # Bug is fixed in IP version >= 1.1
+

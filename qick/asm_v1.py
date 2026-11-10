@@ -201,7 +201,6 @@ class AbsGenManager(AbsRegisterManager):
         self.gencfg = prog.soccfg['gens'][self.ch]
         tproc_ch = self.gencfg['tproc_ch']
         super().__init__(prog, tproc_ch, "generator %d"%(self.ch))
-        self.samps_per_clk = self.gencfg['samps_per_clk']
         self.tmux_ch = self.gencfg.get('tmux_ch') # default to None if undefined
 
         # dictionary of defined pulse envelopes
@@ -311,10 +310,18 @@ class FullSpeedGenManager(AbsGenManager):
         for parname in ['freq', 'phase', 'gain']:
             if parname in params:
                 self.set_reg(parname, params[parname], defaults=defaults)
+        if not self.gencfg['has_dds']:
+            if 'freq' in params and params['freq'] != 0:
+                raise RuntimeError("a nonzero freq is being set for gen %d, but this generator has no DDS" % (self.ch))
+            if 'phase' in params and params['phase'] != 0:
+                raise RuntimeError("a nonzero phase is being set for gen %d, but this generator has no DDS" % (self.ch))
+            if params.get('phrst') == 1:
+                raise RuntimeError("phrst is being set for gen %d, but this generator has no DDS" % (self.ch))
+
         if 'waveform' in params:
             pinfo = self.envelopes[params['waveform']]
-            wfm_length = pinfo['data'].shape[0] // self.samps_per_clk
-            addr = pinfo['addr'] // self.samps_per_clk
+            wfm_length = pinfo['data'].shape[0] // self.gencfg['samps_per_clk']
+            addr = pinfo['addr'] // self.gencfg['samps_per_clk']
             self.set_reg('addr', addr, defaults=defaults)
         if not defaults:
             style = params['style']
@@ -404,8 +411,8 @@ class InterpolatedGenManager(AbsGenManager):
         addr = 0
         if 'waveform' in params:
             pinfo = self.envelopes[params['waveform']]
-            wfm_length = pinfo['data'].shape[0] // self.samps_per_clk
-            addr = pinfo['addr'] // self.samps_per_clk
+            wfm_length = pinfo['data'].shape[0] // self.gencfg['samps_per_clk']
+            addr = pinfo['addr'] // self.gencfg['samps_per_clk']
         if 'phase' in params and 'freq' in params:
             phase, freq = [params[x] for x in ['phase', 'freq']]
             self.set_reg('freq',  (phase << 16) | freq, f'phase = {phase} | freq = {freq}', defaults=defaults)
@@ -894,9 +901,9 @@ class QickProgram(AbsQickProgram):
                 ts = self.get_timestamp(gen_ch=ch)
                 if t == 'auto':
                     t_ch = int(ts)
-                elif t < ts:
-                    logger.warning("pulse time %d appears to conflict with previous pulse ending at %f?"%(t, ts))
                 else:
+                    if t < ts:
+                        logger.warning("pulse time %d appears to conflict with previous pulse ending at %f?"%(t, ts))
                     t_ch = int(t)
                 # convert from generator clock to tProc clock
                 pulse_length = next_pulse['length']
@@ -1019,7 +1026,7 @@ class QickProgram(AbsQickProgram):
             # update trigger count for this readout
             self.ro_chs[ro]['trigs'] += 1
         for pin in pins:
-            pincfg = self.soccfg['tprocs'][0]['output_pins'][pin]
+            pincfg = self.tproccfg['output_pins'][pin]
             outdict[pincfg[1]] |= (1 << pincfg[2])
         if ddr4:
             rocfg = self.soccfg['ddr4_buf']
@@ -1253,6 +1260,10 @@ class QickProgram(AbsQickProgram):
                 labels[inst['label']] = prog_counter
             prog_counter += 1
         self.binprog = [self.compile_instruction(inst, labels, debug=debug) for inst in self.prog_list if inst['name']!='comment']
+        progsize = len(self.binprog)
+        memsize = self.tproccfg['pmem_size']
+        if progsize > memsize:
+            raise RuntimeError("compiled program uses %d ASM instructions, but the tProc program memory is only %d words"%(progsize, memsize))
 
     def append_instruction(self, name, *args):
         """Append instruction to the program list

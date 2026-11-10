@@ -47,7 +47,8 @@ class AxisTProc64x32_x8(SocIP):
     :param axi_dma: axi_dma address
     :type axi_dma: int
     """
-    bindto = ['user.org:user:axis_tproc64x32_x8:1.0']
+    bindto = ['user.org:user:axis_tproc64x32_x8:1.0',
+              'QICK:QICK:axis_tproc64x32_x8:1.0']
 
     # Number of 32-bit words in the lower address map (reserved for register access)
     NREG = 64
@@ -351,7 +352,8 @@ class Axis_QICK_Proc(SocIP):
     :param axi_dma: axi_dma address
     :type axi_dma: int
     """
-    bindto = ['Fermi:user:qick_processor:2.0']
+    bindto = ['Fermi:user:qick_processor:2.0',
+              'QICK:QICK:qick_processor:2.0']
     
     def __init__(self, description):
         """
@@ -507,15 +509,8 @@ class Axis_QICK_Proc(SocIP):
         self.logger.info('TIME_UPDATE')
         self.tproc_ctrl      = 2
     def start(self):
-        """
-        If tProc is configured for internal start, start the tProc.
-        If configured for external start, do nothing.
-        """
-        if self.tproc_cfg & (1 << 10):
-            pass
-        else:
-            self.logger.info('PROCESSOR_START')
-            self.tproc_ctrl      = 4
+        self.logger.info('PROCESSOR_START')
+        self.tproc_ctrl      = 4
     def stop(self):
         self.logger.info('PROCESSOR_STOP')
         self.tproc_ctrl      = 8
@@ -568,6 +563,20 @@ class Axis_QICK_Proc(SocIP):
             self.tproc_cfg |=  (1 << 10)
         else:
             raise RuntimeError("start_src must be internal or external, got %s"%(src))
+    def get_start_src(self):
+        if self.tproc_cfg & (1 << 10):
+            return 'external'
+        else:
+            return 'internal'
+
+    def set_lfsr_cfg(self, mode, core=0):
+        """
+        Configures the mode of the LFSR
+        0: disabled, 1: free running, 2: step on s1 read, 3: step on s0 write
+        """
+        CORE_CFG_LFSR_MASK = 0x3
+        self.core_cfg &= (~CORE_CFG_LFSR_MASK) << (core*2)
+        self.core_cfg |= (mode & CORE_CFG_LFSR_MASK) << (core*2)
 
     def __str__(self):
         lines = []
@@ -677,8 +686,12 @@ class Axis_QICK_Proc(SocIP):
 
         if check:
             readback = self.read_mem(mem_sel, length=length, truncate=False)
+            if mem_sel=='dmem':
+                to_compare = buff_in.reshape((-1,1))
+            else:
+                to_compare = buff_in
             width = {'pmem': 3, 'dmem': 1, 'wmem': 6}[mem_sel]
-            if np.array_equal(buff_in[:,:width], readback[:,:width]):
+            if np.array_equal(to_compare[:,:width], readback[:,:width]):
                 self.logger.info('tProc %s: readback OK'%(mem_sel))
             else:
                 raise RuntimeError("tProc %s: readback does not match what was just loaded"%(mem_sel))
@@ -728,7 +741,7 @@ class Axis_QICK_Proc(SocIP):
             width = {'pmem': 3, 'dmem': 1, 'wmem': 6}[mem_sel]
             data = data[:, :width]
             if mem_sel=='dmem':
-                return data.flatten()
+                return data.ravel()
         return data
 
     def reload_mem(self):

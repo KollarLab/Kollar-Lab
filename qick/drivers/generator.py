@@ -9,32 +9,48 @@ class AbsSignalGen(SocIP):
     """
     Abstract class which defines methods that are common to different signal generators.
     """
-    # The DAC channel has a mixer.
-    HAS_MIXER = False
-    # Waveform samples per fabric clock.
-    SAMPS_PER_CLK = 1
-    # Maximum waveform amplitude.
+    # Maximum waveform amplitude. This is applied to pulse gain for the arb generators, and to the tone amplitude for the mux and const-IQ generators.
     MAXV = 2**15-2
-    # Scale factor between MAXV and the default maximum amplitude (necessary to avoid overshoot).
-    MAXV_SCALE = 1.0
+
+    # these must be defined by the subclass
+    HAS_MIXER = None # the DAC has a mixer
+    HAS_DDS = None
+    HAS_GAIN = None
+
+    # must be defined if HAS_DDS=True
+    HAS_PHASE = None
+    B_DDS = None
+
+    # must be defined if HAS_PHASE=True
+    B_PHASE = None
+
+    def _init_config(self, description):
+        self.cfg['maxv'] = self.MAXV
+
+        assert self.HAS_MIXER is not None
+        self.cfg['has_mixer'] = self.HAS_MIXER
+
+        assert self.HAS_DDS is not None
+        self.cfg['has_dds'] = self.HAS_DDS
+        if self.HAS_DDS:
+            assert self.B_DDS is not None
+            self.cfg['b_dds'] = self.B_DDS
+
+            assert self.HAS_PHASE is not None
+            self.cfg['has_phase'] = self.HAS_PHASE
+            if self.HAS_PHASE:
+                assert self.B_PHASE is not None
+                self.cfg['b_phase'] = self.B_PHASE
+
+        assert self.HAS_GAIN is not None
+        self.cfg['has_gain'] = self.HAS_GAIN
+
+        super()._init_config(description)
 
     # Configure this driver with links to the other drivers, and the signal gen channel number.
     def configure(self, ch, rf):
         # Channel number corresponding to entry in the QickConfig list of gens.
         self.ch = ch
-
-        # RF data converter
-        self.rf = rf
-
-        self.cfg['dac'] = self.dac
-        self.cfg['has_mixer'] = self.HAS_MIXER
-
-        daccfg = self.rf['dacs'][self['dac']]
-        for p in ['fs', 'fs_mult', 'fs_div', 'interpolation', 'f_fabric']:
-            self.cfg[p] = daccfg[p]
-        # interpolation reduces the DDS range
-        self.cfg['f_dds'] = self['fs']/self['interpolation']
-        self.cfg['fdds_div'] = self['fs_div']*self['interpolation']
 
     def configure_connections(self, soc):
         super().configure_connections(soc)
@@ -43,10 +59,17 @@ class AbsSignalGen(SocIP):
 
         # what RFDC port does this generator drive?
         block, port, _ = soc.metadata.trace_forward(self['fullpath'], 'm_axis', ["usp_rf_data_converter"])
-        # port names are of the form 's00_axis'
-        self.dac = port[1:3]
 
-        #print("%s: switch %d, tProc ch %d, DAC tile %s block %s"%(self['fullpath'], self.switch_ch, self.tproc_ch, *self.dac))
+        self.rf = soc._get_block(block)
+        # port names are of the form 's00_axis'
+        self.cfg['dac'] = port[1:3]
+
+        daccfg = soc['rf']['dacs'][self['dac']]
+        for p in ['fs', 'fs_mult', 'fs_div', 'interpolation', 'f_fabric']:
+            self.cfg[p] = daccfg[p]
+        # interpolation reduces the DDS range
+        self.cfg['f_dds'] = self['fs']/self['interpolation']
+        self.cfg['fdds_div'] = self['fs_div']*self['interpolation']
 
     def set_nyquist(self, nqz):
         """Set the Nyquist zone mode for the DAC linked to this generator.
@@ -59,9 +82,9 @@ class AbsSignalGen(SocIP):
             Nyquist zone (must be 1 or 2).
             Setting the NQZ to 2 increases output power in the 2nd/3rd Nyquist zones.
         """
-        self.rf.set_nyquist(self.dac, nqz)
+        self.rf.set_nyquist(self['dac'], nqz)
 
-    def set_mixer_freq(self, f, ro_ch=None, phase_reset=True):
+    def set_mixer_freq(self, f, ro_ch=None, phase_reset=True, scale='auto'):
         """Set the mixer frequency for the DAC linked to this generator.
         For tProc-controlled generators, this method is called automatically during program config.
         You should normally only call this method directly for a constant-IQ output.
@@ -74,21 +97,22 @@ class AbsSignalGen(SocIP):
             readout channel for frequency matching (use None if you don't want mixer freq to be rounded to a valid readout frequency)
         phase_reset : bool
             if this changes the frequency, also reset the phase (so if we go to freq=0, we end up on the real axis)
+        scale : str
+            'auto', 'full', or 'reduced'
+            this controls the DAC output range - 'full' is the full DAC range, 'reduced' applies a 0.7 scale factor, 'auto' is the default behavior of reduced scale for fine mixer (see https://docs.amd.com/r/en-US/pg269-rf-data-converter/RF-DAC-Numerical-Controlled-Oscillator-and-Mixer, https://docs.amd.com/r/en-US/pg269-rf-data-converter/struct-XRFdc_Mixer_Settings)
         """
         if not self.HAS_MIXER:
             raise NotImplementedError("This channel does not have a mixer.")
-        if ro_ch is None:
-            self.rf.set_mixer_freq(self.dac, f, phase_reset=phase_reset)
-        else:
-            mixercfg = self.soc._get_mixer_cfg(self.ch)
+        if ro_ch is not None:
+            mixercfg = self.soc._get_mixer_cfg(self.cfg)
             rocfg = self.soc['readouts'][ro_ch]
-            rounded_f = self.soc.roundfreq(f, [mixercfg, rocfg])
-            self.rf.set_mixer_freq(self.dac, rounded_f, phase_reset=phase_reset)
+            f = self.soc.roundfreq(f, [mixercfg, rocfg])
+        self.rf.set_mixer_freq(self['dac'], f, phase_reset=phase_reset, scale=scale)
 
     def get_mixer_freq(self):
         if not self.HAS_MIXER:
             raise NotImplementedError("This channel does not have a mixer.")
-        return self.rf.get_mixer_freq(self.dac)
+        return self.rf.get_mixer_freq(self['dac'])
 
 class AbsArbSignalGen(AbsSignalGen):
     """
@@ -96,6 +120,14 @@ class AbsArbSignalGen(AbsSignalGen):
     """
     # Name of the input driven by the waveform DMA (if applicable).
     WAVEFORM_PORT = 's0_axis'
+
+    # Waveform samples per fabric clock.
+    SAMPS_PER_CLK = 1
+    # Scale factor between MAXV and the default maximum amplitude (necessary to avoid overshoot).
+    MAXV_SCALE = 1.0
+
+    # Envelope is complex (as opposed to real).
+    COMPLEX_ENVELOPE = True
 
     def __init__(self, description):
         # Preallocated memory buffer for DMA transfers
@@ -107,11 +139,15 @@ class AbsArbSignalGen(AbsSignalGen):
 
         super().__init__(description)
 
-    def configure(self, ch, rf):
-        # Define buffer.
-        self.buff = allocate(shape=self.MAX_LENGTH, dtype=np.int32)
+    def _init_config(self, description):
+        super()._init_config(description)
 
-        super().configure(ch, rf)
+        self.cfg['complex_env'] = self.COMPLEX_ENVELOPE
+        self.cfg['samps_per_clk'] = self.SAMPS_PER_CLK
+        self.cfg['maxv_scale'] = self.MAXV_SCALE
+
+        # Define buffer.
+        self.buff = allocate(shape=self['maxlen'], dtype=np.int32)
 
     def configure_connections(self, soc):
         super().configure_connections(soc)
@@ -135,19 +171,22 @@ class AbsArbSignalGen(AbsSignalGen):
         assert xin.dtype==np.int16
 
         # Check for max length.
-        if length+addr > self.MAX_LENGTH:
+        if length+addr > self['maxlen']:
             raise RuntimeError("%s: buffer length must be %d samples or less." %
-                  (self.__class__.__name__, self.MAX_LENGTH))
+                  (self.__class__.__name__, self['maxlen']))
 
         # Check for even transfer size.
         #if length % 2 != 0:
         #    raise RuntimeError("Buffer transfer length must be even number.")
 
+        # Check Waveform is Real if Complex envelope is not supported
+        if not self['complex_env']:
+            if np.any(xin[:,1]):
+                raise NotImplementedError("This channel does not support complex envelopes.")
+
         # Route switch to channel.
         if self.switch is not None:
             self.switch.sel(mst=self.switch_ch)
-
-        #print(self['fullpath'], xin.shape, addr, self.switch_ch)
 
         # Pack the data into a single array; columns will be concatenated
         # -> lower 16 bits: I value.
@@ -188,18 +227,6 @@ class AbsPulsedSignalGen(AbsSignalGen):
     """
     # Name of the input driven by the tProc (if applicable).
     TPROC_PORT = 's1_axis'
-    B_PHASE = None
-
-    def configure(self, ch, rf):
-        super().configure(ch, rf)
-        # DDS sampling frequency.
-        self.cfg['maxlen'] = self.MAX_LENGTH
-        self.cfg['b_dds'] = self.B_DDS
-        if self.B_PHASE is not None: self.cfg['b_phase'] = self.B_PHASE
-        self.cfg['switch_ch'] = self.switch_ch
-        self.cfg['samps_per_clk'] = self.SAMPS_PER_CLK
-        self.cfg['maxv'] = self.MAXV
-        self.cfg['maxv_scale'] = self.MAXV_SCALE
 
     def configure_connections(self, soc):
         super().configure_connections(soc)
@@ -211,7 +238,7 @@ class AbsPulsedSignalGen(AbsSignalGen):
             # which tmux port drives this generator?
             # port names are of the form 'm2_axis'
             self.cfg['tmux_ch'] = int(port.split('_')[0][1:])
-            ((block, port),) = soc.metadata.trace_bus(block, "s_axis")
+            block, port, _ = soc.metadata.trace_back(block, "s_axis", ["axis_tproc64x32_x8", "qick_processor"])
 
         # ask the tproc to translate this port name to a channel number
         self.cfg['tproc_ch'],_ = soc._get_block(block).port2ch(port)
@@ -230,20 +257,36 @@ class AxisSignalGen(AbsArbSignalGen, AbsPulsedSignalGen):
     """
     bindto = ['user.org:user:axis_signal_gen_v4:1.0',
               'user.org:user:axis_signal_gen_v5:1.0',
-              'user.org:user:axis_signal_gen_v6:1.0']
-    SAMPS_PER_CLK = 16
+              'user.org:user:axis_signal_gen_v6:1.0',
+              'QICK:QICK:axis_signal_gen_v4:1.0',
+              'QICK:QICK:axis_signal_gen_v5:1.0',
+              'QICK:QICK:axis_signal_gen_v6:1.0']
+    HAS_MIXER = False
+    HAS_DDS = True
+    HAS_GAIN = True
+    HAS_PHASE = True
     B_DDS = 32
     B_PHASE = 32
+    SAMPS_PER_CLK = 16
 
     def _init_config(self, description):
+        # these are configurable in recent versions of v6
+        # if the parameter exists, we use it to override the class attribute
+        if 'GEN_DDS' in description['parameters']:
+            self.HAS_DDS = {'TRUE': True, 'FALSE': False}[description['parameters']['GEN_DDS']]
+        if 'ENVELOPE_TYPE' in description['parameters']:
+            self.COMPLEX_ENVELOPE = {'COMPLEX': True, 'REAL': False}[description['parameters']['ENVELOPE_TYPE']]
+
         # Generics
-        self.N = int(description['parameters']['N'])
-        self.NDDS = int(description['parameters']['N_DDS'])
+        env_n = int(description['parameters']['N'])
+        n_dds = int(description['parameters']['N_DDS'])
+
+        # Maximum number of samples
+        self.cfg['maxlen'] = 2**env_n * n_dds
 
         self.REGISTERS = {'start_addr_reg': 0, 'we_reg': 1, 'rndq_reg': 2}
 
-        # Maximum number of samples
-        self.MAX_LENGTH = 2**self.N*self.NDDS
+        super()._init_config(description)
 
     def _init_firmware(self):
         # Default registers.
@@ -257,9 +300,9 @@ class AxisSignalGen(AbsArbSignalGen, AbsPulsedSignalGen):
         """
         self.rndq_reg = sel_
 
-class AxisSgInt4V1(AbsArbSignalGen, AbsPulsedSignalGen):
+class AbsIntSignalGen(AbsArbSignalGen, AbsPulsedSignalGen):
     """
-    AxisSgInt4V1
+    AXIS Signal Generator with envelope x4 interpolation.
 
     The default max amplitude for this generator is 0.9 times the maximum of int16.
     This is necessary to prevent interpolation overshoot:
@@ -269,64 +312,54 @@ class AxisSgInt4V1(AbsArbSignalGen, AbsPulsedSignalGen):
     If the input to the filter is a square pulse, the rising edge of the output overshoots by 10%.
     Therefore, scaling envelopes by 90% seems safe.
 
-    AXIS Signal Generator with envelope x4 interpolation V1 Registers.
     START_ADDR_REG
 
     WE_REG
     * 0 : disable writes.
     * 1 : enable writes.
     """
-    bindto = ['user.org:user:axis_sg_int4_v1:1.0']
     HAS_MIXER = True
+    HAS_DDS = True
+    HAS_GAIN = True
+    HAS_PHASE = True
+    # B_DDS, B_PHASE must be defined by the subclass
     FS_INTERPOLATION = 4
     MAXV_SCALE = 0.9
+
+    def _init_config(self, description):
+        # Generics
+        env_n = int(description['parameters']['N'])
+
+        self.REGISTERS = {'start_addr_reg': 0, 'we_reg': 1}
+
+        # Maximum number of samples
+        # Table is interpolated. Length is given only by parameter N.
+        self.cfg['maxlen'] = 2**env_n
+
+        super()._init_config(description)
+
+    def _init_firmware(self):
+        # Default registers.
+        self.start_addr_reg = 0
+        self.we_reg = 0
+
+class AxisSgInt4V1(AbsIntSignalGen):
+    """
+    Interpolated generator with 16-bit frequency and phase.
+    """
+    bindto = ['user.org:user:axis_sg_int4_v1:1.0',
+              'QICK:QICK:axis_sg_int4_v1:1.0']
     B_DDS = 16
     B_PHASE = 16
 
-    def _init_config(self, description):
-        # Generics
-        self.N = int(description['parameters']['N'])
-        self.NDDS = 4  # Fixed by design, not accesible.
-
-        self.REGISTERS = {'start_addr_reg': 0, 'we_reg': 1}
-
-        # Maximum number of samples
-        # Table is interpolated. Length is given only by parameter N.
-        self.MAX_LENGTH = 2**self.N
-
-    def _init_firmware(self):
-        # Default registers.
-        self.start_addr_reg = 0
-        self.we_reg = 0
-
-class AxisSgInt4V2(AbsArbSignalGen, AbsPulsedSignalGen):
+class AxisSgInt4V2(AbsIntSignalGen):
     """
-    AxisSgInt4V2
-
-    Same as AxisSgInt4V1, but 32-bit frequency and phase resolution.
+    Interpolated generator with 32-bit frequency and phase.
     """
-    bindto = ['user.org:user:axis_sg_int4_v2:1.0']
-    HAS_MIXER = True
-    FS_INTERPOLATION = 4
-    MAXV_SCALE = 0.9
+    bindto = ['user.org:user:axis_sg_int4_v2:1.0',
+              'QICK:QICK:axis_sg_int4_v2:1.0']
     B_DDS = 32
     B_PHASE = 32
-
-    def _init_config(self, description):
-        # Generics
-        self.N = int(description['parameters']['N'])
-        self.NDDS = 4  # Fixed by design, not accesible.
-
-        self.REGISTERS = {'start_addr_reg': 0, 'we_reg': 1}
-
-        # Maximum number of samples
-        # Table is interpolated. Length is given only by parameter N.
-        self.MAX_LENGTH = 2**self.N
-
-    def _init_firmware(self):
-        # Default registers.
-        self.start_addr_reg = 0
-        self.we_reg = 0
 
 class AbsMuxSignalGen(AbsPulsedSignalGen):
     """
@@ -343,17 +376,19 @@ class AbsMuxSignalGen(AbsPulsedSignalGen):
     """
 
     TPROC_PORT = 's_axis'
+    HAS_DDS = True
+    # HAS_MIXER, HAS_GAIN, HAS_PHASE, B_DDS must be defined by the subclass
+
     # these must be defined by the subclass
-    HAS_MIXER = None
-    B_DDS = None
     N_TONES = None
-    HAS_GAIN = None
-    HAS_PHASE = None
-    B_PHASE = None
 
     def _init_config(self, description):
         # Generics
         self.NDDS = int(description['parameters']['N_DDS'])
+
+        self.cfg['n_tones'] = self.N_TONES
+
+        super()._init_config(description)
 
         # define the register map
         iReg = 0
@@ -366,14 +401,6 @@ class AbsMuxSignalGen(AbsPulsedSignalGen):
             for i in range(self.N_TONES): self.REGISTERS['gain%d_reg'%(i)] = i + iReg
             iReg += self.N_TONES
         self.REGISTERS['we_reg'] = iReg
-
-        self.cfg['n_tones'] = self.N_TONES
-        self.cfg['has_gain'] = self.HAS_GAIN
-        self.cfg['has_phase'] = self.HAS_PHASE
-
-        # dummy values, since this doesn't have a waveform memory.
-        self.switch_ch = -1
-        self.MAX_LENGTH = 0
 
     def _init_firmware(self):
         # Default registers.
@@ -453,12 +480,13 @@ class AxisSgMux4V1(AbsPulsedSignalGen):
 
     AXIS Signal Generator with 4 muxed outputs.
     """
-    bindto = ['user.org:user:axis_sg_mux4_v1:1.0']
+    bindto = ['user.org:user:axis_sg_mux4_v1:1.0',
+              'QICK:QICK:axis_sg_mux4_v1:1.0']
     HAS_MIXER = True
-    B_DDS = 16
-    N_TONES = 4
     HAS_GAIN = False
     HAS_PHASE = False
+    B_DDS = 16
+    N_TONES = 4
 
 class AxisSgMux4V2(AbsMuxSignalGen):
     """
@@ -466,17 +494,19 @@ class AxisSgMux4V2(AbsMuxSignalGen):
 
     AXIS Signal Generator with 4 muxed outputs.
     """
-    bindto = ['user.org:user:axis_sg_mux4_v2:1.0']
+    bindto = ['user.org:user:axis_sg_mux4_v2:1.0',
+              'QICK:QICK:axis_sg_mux4_v2:1.0']
     HAS_MIXER = True
-    B_DDS = 32
-    N_TONES = 4
     HAS_GAIN = True
     HAS_PHASE = False
+    B_DDS = 32
+    N_TONES = 4
 
 class AxisSgMux4V3(AxisSgMux4V2):
     """AxisSgMux4V3: no digital mixer, but otherwise behaves identically to AxisSgMux4V2.
     """
-    bindto = ['user.org:user:axis_sg_mux4_v3:1.0']
+    bindto = ['user.org:user:axis_sg_mux4_v3:1.0',
+              'QICK:QICK:axis_sg_mux4_v3:1.0']
     HAS_MIXER = False
 
 class AxisSgMux8V1(AbsMuxSignalGen):
@@ -485,13 +515,14 @@ class AxisSgMux8V1(AbsMuxSignalGen):
 
     AXIS Signal Generator with 8 muxed outputs, fullspeed (no DAC mixer).
     """
-    bindto = ['user.org:user:axis_sg_mux8_v1:1.0']
+    bindto = ['user.org:user:axis_sg_mux8_v1:1.0',
+              'QICK:QICK:axis_sg_mux8_v1:1.0']
     HAS_MIXER = False
-    B_DDS = 32
-    N_TONES = 8
     HAS_GAIN = True
     HAS_PHASE = True
+    B_DDS = 32
     B_PHASE = 32
+    N_TONES = 8
 
 class AxisSgMixMux8V1(AbsMuxSignalGen):
     """
@@ -499,13 +530,14 @@ class AxisSgMixMux8V1(AbsMuxSignalGen):
 
     AXIS Signal Generator with 8 muxed outputs, using DAC mixer.
     """
-    bindto = ['user.org:user:axis_sg_mixmux8_v1:1.0']
+    bindto = ['user.org:user:axis_sg_mixmux8_v1:1.0',
+              'QICK:QICK:axis_sg_mixmux8_v1:1.0']
     HAS_MIXER = True
-    B_DDS = 32
-    N_TONES = 8
     HAS_GAIN = True
     HAS_PHASE = True
+    B_DDS = 32
     B_PHASE = 32
+    N_TONES = 8
 
 class AxisConstantIQ(AbsSignalGen):
     """Plays a constant IQ value, which gets mixed with the DAC's built-in oscillator.
@@ -514,11 +546,15 @@ class AxisConstantIQ(AbsSignalGen):
     # REAL_REG : 16-bit.
     # IMAG_REG : 16-bit.
     # WE_REG   : 1-bit. Update registers.
-    bindto = ['user.org:user:axis_constant_iq:1.0']
+    bindto = ['user.org:user:axis_constant_iq:1.0',
+              'QICK:QICK:axis_constant_iq:1.0']
     HAS_MIXER = True
+    HAS_DDS = False
+    HAS_GAIN = True
 
     def _init_config(self, description):
         self.REGISTERS = {'real_reg': 0, 'imag_reg': 1, 'we_reg': 2}
+        super()._init_config(description)
 
     def _init_firmware(self):
         # Default registers.
